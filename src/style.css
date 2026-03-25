@@ -2,3 +2,13 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Custom scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme(--color-gray-300) transparent;
+}
+
+.dark * {
+  scrollbar-color: theme(--color-gray-700) transparent;
+}
+
