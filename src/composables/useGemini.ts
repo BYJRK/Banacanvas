@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import { GoogleGenAI } from '@google/genai'
 import { useApiKeyStore } from '../stores/apiKey'
-import type { GenerationConfig, GenerationResult } from '../types'
+import type { GenerationConfig, GenerationResult, InputImage } from '../types'
 
 export function useGemini() {
   const apiKeyStore = useApiKeyStore()
@@ -96,8 +96,7 @@ export function useGemini() {
   }
 
   async function editImage(
-    imageBase64: string,
-    imageMimeType: string,
+    images: InputImage[],
     prompt: string,
     config: GenerationConfig,
   ): Promise<GenerationResult> {
@@ -111,18 +110,19 @@ export function useGemini() {
       const apiConfig = buildApiConfig(config)
       apiConfig.abortSignal = abortController.signal
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parts: any[] = images.map((img) => ({
+        inlineData: {
+          mimeType: img.mimeType,
+          data: img.base64,
+        },
+      }))
+      parts.push({ text: prompt })
+
       const contents = [
         {
           role: 'user' as const,
-          parts: [
-            {
-              inlineData: {
-                mimeType: imageMimeType,
-                data: imageBase64,
-              },
-            },
-            { text: prompt },
-          ],
+          parts,
         },
       ]
 

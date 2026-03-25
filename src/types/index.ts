@@ -4,6 +4,12 @@ export interface ModelOption {
   description: string
 }
 
+export interface InputImage {
+  id: string
+  base64: string
+  mimeType: string
+}
+
 export interface GenerationConfig {
   model: string
   aspectRatio?: string

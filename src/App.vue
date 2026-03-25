@@ -5,7 +5,7 @@ import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
 import { useTheme } from './composables/useTheme'
 import { DEFAULT_MODEL, getAspectRatios, getImageSizes } from './config/models'
-import type { GenerationConfig, ModelOption, HistoryEntry } from './types'
+import type { GenerationConfig, ModelOption, HistoryEntry, InputImage } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
@@ -32,8 +32,8 @@ const config = ref<GenerationConfig>({
   googleSearch: false,
 })
 
-// Input image (for image-to-image)
-const inputImage = ref<{ base64: string; mimeType: string } | null>(null)
+// Input images (for image-to-image, max 14)
+const inputImages = ref<InputImage[]>([])
 
 // Result
 const resultImage = ref<string | undefined>()
@@ -98,10 +98,9 @@ async function handleGenerate() {
     const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id }
     let result
 
-    if (inputImage.value) {
+    if (inputImages.value.length > 0) {
       result = await editImage(
-        inputImage.value.base64,
-        inputImage.value.mimeType,
+        inputImages.value,
         prompt.value,
         currentConfig,
       )
@@ -119,8 +118,8 @@ async function handleGenerate() {
       config: currentConfig,
       imageBase64: result.imageBase64,
       imageMimeType: result.imageMimeType,
-      inputImageBase64: inputImage.value?.base64,
-      inputImageMimeType: inputImage.value?.mimeType,
+      inputImageBase64: inputImages.value[0]?.base64,
+      inputImageMimeType: inputImages.value[0]?.mimeType,
       textResponse: result.textResponse,
     })
 
@@ -141,9 +140,9 @@ function handleHistorySelect(entry: HistoryEntry) {
   resultMimeType.value = entry.imageMimeType
   resultText.value = entry.textResponse
   if (entry.inputImageBase64 && entry.inputImageMimeType) {
-    inputImage.value = { base64: entry.inputImageBase64, mimeType: entry.inputImageMimeType }
+    inputImages.value = [{ id: crypto.randomUUID(), base64: entry.inputImageBase64, mimeType: entry.inputImageMimeType }]
   } else {
-    inputImage.value = null
+    inputImages.value = []
   }
   errorMessage.value = null
   showHistory.value = false
@@ -217,12 +216,10 @@ function handleHistorySelect(entry: HistoryEntry) {
         <GenerationPanel
           v-model:prompt="prompt"
           v-model:model="selectedModel"
+          v-model:input-images="inputImages"
           :loading="loading"
-          :has-input-image="!!inputImage"
           @generate="handleGenerate"
           @cancel="cancel"
-          @image-selected="inputImage = $event"
-          @clear-image="inputImage = null"
           @update:model="onModelChange"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
@@ -236,12 +233,10 @@ function handleHistorySelect(entry: HistoryEntry) {
           <GenerationPanel
             v-model:prompt="prompt"
             v-model:model="selectedModel"
+            v-model:input-images="inputImages"
             :loading="loading"
-            :has-input-image="!!inputImage"
             @generate="handleGenerate"
             @cancel="cancel"
-            @image-selected="inputImage = $event"
-            @clear-image="inputImage = null"
             @update:model="onModelChange"
           />
         </div>

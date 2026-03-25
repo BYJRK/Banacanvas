@@ -7,59 +7,99 @@ import {
   ListboxOption,
 } from '@headlessui/vue'
 import { AVAILABLE_MODELS } from '../config/models'
-import type { ModelOption } from '../types'
+import type { ModelOption, InputImage } from '../types'
+
+const MAX_IMAGES = 14
 
 const prompt = defineModel<string>('prompt', { default: '' })
 const selectedModel = defineModel<ModelOption>('model', { required: true })
+const inputImages = defineModel<InputImage[]>('inputImages', { default: () => [] })
 
 const emit = defineEmits<{
   (e: 'generate'): void
   (e: 'cancel'): void
-  (e: 'imageSelected', file: { base64: string; mimeType: string }): void
-  (e: 'clearImage'): void
 }>()
 
 defineProps<{
   loading: boolean
-  hasInputImage: boolean
 }>()
 
 const dragOver = ref(false)
 const fileInput = ref<HTMLInputElement>()
 
+// Drag reorder state
+const dragIdx = ref<number | null>(null)
+const dropIdx = ref<number | null>(null)
+
 const canGenerate = computed(() => prompt.value.trim().length > 0)
+const canAddMore = computed(() => inputImages.value.length < MAX_IMAGES)
 
 function handleDrop(e: DragEvent) {
   dragOver.value = false
-  const file = e.dataTransfer?.files[0]
-  if (file && file.type.startsWith('image/')) {
-    readFile(file)
-  }
+  if (!e.dataTransfer?.files?.length) return
+  addFiles(e.dataTransfer.files)
 }
 
 function handleFileSelect(e: Event) {
   const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (file) {
-    readFile(file)
+  if (input.files?.length) {
+    addFiles(input.files)
     input.value = ''
   }
 }
 
-function readFile(file: File) {
-  const reader = new FileReader()
-  reader.onload = () => {
-    const result = reader.result as string
-    // result is "data:<mime>;base64,<data>"
-    const [header, data] = result.split(',')
-    const mimeType = header.match(/data:(.*?);/)?.[1] ?? 'image/png'
-    emit('imageSelected', { base64: data, mimeType })
+function addFiles(files: FileList) {
+  const remaining = MAX_IMAGES - inputImages.value.length
+  const toAdd = Array.from(files)
+    .filter((f) => f.type.startsWith('image/'))
+    .slice(0, remaining)
+
+  for (const file of toAdd) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const [header, data] = result.split(',')
+      const mimeType = header.match(/data:(.*?);/)?.[1] ?? 'image/png'
+      inputImages.value = [
+        ...inputImages.value,
+        { id: crypto.randomUUID(), base64: data, mimeType },
+      ]
+    }
+    reader.readAsDataURL(file)
   }
-  reader.readAsDataURL(file)
+}
+
+function removeImage(id: string) {
+  inputImages.value = inputImages.value.filter((img) => img.id !== id)
+}
+
+function clearAllImages() {
+  inputImages.value = []
 }
 
 function openFilePicker() {
   fileInput.value?.click()
+}
+
+// Drag reorder handlers
+function onThumbDragStart(idx: number) {
+  dragIdx.value = idx
+}
+
+function onThumbDragOver(e: DragEvent, idx: number) {
+  e.preventDefault()
+  dropIdx.value = idx
+}
+
+function onThumbDragEnd() {
+  if (dragIdx.value !== null && dropIdx.value !== null && dragIdx.value !== dropIdx.value) {
+    const items = [...inputImages.value]
+    const [moved] = items.splice(dragIdx.value, 1)
+    items.splice(dropIdx.value, 0, moved)
+    inputImages.value = items
+  }
+  dragIdx.value = null
+  dropIdx.value = null
 }
 </script>
 
@@ -123,42 +163,75 @@ function openFilePicker() {
 
     <!-- Image upload for image-to-image -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        Reference Image
-        <span class="font-normal text-gray-400">(optional, for editing)</span>
-      </label>
-
-      <div v-if="hasInputImage" class="flex items-center gap-2">
-        <span class="text-sm text-green-600 dark:text-green-400">✓ Image loaded</span>
+      <div class="flex items-center justify-between mb-1">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Reference Images
+          <span class="font-normal text-gray-400">({{ inputImages.length }}/{{ MAX_IMAGES }})</span>
+        </label>
         <button
-          @click="$emit('clearImage')"
-          class="text-sm text-red-500 hover:underline cursor-pointer"
+          v-if="inputImages.length > 0"
+          @click="clearAllImages"
+          class="text-xs text-red-500 hover:underline cursor-pointer"
         >
-          Remove
+          Clear all
         </button>
       </div>
 
+      <!-- Thumbnail grid with drag reorder -->
+      <div v-if="inputImages.length > 0" class="flex flex-wrap gap-1.5 mb-2">
+        <div
+          v-for="(img, idx) in inputImages"
+          :key="img.id"
+          draggable="true"
+          @dragstart="onThumbDragStart(idx)"
+          @dragover="onThumbDragOver($event, idx)"
+          @dragend="onThumbDragEnd"
+          :class="[
+            'group relative w-14 h-14 rounded-md overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all',
+            dragIdx === idx ? 'opacity-40 scale-95' : '',
+            dropIdx === idx && dragIdx !== null && dragIdx !== idx ? 'border-violet-500' : 'border-transparent',
+          ]"
+        >
+          <img
+            :src="`data:${img.mimeType};base64,${img.base64}`"
+            class="w-full h-full object-cover"
+            draggable="false"
+          />
+          <button
+            @click.stop="removeImage(img.id)"
+            class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          >
+            ×
+          </button>
+          <span class="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[9px] text-center leading-tight">
+            {{ idx + 1 }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Upload zone -->
       <div
-        v-else
+        v-if="canAddMore"
         @drop.prevent="handleDrop"
         @dragover.prevent="dragOver = true"
         @dragleave="dragOver = false"
         @click="openFilePicker"
         :class="[
-          'flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors',
+          'flex flex-col items-center justify-center rounded-lg border-2 border-dashed cursor-pointer transition-colors',
+          inputImages.length > 0 ? 'p-3' : 'p-6',
           dragOver
             ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
             : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600',
         ]"
       >
-        <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          Drop an image here or click to upload
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+          {{ inputImages.length > 0 ? 'Add more images' : 'Drop images here or click to upload' }}
         </p>
       </div>
-      <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="handleFileSelect" />
+      <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="handleFileSelect" />
     </div>
 
     <!-- Generate + Cancel buttons -->
@@ -181,7 +254,7 @@ function openFilePicker() {
         Generating...
       </span>
       <span v-else>
-        {{ hasInputImage ? 'Edit Image' : 'Generate Image' }}
+        {{ inputImages.length > 0 ? 'Edit Image' : 'Generate Image' }}
         <kbd class="ml-1 text-xs opacity-60">Ctrl+Enter</kbd>
       </span>
     </button>
