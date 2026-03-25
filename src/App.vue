@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
+import { useTheme } from './composables/useTheme'
 import { DEFAULT_MODEL, getAspectRatios, getImageSizes } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
@@ -15,6 +16,7 @@ import Toast from './components/Toast.vue'
 const apiKeyStore = useApiKeyStore()
 const historyStore = useHistoryStore()
 const { loading, generateImage, editImage, cancel } = useGemini()
+const { mode: themeMode, cycle: cycleTheme } = useTheme()
 
 // Dialog state
 const showApiKeyDialog = ref(false)
@@ -160,6 +162,25 @@ function handleHistorySelect(entry: HistoryEntry) {
           </span>
         </div>
         <div class="flex items-center gap-2">
+          <!-- Theme toggle -->
+          <button
+            @click="cycleTheme()"
+            class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+            :title="`Theme: ${themeMode}`"
+          >
+            <!-- System -->
+            <svg v-if="themeMode === 'system'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <!-- Light -->
+            <svg v-else-if="themeMode === 'light'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <!-- Dark -->
+            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </button>
           <!-- History toggle -->
           <button
             @click="showHistory = !showHistory"
