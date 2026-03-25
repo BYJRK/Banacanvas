@@ -1,15 +1,23 @@
 <script setup lang="ts">
-import { ASPECT_RATIOS, IMAGE_SIZES, THINKING_LEVELS } from '../config/models'
+import { computed } from 'vue'
+import { getAspectRatios, getImageSizes, THINKING_LEVELS } from '../config/models'
 import type { GenerationConfig } from '../types'
 
+const props = defineProps<{ modelId: string }>()
 const config = defineModel<GenerationConfig>({ required: true })
+
+const aspectRatios = computed(() => getAspectRatios(props.modelId))
+const imageSizes = computed(() => getImageSizes(props.modelId))
 
 function setAspectRatio(ratio: string) {
   config.value = { ...config.value, aspectRatio: ratio }
 }
 
 function setImageSize(size: GenerationConfig['imageSize']) {
-  config.value = { ...config.value, imageSize: size }
+  // If current size is not available for this model, reset
+  const validValues = imageSizes.value.map((s) => s.value)
+  const newSize = validValues.includes(size as any) ? size : (validValues[0] as GenerationConfig['imageSize'])
+  config.value = { ...config.value, imageSize: newSize }
 }
 
 function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
@@ -30,7 +38,7 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
       </label>
       <div class="flex flex-wrap gap-1.5">
         <button
-          v-for="size in IMAGE_SIZES"
+          v-for="size in imageSizes"
           :key="size.value"
           @click="setImageSize(size.value as GenerationConfig['imageSize'])"
           :class="[
@@ -52,7 +60,7 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
       </label>
       <div class="flex flex-wrap gap-1.5">
         <button
-          v-for="ratio in ASPECT_RATIOS"
+          v-for="ratio in aspectRatios"
           :key="ratio"
           @click="setAspectRatio(ratio)"
           :class="[

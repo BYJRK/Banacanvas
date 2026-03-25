@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
-import { DEFAULT_MODEL } from './config/models'
+import { DEFAULT_MODEL, getAspectRatios, getImageSizes } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
@@ -64,7 +64,21 @@ onMounted(() => {
 // Sync model selection to config
 function onModelChange(model: ModelOption) {
   selectedModel.value = model
-  config.value = { ...config.value, model: model.id }
+  const newConfig = { ...config.value, model: model.id }
+
+  // Reset imageSize if not supported by new model
+  const validSizes = getImageSizes(model.id).map((s) => s.value)
+  if (newConfig.imageSize && !validSizes.includes(newConfig.imageSize as any)) {
+    newConfig.imageSize = validSizes[0] as GenerationConfig['imageSize']
+  }
+
+  // Reset aspectRatio if not supported by new model
+  const validRatios = getAspectRatios(model.id) as readonly string[]
+  if (newConfig.aspectRatio && !validRatios.includes(newConfig.aspectRatio)) {
+    newConfig.aspectRatio = '1:1'
+  }
+
+  config.value = newConfig
 }
 
 async function handleGenerate() {
@@ -191,7 +205,7 @@ function handleHistorySelect(entry: HistoryEntry) {
           @update:model="onModelChange"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
-        <ParameterPanel v-model="config" />
+        <ParameterPanel v-model="config" :model-id="config.model" />
       </aside>
 
       <!-- Center: Image display -->

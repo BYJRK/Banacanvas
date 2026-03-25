@@ -15,14 +15,36 @@ export const AVAILABLE_MODELS: ModelOption[] = [
 
 export const DEFAULT_MODEL = AVAILABLE_MODELS[0]
 
-export const ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'] as const
+// Aspect ratios supported per model
+const FLASH_ASPECT_RATIOS = [
+  '1:1', '1:4', '1:8', '2:3', '3:2', '3:4', '4:1', '4:3', '4:5', '5:4', '8:1', '9:16', '16:9', '21:9',
+] as const
 
-export const IMAGE_SIZES = [
-  { value: '512', label: '512px' },
+const PRO_ASPECT_RATIOS = [
+  '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9',
+] as const
+
+// Image sizes supported per model
+const FLASH_IMAGE_SIZES = [
+  { value: '512', label: '512' },
   { value: '1K', label: '1K' },
   { value: '2K', label: '2K' },
   { value: '4K', label: '4K' },
 ] as const
+
+const PRO_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+  { value: '2K', label: '2K' },
+  { value: '4K', label: '4K' },
+] as const
+
+export function getAspectRatios(modelId: string) {
+  return modelId === 'gemini-3-pro-image-preview' ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
+}
+
+export function getImageSizes(modelId: string) {
+  return modelId === 'gemini-3-pro-image-preview' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
+}
 
 export const THINKING_LEVELS = [
   { value: 'MINIMAL', label: 'Minimal' },
