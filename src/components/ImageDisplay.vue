@@ -70,21 +70,30 @@ function download() {
       <div class="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           @click="download"
-          class="rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white hover:bg-black/80 transition-colors cursor-pointer"
+          class="rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-black/80 transition-colors cursor-pointer"
+          :title="t('download')"
         >
-          {{ t('download') }}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
         </button>
         <button
           @click="showFullscreen = true"
-          class="rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white hover:bg-black/80 transition-colors cursor-pointer"
+          class="rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-black/80 transition-colors cursor-pointer"
+          :title="t('fullscreen')"
         >
-          {{ t('fullscreen') }}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9m11.25-5.25v4.5m0-4.5h-4.5m4.5 0L15 9m-11.25 11.25v-4.5m0 4.5h4.5m-4.5 0L9 15m11.25 5.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+          </svg>
         </button>
         <button
           @click="emit('clear')"
-          class="rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600/80 transition-colors cursor-pointer"
+          class="rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-red-600/80 transition-colors cursor-pointer"
+          :title="t('clear')"
         >
-          {{ t('clear') }}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
     </div>

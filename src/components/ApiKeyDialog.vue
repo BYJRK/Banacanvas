@@ -92,24 +92,33 @@ function clear() {
               <button
                 v-if="apiKeyStore.hasKey"
                 @click="clear"
-                class="text-sm text-red-600 dark:text-red-400 hover:underline cursor-pointer"
+                class="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                :title="t('clearKey')"
               >
-                {{ t('clearKey') }}
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
               </button>
               <span v-else />
               <div class="flex gap-2">
                 <button
                   @click="emit('close')"
-                  class="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                  class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  :title="t('cancel')"
                 >
-                  {{ t('cancel') }}
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
                 <button
                   @click="save"
                   :disabled="!inputKey.trim()"
-                  class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  class="rounded-lg bg-violet-600 p-2 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  :title="t('save')"
                 >
-                  {{ t('save') }}
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
                 </button>
               </div>
             </div>
