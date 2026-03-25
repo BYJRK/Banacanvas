@@ -21,6 +21,9 @@ const messages = {
     editImage: 'Edit Image',
     generating: 'Generating...',
     cancelGeneration: 'Cancel generation',
+    fullscreenEdit: 'Fullscreen edit',
+    done: 'Done',
+    promptCharCount: 'characters',
 
     // ParameterPanel
     parameters: 'Parameters',
@@ -104,6 +107,9 @@ const messages = {
     editImage: '编辑图片',
     generating: '生成中...',
     cancelGeneration: '取消生成',
+    fullscreenEdit: '全屏编辑',
+    done: '完成',
+    promptCharCount: '字符',
 
     // ParameterPanel
     parameters: '参数',

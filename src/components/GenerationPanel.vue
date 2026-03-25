@@ -35,6 +35,7 @@ defineProps<{
 
 const dragOver = ref(false)
 const fileInput = ref<HTMLInputElement>()
+const showFullscreenPrompt = ref(false)
 
 // Drag reorder state
 const dragIdx = ref<number | null>(null)
@@ -160,7 +161,18 @@ function onThumbDragEnd() {
 
     <!-- Prompt input -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('prompt') }}</label>
+      <div class="flex items-center justify-between mb-1">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('prompt') }}</label>
+        <button
+          @click="showFullscreenPrompt = true"
+          class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer"
+          :title="t('fullscreenEdit')"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9m11.25-5.25v4.5m0-4.5h-4.5m4.5 0L15 9m-11.25 11.25v-4.5m0 4.5h4.5m-4.5 0L9 15m11.25 5.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+          </svg>
+        </button>
+      </div>
       <textarea
         v-model="prompt"
         rows="4"
@@ -278,5 +290,35 @@ function onThumbDragEnd() {
       </svg>
     </button>
     </div>
+
+    <!-- Fullscreen prompt editor -->
+    <Teleport to="body">
+      <div
+        v-if="showFullscreenPrompt"
+        class="fixed inset-0 z-[100] flex flex-col bg-white dark:bg-gray-900"
+      >
+        <!-- Header -->
+        <div class="shrink-0 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-6 py-3">
+          <div class="flex items-center gap-3">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ t('prompt') }}</h2>
+            <span class="text-xs text-gray-400">{{ prompt.length }} {{ t('promptCharCount') }}</span>
+          </div>
+          <button
+            @click="showFullscreenPrompt = false"
+            class="rounded-lg bg-violet-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-violet-700 transition-colors cursor-pointer"
+          >
+            {{ t('done') }}
+          </button>
+        </div>
+        <!-- Editor -->
+        <textarea
+          v-model="prompt"
+          :placeholder="t('promptPlaceholder')"
+          class="flex-1 w-full px-6 py-4 text-base text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 placeholder-gray-400 focus:outline-none resize-none"
+          autofocus
+          @keydown.escape="showFullscreenPrompt = false"
+        />
+      </div>
+    </Teleport>
   </div>
 </template>
