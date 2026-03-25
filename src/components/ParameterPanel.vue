@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, THINKING_LEVELS } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, THINKING_LEVELS } from '../config/models'
 import type { GenerationConfig } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -11,6 +11,7 @@ const { t } = useI18n()
 
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
 const imageSizes = computed(() => getImageSizes(props.modelId))
+const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K'))
 
 function setAspectRatio(ratio: string) {
   config.value = { ...config.value, aspectRatio: ratio }
@@ -76,6 +77,9 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
           {{ ratio }}
         </button>
       </div>
+      <p v-if="resolution" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+        {{ t('outputResolution') }}: {{ resolution }}
+      </p>
     </div>
 
     <!-- Thinking Level -->

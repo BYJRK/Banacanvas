@@ -46,6 +46,29 @@ export function getImageSizes(modelId: string) {
   return modelId === 'gemini-3-pro-image-preview' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
 }
 
+// Actual output resolutions per aspect ratio and image size
+// Source: https://ai.google.dev/gemini-api/docs/image-generation#aspect_ratios_and_image_size
+const RESOLUTIONS: Record<string, Record<string, string>> = {
+  '1:1':  { '512': '512×512',    '1K': '1024×1024',  '2K': '2048×2048',  '4K': '4096×4096' },
+  '1:4':  { '512': '256×1024',   '1K': '512×2048',   '2K': '1024×4096',  '4K': '2048×8192' },
+  '1:8':  { '512': '192×1536',   '1K': '384×3072',   '2K': '768×6144',   '4K': '1536×12288' },
+  '2:3':  { '512': '424×632',    '1K': '848×1264',   '2K': '1696×2528',  '4K': '3392×5056' },
+  '3:2':  { '512': '632×424',    '1K': '1264×848',   '2K': '2528×1696',  '4K': '5056×3392' },
+  '3:4':  { '512': '448×600',    '1K': '896×1200',   '2K': '1792×2400',  '4K': '3584×4800' },
+  '4:1':  { '512': '1024×256',   '1K': '2048×512',   '2K': '4096×1024',  '4K': '8192×2048' },
+  '4:3':  { '512': '600×448',    '1K': '1200×896',   '2K': '2400×1792',  '4K': '4800×3584' },
+  '4:5':  { '512': '464×576',    '1K': '928×1152',   '2K': '1856×2304',  '4K': '3712×4608' },
+  '5:4':  { '512': '576×464',    '1K': '1152×928',   '2K': '2304×1856',  '4K': '4608×3712' },
+  '8:1':  { '512': '1536×192',   '1K': '3072×384',   '2K': '6144×768',   '4K': '12288×1536' },
+  '9:16': { '512': '384×688',    '1K': '768×1376',   '2K': '1536×2752',  '4K': '3072×5504' },
+  '16:9': { '512': '688×384',    '1K': '1376×768',   '2K': '2752×1536',  '4K': '5504×3072' },
+  '21:9': { '512': '792×168',    '1K': '1584×672',   '2K': '3168×1344',  '4K': '6336×2688' },
+}
+
+export function getResolution(aspectRatio: string, imageSize: string): string | undefined {
+  return RESOLUTIONS[aspectRatio]?.[imageSize]
+}
+
 export const THINKING_LEVELS = [
   { value: 'MINIMAL', label: 'Minimal' },
   { value: 'HIGH', label: 'High' },

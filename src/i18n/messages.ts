@@ -37,6 +37,7 @@ const messages = {
     personNone: 'None',
     thinkingMinimal: 'Minimal',
     thinkingHigh: 'High',
+    outputResolution: 'Output resolution',
 
     // ImageDisplay
     generatingImage: 'Generating image...',
@@ -123,6 +124,7 @@ const messages = {
     personNone: '不允许',
     thinkingMinimal: '最小',
     thinkingHigh: '高',
+    outputResolution: '输出分辨率',
 
     // ImageDisplay
     generatingImage: '正在生成图片...',
