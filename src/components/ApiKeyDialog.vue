@@ -8,12 +8,14 @@ import {
   TransitionChild,
 } from '@headlessui/vue'
 import { useApiKeyStore } from '../stores/apiKey'
+import { useI18n } from '../composables/useI18n'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const apiKeyStore = useApiKeyStore()
 const inputKey = ref(apiKeyStore.apiKey)
+const { t } = useI18n()
 
 watch(
   () => props.open,
@@ -60,29 +62,27 @@ function clear() {
             class="w-full max-w-md rounded-xl bg-white dark:bg-gray-900 p-6 shadow-xl ring-1 ring-gray-200 dark:ring-gray-800"
           >
             <DialogTitle class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              API Key Settings
+              {{ t('apiKeyTitle') }}
             </DialogTitle>
 
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Enter your Google Gemini API key. It will be stored in your browser's localStorage
-              and sent directly to Google's API.
+              {{ t('apiKeyDescription') }}
             </p>
 
             <div
               class="mt-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-700 dark:text-amber-400 ring-1 ring-amber-200 dark:ring-amber-800"
             >
-              ⚠ Your API key is stored locally and never sent to any third-party server. However,
-              it is visible via browser DevTools.
+              {{ t('apiKeyWarning') }}
             </div>
 
             <div class="mt-4">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Gemini API Key
+                {{ t('apiKeyLabel') }}
               </label>
               <input
                 v-model="inputKey"
                 type="password"
-                placeholder="AIza..."
+                :placeholder="t('apiKeyPlaceholder')"
                 class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 @keydown.enter="save"
               />
@@ -94,7 +94,7 @@ function clear() {
                 @click="clear"
                 class="text-sm text-red-600 dark:text-red-400 hover:underline cursor-pointer"
               >
-                Clear Key
+                {{ t('clearKey') }}
               </button>
               <span v-else />
               <div class="flex gap-2">
@@ -102,14 +102,14 @@ function clear() {
                   @click="emit('close')"
                   class="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                 >
-                  Cancel
+                  {{ t('cancel') }}
                 </button>
                 <button
                   @click="save"
                   :disabled="!inputKey.trim()"
                   class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  Save
+                  {{ t('save') }}
                 </button>
               </div>
             </div>

@@ -8,8 +8,17 @@ import {
 } from '@headlessui/vue'
 import { AVAILABLE_MODELS } from '../config/models'
 import type { ModelOption, InputImage } from '../types'
+import { useI18n } from '../composables/useI18n'
+import type { MessageKey } from '../i18n/messages'
 
 const MAX_IMAGES = 14
+
+const { t } = useI18n()
+
+const modelDescKeys: Record<string, MessageKey> = {
+  'gemini-3.1-flash-image-preview': 'modelNanoBanana2Desc',
+  'gemini-3-pro-image-preview': 'modelNanoBananaProDesc',
+}
 
 const prompt = defineModel<string>('prompt', { default: '' })
 const selectedModel = defineModel<ModelOption>('model', { required: true })
@@ -107,7 +116,7 @@ function onThumbDragEnd() {
   <div class="flex flex-col gap-4">
     <!-- Model selector -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('model') }}</label>
       <Listbox v-model="selectedModel">
         <div class="relative">
           <ListboxButton
@@ -138,7 +147,7 @@ function onThumbDragEnd() {
                     <span :class="['font-medium', selected ? 'text-violet-600 dark:text-violet-400' : '']">
                       {{ model.name }}
                     </span>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ model.description }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ t(modelDescKeys[model.id] ?? 'modelNanoBanana2Desc') }}</p>
                   </div>
                   <span v-if="selected" class="text-violet-600 dark:text-violet-400">✓</span>
                 </div>
@@ -151,11 +160,11 @@ function onThumbDragEnd() {
 
     <!-- Prompt input -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('prompt') }}</label>
       <textarea
         v-model="prompt"
         rows="4"
-        placeholder="Describe the image you want to generate..."
+        :placeholder="t('promptPlaceholder')"
         class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
         @keydown.ctrl.enter="canGenerate && !loading && $emit('generate')"
       />
@@ -165,7 +174,7 @@ function onThumbDragEnd() {
     <div>
       <div class="flex items-center justify-between mb-1">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Reference Images
+          {{ t('referenceImages') }}
           <span class="font-normal text-gray-400">({{ inputImages.length }}/{{ MAX_IMAGES }})</span>
         </label>
         <button
@@ -173,7 +182,7 @@ function onThumbDragEnd() {
           @click="clearAllImages"
           class="text-xs text-red-500 hover:underline cursor-pointer"
         >
-          Clear all
+          {{ t('clearAll') }}
         </button>
       </div>
 
@@ -228,7 +237,7 @@ function onThumbDragEnd() {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <p class="text-xs text-gray-500 dark:text-gray-400">
-          {{ inputImages.length > 0 ? 'Add more images' : 'Drop images here or click to upload' }}
+          {{ inputImages.length > 0 ? t('addMoreImages') : t('dropImages') }}
         </p>
       </div>
       <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="handleFileSelect" />
@@ -251,10 +260,10 @@ function onThumbDragEnd() {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        Generating...
+        {{ t('generating') }}
       </span>
       <span v-else>
-        {{ inputImages.length > 0 ? 'Edit Image' : 'Generate Image' }}
+        {{ inputImages.length > 0 ? t('editImage') : t('generateImage') }}
         <kbd class="ml-1 text-xs opacity-60">Ctrl+Enter</kbd>
       </span>
     </button>
@@ -262,7 +271,7 @@ function onThumbDragEnd() {
       v-if="loading"
       @click="$emit('cancel')"
       class="rounded-lg px-3 py-2.5 text-sm font-semibold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
-      title="Cancel generation"
+      :title="t('cancelGeneration')"
     >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

@@ -4,6 +4,7 @@ import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
 import { useTheme } from './composables/useTheme'
+import { useI18n } from './composables/useI18n'
 import { DEFAULT_MODEL, getAspectRatios, getImageSizes } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
@@ -17,6 +18,7 @@ const apiKeyStore = useApiKeyStore()
 const historyStore = useHistoryStore()
 const { loading, generateImage, editImage, cancel } = useGemini()
 const { mode: themeMode, cycle: cycleTheme } = useTheme()
+const { t, locale, toggleLocale } = useI18n()
 
 // Dialog state
 const showApiKeyDialog = ref(false)
@@ -126,7 +128,7 @@ async function handleGenerate() {
       textResponse: result.textResponse,
     })
 
-    showToast('Image generated!', 'success')
+    showToast(t('imageGenerated'), 'success')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     errorMessage.value = msg
@@ -158,17 +160,24 @@ function handleHistorySelect(entry: HistoryEntry) {
     <header class="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="text-lg font-bold text-gray-900 dark:text-gray-100">🍌 Nano Banana</span>
+          <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ t('appName') }}</span>
           <span class="text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded-full font-medium">
-            beta
+            {{ t('beta') }}
           </span>
         </div>
         <div class="flex items-center gap-2">
+          <!-- Language toggle -->
+          <button
+            @click="toggleLocale()"
+            class="rounded-lg p-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer min-w-[36px]"
+          >
+            {{ locale === 'en' ? '中' : 'EN' }}
+          </button>
           <!-- Theme toggle -->
           <button
             @click="cycleTheme()"
             class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-            :title="`Theme: ${themeMode}`"
+            :title="themeMode === 'system' ? t('themeSystem') : themeMode === 'light' ? t('themeLight') : t('themeDark')"
           >
             <!-- System -->
             <svg v-if="themeMode === 'system'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,7 +196,7 @@ function handleHistorySelect(entry: HistoryEntry) {
           <button
             @click="showHistory = !showHistory"
             class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-            title="History"
+            :title="t('history')"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -202,7 +211,7 @@ function handleHistorySelect(entry: HistoryEntry) {
                 ? 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
                 : 'text-red-500 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50',
             ]"
-            title="API Key Settings"
+            :title="t('apiKeySettings')"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -281,7 +290,7 @@ function handleHistorySelect(entry: HistoryEntry) {
 
     <!-- Footer -->
     <footer class="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2 text-center text-xs text-gray-400 dark:text-gray-500">
-      Powered by
+      {{ t('poweredBy') }}
       <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Google Gemini</a>
       ·
       <a href="https://vite.dev/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Vite</a>

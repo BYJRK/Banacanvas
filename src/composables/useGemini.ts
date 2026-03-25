@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import { MODEL_PRICING } from '../config/models'
+import { useI18n } from './useI18n'
 
 export function useGemini() {
   const apiKeyStore = useApiKeyStore()
@@ -10,6 +11,7 @@ export function useGemini() {
   const error = ref<string | null>(null)
   let abortController: AbortController | null = null
   let client: GoogleGenAI | null = null
+  const { t } = useI18n()
 
   watch(
     () => apiKeyStore.apiKey,
@@ -59,7 +61,7 @@ export function useGemini() {
     prompt: string,
     config: GenerationConfig,
   ): Promise<GenerationResult> {
-    if (!client) throw new Error('API Key not set')
+    if (!client) throw new Error(t('apiKeyNotSet'))
 
     loading.value = true
     error.value = null
@@ -86,7 +88,7 @@ export function useGemini() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('abort')) {
-        throw new Error('Generation cancelled')
+        throw new Error(t('generationCancelled'))
       }
       error.value = msg
       throw new Error(msg)
@@ -101,7 +103,7 @@ export function useGemini() {
     prompt: string,
     config: GenerationConfig,
   ): Promise<GenerationResult> {
-    if (!client) throw new Error('API Key not set')
+    if (!client) throw new Error(t('apiKeyNotSet'))
 
     loading.value = true
     error.value = null
@@ -137,7 +139,7 @@ export function useGemini() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('abort')) {
-        throw new Error('Generation cancelled')
+        throw new Error(t('generationCancelled'))
       }
       error.value = msg
       throw new Error(msg)
@@ -176,7 +178,7 @@ export function useGemini() {
     }
 
     if (!imageBase64) {
-      throw new Error('No image was generated. Try a different prompt.')
+      throw new Error(t('noImageGenerated'))
     }
 
     // Build usage info

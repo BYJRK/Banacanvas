@@ -2,9 +2,12 @@
 import { computed } from 'vue'
 import { getAspectRatios, getImageSizes, THINKING_LEVELS } from '../config/models'
 import type { GenerationConfig } from '../types'
+import { useI18n } from '../composables/useI18n'
 
 const props = defineProps<{ modelId: string }>()
 const config = defineModel<GenerationConfig>({ required: true })
+
+const { t } = useI18n()
 
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
 const imageSizes = computed(() => getImageSizes(props.modelId))
@@ -28,13 +31,13 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
 <template>
   <div class="flex flex-col gap-5">
     <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-      Parameters
+      {{ t('parameters') }}
     </h3>
 
     <!-- Image Size -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Image Size
+        {{ t('imageSize') }}
       </label>
       <div class="flex flex-wrap gap-1.5">
         <button
@@ -56,7 +59,7 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
     <!-- Aspect Ratio -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Aspect Ratio
+        {{ t('aspectRatio') }}
       </label>
       <div class="flex flex-wrap gap-1.5">
         <button
@@ -78,7 +81,7 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
     <!-- Thinking Level -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Thinking Level
+        {{ t('thinkingLevel') }}
       </label>
       <div class="flex gap-1.5">
         <button
@@ -92,7 +95,7 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
           ]"
         >
-          {{ level.label }}
+          {{ level.value === 'MINIMAL' ? t('thinkingMinimal') : t('thinkingHigh') }}
         </button>
       </div>
     </div>
@@ -100,7 +103,7 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
     <!-- Google Search -->
     <div class="flex items-center justify-between">
       <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-        Google Search
+        {{ t('googleSearch') }}
       </label>
       <button
         @click="config = { ...config, googleSearch: !config.googleSearch }"
@@ -121,16 +124,16 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
     <!-- Person Generation -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Person Generation
+        {{ t('personGeneration') }}
       </label>
       <select
         :value="config.personGeneration ?? 'ALLOW_ALL'"
         @change="config = { ...config, personGeneration: ($event.target as HTMLSelectElement).value as GenerationConfig['personGeneration'] }"
         class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
       >
-        <option value="ALLOW_ALL">Allow All</option>
-        <option value="ALLOW_ADULT">Allow Adults Only</option>
-        <option value="ALLOW_NONE">None</option>
+        <option value="ALLOW_ALL">{{ t('personAllowAll') }}</option>
+        <option value="ALLOW_ADULT">{{ t('personAdultOnly') }}</option>
+        <option value="ALLOW_NONE">{{ t('personNone') }}</option>
       </select>
     </div>
   </div>

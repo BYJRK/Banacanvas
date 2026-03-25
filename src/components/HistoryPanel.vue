@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import { useHistoryStore } from '../stores/history'
 import type { HistoryEntry } from '../types'
+import { useI18n } from '../composables/useI18n'
 
 const emit = defineEmits<{
   (e: 'select', entry: HistoryEntry): void
 }>()
 
 const historyStore = useHistoryStore()
+const { t } = useI18n()
 
 function formatTime(ts: number) {
   const d = new Date(ts)
   const now = new Date()
   const diff = now.getTime() - ts
-  if (diff < 60_000) return 'Just now'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  if (diff < 60_000) return t('justNow')
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}${t('timeSuffixMinutes')}`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}${t('timeSuffixHours')}`
   if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
@@ -28,19 +30,19 @@ function thumbUrl(entry: HistoryEntry) {
   <div class="flex flex-col h-full">
     <div class="flex items-center justify-between px-1 mb-3">
       <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-        History
+        {{ t('history') }}
       </h3>
       <button
         v-if="historyStore.entries.length > 0"
         @click="historyStore.clearAll()"
         class="text-xs text-red-500 hover:underline cursor-pointer"
       >
-        Clear All
+        {{ t('clearAll') }}
       </button>
     </div>
 
     <div v-if="historyStore.entries.length === 0" class="text-center py-8">
-      <p class="text-sm text-gray-400 dark:text-gray-600">No history yet</p>
+      <p class="text-sm text-gray-400 dark:text-gray-600">{{ t('noHistory') }}</p>
     </div>
 
     <div v-else class="flex flex-col gap-2 overflow-y-auto flex-1 pr-1">
