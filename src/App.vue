@@ -149,9 +149,9 @@ function handleHistorySelect(entry: HistoryEntry) {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="h-screen flex flex-col overflow-hidden">
     <!-- Header -->
-    <header class="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+    <header class="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="text-lg font-bold text-gray-900 dark:text-gray-100">🍌 Nano Banana</span>
@@ -190,7 +190,7 @@ function handleHistorySelect(entry: HistoryEntry) {
     </header>
 
     <!-- Main content -->
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex min-h-0">
       <!-- Left: Controls -->
       <aside class="w-80 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-4 flex flex-col gap-6 hidden md:flex">
         <GenerationPanel
@@ -258,6 +258,20 @@ function handleHistorySelect(entry: HistoryEntry) {
         @close="toasts = toasts.filter((t) => t.id !== toast.id)"
       />
     </div>
+
+    <!-- Footer -->
+    <footer class="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2 text-center text-xs text-gray-400 dark:text-gray-500">
+      Powered by
+      <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Google Gemini</a>
+      ·
+      <a href="https://vite.dev/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Vite</a>
+      ·
+      <a href="https://vuejs.org/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Vue</a>
+      ·
+      <a href="https://tailwindcss.com/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Tailwind CSS</a>
+      ·
+      <a href="https://headlessui.com/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Headless UI</a>
+    </footer>
 
     <!-- API Key Dialog -->
     <ApiKeyDialog :open="showApiKeyDialog" @close="showApiKeyDialog = false" />
