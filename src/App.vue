@@ -5,7 +5,7 @@ import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
 import { useTheme } from './composables/useTheme'
 import { DEFAULT_MODEL, getAspectRatios, getImageSizes } from './config/models'
-import type { GenerationConfig, ModelOption, HistoryEntry, InputImage } from './types'
+import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
@@ -39,6 +39,7 @@ const inputImages = ref<InputImage[]>([])
 const resultImage = ref<string | undefined>()
 const resultMimeType = ref<string | undefined>()
 const resultText = ref<string | undefined>()
+const resultUsage = ref<UsageInfo | undefined>()
 const errorMessage = ref<string | null>(null)
 
 // Toast
@@ -93,6 +94,7 @@ async function handleGenerate() {
   resultImage.value = undefined
   resultMimeType.value = undefined
   resultText.value = undefined
+  resultUsage.value = undefined
 
   try {
     const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id }
@@ -111,6 +113,7 @@ async function handleGenerate() {
     resultImage.value = result.imageBase64
     resultMimeType.value = result.imageMimeType
     resultText.value = result.textResponse
+    resultUsage.value = result.usage
 
     // Save to history
     historyStore.addEntry({
@@ -249,7 +252,8 @@ function handleHistorySelect(entry: HistoryEntry) {
               :text-response="resultText"
               :error-message="errorMessage"
               :loading="loading"
-              @clear="resultImage = undefined; resultMimeType = undefined; resultText = undefined; errorMessage = null"
+              :usage="resultUsage"
+              @clear="resultImage = undefined; resultMimeType = undefined; resultText = undefined; resultUsage = undefined; errorMessage = null"
             />
           </div>
         </div>

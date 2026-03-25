@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { UsageInfo } from '../types'
 
 const props = defineProps<{
   imageBase64?: string
@@ -7,6 +8,7 @@ const props = defineProps<{
   textResponse?: string
   errorMessage?: string | null
   loading?: boolean
+  usage?: UsageInfo
 }>()
 
 const emit = defineEmits<{
@@ -91,6 +93,20 @@ function download() {
       class="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3 text-sm text-gray-700 dark:text-gray-300"
     >
       {{ textResponse }}
+    </div>
+
+    <!-- Usage & cost info -->
+    <div
+      v-if="usage"
+      class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-gray-50 dark:bg-gray-800/50 px-3 py-2 text-xs text-gray-500 dark:text-gray-400"
+    >
+      <span title="Input tokens">⬆ {{ usage.promptTokenCount.toLocaleString() }}</span>
+      <span title="Output tokens">⬇ {{ usage.candidatesTokenCount.toLocaleString() }}</span>
+      <span v-if="usage.thoughtsTokenCount" title="Thinking tokens">💭 {{ usage.thoughtsTokenCount.toLocaleString() }}</span>
+      <span title="Total tokens">Σ {{ usage.totalTokenCount.toLocaleString() }}</span>
+      <span class="ml-auto font-medium text-violet-600 dark:text-violet-400" title="Estimated cost (USD)">
+        ~${{ usage.estimatedCost < 0.01 ? usage.estimatedCost.toFixed(4) : usage.estimatedCost.toFixed(3) }}
+      </span>
     </div>
   </div>
 

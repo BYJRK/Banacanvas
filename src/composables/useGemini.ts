@@ -1,7 +1,8 @@
 import { ref, watch } from 'vue'
 import { GoogleGenAI } from '@google/genai'
 import { useApiKeyStore } from '../stores/apiKey'
-import type { GenerationConfig, GenerationResult, InputImage } from '../types'
+import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
+import { MODEL_PRICING } from '../config/models'
 
 export function useGemini() {
   const apiKeyStore = useApiKeyStore()
@@ -81,7 +82,7 @@ export function useGemini() {
         contents,
       })
 
-      return await collectStreamResult(response)
+      return await collectStreamResult(response, config.model)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('abort')) {
@@ -132,7 +133,7 @@ export function useGemini() {
         contents,
       })
 
-      return await collectStreamResult(response)
+      return await collectStreamResult(response, config.model)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('abort')) {
@@ -147,12 +148,19 @@ export function useGemini() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async function collectStreamResult(response: any): Promise<GenerationResult> {
+  async function collectStreamResult(response: any, modelId: string): Promise<GenerationResult> {
     let imageBase64 = ''
     let imageMimeType = ''
     let textResponse = ''
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let lastUsageMetadata: any = null
 
     for await (const chunk of response) {
+      // Capture usage metadata from each chunk (last one has the totals)
+      if (chunk.usageMetadata) {
+        lastUsageMetadata = chunk.usageMetadata
+      }
+
       if (!chunk.candidates?.[0]?.content?.parts) {
         continue
       }
@@ -171,10 +179,58 @@ export function useGemini() {
       throw new Error('No image was generated. Try a different prompt.')
     }
 
+    // Build usage info
+    let usage: UsageInfo | undefined
+    if (lastUsageMetadata) {
+      const promptTokens = lastUsageMetadata.promptTokenCount ?? 0
+      const candidateTokens = lastUsageMetadata.candidatesTokenCount ?? 0
+      const thoughtTokens = lastUsageMetadata.thoughtsTokenCount ?? 0
+      const totalTokens = lastUsageMetadata.totalTokenCount ?? 0
+
+      // Calculate cost
+      const pricing = MODEL_PRICING[modelId]
+      let estimatedCost = 0
+      if (pricing) {
+        // Input cost
+        estimatedCost += (promptTokens / 1_000_000) * pricing.inputText
+
+        // Determine image output tokens vs text output tokens from details
+        let imageOutputTokens = 0
+        let textOutputTokens = 0
+        const candidateDetails = lastUsageMetadata.candidatesTokensDetails
+        if (Array.isArray(candidateDetails)) {
+          for (const detail of candidateDetails) {
+            if (detail.modality === 'IMAGE') {
+              imageOutputTokens += detail.tokenCount ?? 0
+            } else {
+              textOutputTokens += detail.tokenCount ?? 0
+            }
+          }
+        } else {
+          // Fallback: if no detail breakdown, treat all candidate tokens as image
+          imageOutputTokens = candidateTokens
+        }
+
+        // Text + thinking output cost
+        estimatedCost += ((textOutputTokens + thoughtTokens) / 1_000_000) * pricing.outputText
+        // Image output cost
+        estimatedCost += (imageOutputTokens / 1_000_000) * pricing.outputImage
+      }
+
+      usage = {
+        promptTokenCount: promptTokens,
+        candidatesTokenCount: candidateTokens,
+        thoughtsTokenCount: thoughtTokens,
+        totalTokenCount: totalTokens,
+        estimatedCost,
+      }
+    }
+
     return {
       imageBase64,
       imageMimeType,
       textResponse: textResponse || undefined,
+      usage,
     }
   }
 

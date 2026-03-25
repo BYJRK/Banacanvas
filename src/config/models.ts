@@ -50,3 +50,22 @@ export const THINKING_LEVELS = [
   { value: 'MINIMAL', label: 'Minimal' },
   { value: 'HIGH', label: 'High' },
 ] as const
+
+// Pricing per million tokens (USD) - standard tier
+// Source: https://ai.google.dev/gemini-api/docs/pricing
+export const MODEL_PRICING: Record<string, {
+  inputText: number
+  outputText: number
+  outputImage: number
+}> = {
+  'gemini-3.1-flash-image-preview': {
+    inputText: 0.50,   // $0.50 per 1M tokens (text/image input)
+    outputText: 3.00,   // $3.00 per 1M tokens (text + thinking output)
+    outputImage: 60.00, // $60.00 per 1M tokens (image output)
+  },
+  'gemini-3-pro-image-preview': {
+    inputText: 2.00,    // $2.00 per 1M tokens (text/image input)
+    outputText: 12.00,  // $12.00 per 1M tokens (text + thinking output)
+    outputImage: 120.00, // $120.00 per 1M tokens (image output)
+  },
+}

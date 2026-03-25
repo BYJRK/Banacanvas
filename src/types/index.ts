@@ -31,9 +31,18 @@ export interface HistoryEntry {
   textResponse?: string
 }
 
+export interface UsageInfo {
+  promptTokenCount: number
+  candidatesTokenCount: number
+  thoughtsTokenCount: number
+  totalTokenCount: number
+  estimatedCost: number
+}
+
 export interface GenerationResult {
   imageBase64: string
   imageMimeType: string
   textResponse?: string
   raiFilteredReason?: string
+  usage?: UsageInfo
 }
