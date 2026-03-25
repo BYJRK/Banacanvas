@@ -1,7 +1,7 @@
 import { ref, computed, watchEffect } from 'vue'
 import messages, { type Locale, type MessageKey } from '../i18n/messages'
 
-const STORAGE_KEY = 'nano-banana-locale'
+const STORAGE_KEY = 'banacanvas-locale'
 
 function detectLocale(): Locale {
   const saved = localStorage.getItem(STORAGE_KEY) as Locale | null

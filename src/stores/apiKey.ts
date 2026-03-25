@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-const STORAGE_KEY = 'nano-banana-api-key'
+const STORAGE_KEY = 'banacanvas-api-key'
 
 export const useApiKeyStore = defineStore('apiKey', () => {
   const apiKey = ref(localStorage.getItem(STORAGE_KEY) ?? '')

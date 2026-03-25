@@ -2,7 +2,7 @@ import { ref, watch } from 'vue'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 
-const STORAGE_KEY = 'nano-banana-theme'
+const STORAGE_KEY = 'banacanvas-theme'
 
 const mode = ref<ThemeMode>((localStorage.getItem(STORAGE_KEY) as ThemeMode) || 'system')
 

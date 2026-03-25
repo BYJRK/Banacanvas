@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { HistoryEntry } from '../types'
 
-const STORAGE_KEY = 'nano-banana-history'
+const STORAGE_KEY = 'banacanvas-history'
 const MAX_ENTRIES = 50
 
 function loadHistory(): HistoryEntry[] {

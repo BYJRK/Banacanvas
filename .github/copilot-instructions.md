@@ -1,4 +1,4 @@
-# Project Guidelines — Nano Banana
+# Project Guidelines — Banacanvas
 
 Google Gemini AI 图像生成 Web UI，支持文生图、图生图编辑、双语(中/英)、暗色模式、生成历史。
 

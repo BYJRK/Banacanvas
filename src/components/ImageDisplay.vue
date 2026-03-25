@@ -29,7 +29,7 @@ function download() {
   const link = document.createElement('a')
   link.href = imageUrl()
   const ext = props.imageMimeType.includes('png') ? 'png' : 'jpg'
-  link.download = `nano-banana-${Date.now()}.${ext}`
+  link.download = `banacanvas-${Date.now()}.${ext}`
   link.click()
 }
 </script>
