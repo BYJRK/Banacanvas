@@ -1,0 +1,110 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+
+const props = defineProps<{
+  imageBase64?: string
+  imageMimeType?: string
+  textResponse?: string
+  errorMessage?: string | null
+}>()
+
+const showFullscreen = ref(false)
+
+const imageUrl = () => {
+  if (!props.imageBase64 || !props.imageMimeType) return ''
+  return `data:${props.imageMimeType};base64,${props.imageBase64}`
+}
+
+function download() {
+  if (!props.imageBase64 || !props.imageMimeType) return
+  const link = document.createElement('a')
+  link.href = imageUrl()
+  const ext = props.imageMimeType.includes('png') ? 'png' : 'jpg'
+  link.download = `nano-banana-${Date.now()}.${ext}`
+  link.click()
+}
+</script>
+
+<template>
+  <!-- Error state -->
+  <div
+    v-if="errorMessage"
+    class="flex items-center justify-center rounded-xl border-2 border-dashed border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/20 p-8"
+  >
+    <div class="text-center">
+      <p class="text-red-600 dark:text-red-400 text-sm font-medium">{{ errorMessage }}</p>
+    </div>
+  </div>
+
+  <!-- Image display -->
+  <div v-else-if="imageBase64" class="flex flex-col gap-3">
+    <div class="relative group">
+      <img
+        :src="imageUrl()"
+        alt="Generated image"
+        class="w-full rounded-xl shadow-lg cursor-pointer"
+        @click="showFullscreen = true"
+      />
+      <!-- Overlay controls -->
+      <div class="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          @click="download"
+          class="rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white hover:bg-black/80 transition-colors cursor-pointer"
+        >
+          ⬇ Download
+        </button>
+        <button
+          @click="showFullscreen = true"
+          class="rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white hover:bg-black/80 transition-colors cursor-pointer"
+        >
+          ⛶ Fullscreen
+        </button>
+      </div>
+    </div>
+
+    <!-- Text response -->
+    <div
+      v-if="textResponse"
+      class="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3 text-sm text-gray-700 dark:text-gray-300"
+    >
+      {{ textResponse }}
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div
+    v-else
+    class="flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 p-12"
+  >
+    <div class="text-center text-gray-400 dark:text-gray-600">
+      <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      <p class="text-sm">Generated image will appear here</p>
+    </div>
+  </div>
+
+  <!-- Fullscreen overlay -->
+  <Teleport to="body">
+    <div
+      v-if="showFullscreen && imageBase64"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 cursor-pointer"
+      @click="showFullscreen = false"
+    >
+      <img
+        :src="imageUrl()"
+        alt="Generated image fullscreen"
+        class="max-w-[95vw] max-h-[95vh] object-contain"
+        @click.stop
+      />
+      <button
+        @click="showFullscreen = false"
+        class="absolute top-4 right-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors cursor-pointer"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  </Teleport>
+</template>
