@@ -268,13 +268,22 @@ function handleHistorySelect(entry: HistoryEntry) {
         </div>
       </main>
 
-      <!-- Right: History sidebar -->
-      <aside
-        v-if="showHistory"
-        class="w-64 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-3"
-      >
-        <HistoryPanel @select="handleHistorySelect" />
-      </aside>
+      <!-- Right: History sidebar overlay -->
+      <Transition name="history-backdrop">
+        <div
+          v-if="showHistory"
+          class="fixed inset-0 z-40 bg-black/40"
+          @click="showHistory = false"
+        />
+      </Transition>
+      <Transition name="history-panel">
+        <aside
+          v-if="showHistory"
+          class="fixed right-0 top-0 bottom-0 z-50 w-72 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-3 shadow-xl"
+        >
+          <HistoryPanel @select="handleHistorySelect" />
+        </aside>
+      </Transition>
     </div>
 
     <!-- Toasts -->
@@ -306,3 +315,23 @@ function handleHistorySelect(entry: HistoryEntry) {
     <ApiKeyDialog :open="showApiKeyDialog" @close="showApiKeyDialog = false" />
   </div>
 </template>
+
+<style scoped>
+.history-backdrop-enter-active,
+.history-backdrop-leave-active {
+  transition: opacity 0.25s ease;
+}
+.history-backdrop-enter-from,
+.history-backdrop-leave-to {
+  opacity: 0;
+}
+
+.history-panel-enter-active,
+.history-panel-leave-active {
+  transition: transform 0.25s ease;
+}
+.history-panel-enter-from,
+.history-panel-leave-to {
+  transform: translateX(100%);
+}
+</style>

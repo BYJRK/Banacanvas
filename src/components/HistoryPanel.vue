@@ -48,24 +48,22 @@ function thumbUrl(entry: HistoryEntry) {
       <p class="text-sm text-gray-400 dark:text-gray-600">{{ t('noHistory') }}</p>
     </div>
 
-    <div v-else class="flex flex-col gap-2 overflow-y-auto flex-1 pr-1">
+    <div v-else class="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
       <div
         v-for="entry in historyStore.entries"
         :key="entry.id"
-        class="group relative rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
+        class="group relative shrink-0 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
         @click="emit('select', entry)"
+        :title="entry.prompt.length > 100 ? entry.prompt.slice(0, 100) + '…' : entry.prompt"
       >
         <img
           :src="thumbUrl(entry)"
           :alt="entry.prompt"
-          class="w-full aspect-square object-cover"
+          class="w-full aspect-16/9 object-cover object-center"
           loading="lazy"
         />
         <div class="p-2">
-          <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-            {{ entry.prompt }}
-          </p>
-          <p class="text-[10px] text-gray-400 dark:text-gray-600 mt-1">
+          <p class="text-[10px] text-gray-400 dark:text-gray-600">
             {{ formatTime(entry.timestamp) }}
           </p>
         </div>
