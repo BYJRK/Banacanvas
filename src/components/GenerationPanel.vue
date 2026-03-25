@@ -14,6 +14,7 @@ const selectedModel = defineModel<ModelOption>('model', { required: true })
 
 const emit = defineEmits<{
   (e: 'generate'): void
+  (e: 'cancel'): void
   (e: 'imageSelected', file: { base64: string; mimeType: string }): void
   (e: 'clearImage'): void
 }>()
@@ -160,12 +161,13 @@ function openFilePicker() {
       <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="handleFileSelect" />
     </div>
 
-    <!-- Generate button -->
+    <!-- Generate + Cancel buttons -->
+    <div class="flex gap-2">
     <button
       @click="$emit('generate')"
       :disabled="!canGenerate || loading"
       :class="[
-        'w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer',
+        'flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer',
         loading
           ? 'bg-gray-400 dark:bg-gray-600 text-white cursor-wait'
           : 'bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed',
@@ -183,5 +185,16 @@ function openFilePicker() {
         <kbd class="ml-1 text-xs opacity-60">Ctrl+Enter</kbd>
       </span>
     </button>
+    <button
+      v-if="loading"
+      @click="$emit('cancel')"
+      class="rounded-lg px-3 py-2.5 text-sm font-semibold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
+      title="Cancel generation"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    </div>
   </div>
 </template>

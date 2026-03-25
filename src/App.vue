@@ -146,14 +146,6 @@ function handleHistorySelect(entry: HistoryEntry) {
           </span>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Cancel button -->
-          <button
-            v-if="loading"
-            @click="cancel"
-            class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
           <!-- History toggle -->
           <button
             @click="showHistory = !showHistory"
@@ -193,6 +185,7 @@ function handleHistorySelect(entry: HistoryEntry) {
           :loading="loading"
           :has-input-image="!!inputImage"
           @generate="handleGenerate"
+          @cancel="cancel"
           @image-selected="inputImage = $event"
           @clear-image="inputImage = null"
           @update:model="onModelChange"
@@ -211,6 +204,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             :loading="loading"
             :has-input-image="!!inputImage"
             @generate="handleGenerate"
+            @cancel="cancel"
             @image-selected="inputImage = $event"
             @clear-image="inputImage = null"
             @update:model="onModelChange"
@@ -224,6 +218,8 @@ function handleHistorySelect(entry: HistoryEntry) {
               :image-mime-type="resultMimeType"
               :text-response="resultText"
               :error-message="errorMessage"
+              :loading="loading"
+              @clear="resultImage = undefined; resultMimeType = undefined; resultText = undefined; errorMessage = null"
             />
           </div>
         </div>

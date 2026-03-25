@@ -6,6 +6,11 @@ const props = defineProps<{
   imageMimeType?: string
   textResponse?: string
   errorMessage?: string | null
+  loading?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'clear'): void
 }>()
 
 const showFullscreen = ref(false)
@@ -26,9 +31,21 @@ function download() {
 </script>
 
 <template>
+  <!-- Loading state -->
+  <div
+    v-if="loading"
+    class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/20 p-16"
+  >
+    <svg class="animate-spin h-10 w-10 text-violet-500 mb-4" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+    <p class="text-sm text-violet-600 dark:text-violet-400 font-medium">Generating image...</p>
+  </div>
+
   <!-- Error state -->
   <div
-    v-if="errorMessage"
+    v-else-if="errorMessage"
     class="flex items-center justify-center rounded-xl border-2 border-dashed border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/20 p-8"
   >
     <div class="text-center">
@@ -58,6 +75,12 @@ function download() {
           class="rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white hover:bg-black/80 transition-colors cursor-pointer"
         >
           ⛶ Fullscreen
+        </button>
+        <button
+          @click="emit('clear')"
+          class="rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600/80 transition-colors cursor-pointer"
+        >
+          ✕ Clear
         </button>
       </div>
     </div>
