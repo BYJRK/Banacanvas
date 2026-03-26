@@ -10,6 +10,7 @@ const messages = {
     poweredBy: 'Powered by',
 
     // GenerationPanel
+    provider: 'Provider',
     model: 'Model',
     prompt: 'Prompt',
     promptPlaceholder: 'Describe the image you want to generate...',
@@ -59,10 +60,12 @@ const messages = {
 
     // ApiKeyDialog
     apiKeyTitle: 'API Key Settings',
-    apiKeyDescription: 'Enter your Google Gemini API key. It will be stored in your browser\'s localStorage and sent directly to Google\'s API.',
-    apiKeyWarning: '⚠ Your API key is stored locally and never sent to any third-party server. However, it is visible via browser DevTools.',
+    apiKeyDescription: 'Enter your API keys below. They are stored in your browser\'s localStorage and sent directly to the respective API.',
+    apiKeyWarning: '⚠ Your API keys are stored locally and never sent to any third-party server. However, they are visible via browser DevTools.',
     apiKeyLabel: 'Gemini API Key',
     apiKeyPlaceholder: 'AIza...',
+    openRouterKeyLabel: 'OpenRouter API Key',
+    openRouterKeyPlaceholder: 'sk-or-...',
     clearKey: 'Clear Key',
     cancel: 'Cancel',
     save: 'Save',
@@ -75,11 +78,18 @@ const messages = {
     generationCancelled: 'Generation cancelled',
     noImageGenerated: 'No image was generated. Try a different prompt.',
 
+    // Providers
+    providerGemini: 'Google Gemini',
+    providerOpenRouter: 'OpenRouter',
+    providerKeyNotSet: 'API key not set for this provider',
+
     // Models
     modelNanoBanana2: 'Nano Banana 2',
     modelNanoBanana2Desc: 'Best balance of performance & cost. Supports 512–4K, thinking, Google Search.',
     modelNanoBananaPro: 'Nano Banana Pro',
     modelNanoBananaProDesc: 'Professional quality. Advanced reasoning & text rendering.',
+    modelORNanoBanana2Desc: 'Gemini Flash via OpenRouter. Supports aspect ratio & image size.',
+    modelORNanoBananaProDesc: 'Gemini Pro via OpenRouter. Professional quality.',
 
     // Theme
     themeSystem: 'System',
@@ -97,6 +107,7 @@ const messages = {
     poweredBy: '由以下技术驱动',
 
     // GenerationPanel
+    provider: '服务商',
     model: '模型',
     prompt: '提示词',
     promptPlaceholder: '描述你想要生成的图片...',
@@ -146,10 +157,12 @@ const messages = {
 
     // ApiKeyDialog
     apiKeyTitle: 'API 密钥设置',
-    apiKeyDescription: '输入你的 Google Gemini API 密钥。它将存储在浏览器的 localStorage 中，并直接发送到 Google 的 API。',
+    apiKeyDescription: '输入你的 API 密钥。它们将存储在浏览器的 localStorage 中，并直接发送到对应的 API。',
     apiKeyWarning: '⚠ 你的 API 密钥仅存储在本地，不会发送到任何第三方服务器。但它在浏览器开发者工具中可见。',
     apiKeyLabel: 'Gemini API 密钥',
     apiKeyPlaceholder: 'AIza...',
+    openRouterKeyLabel: 'OpenRouter API 密钥',
+    openRouterKeyPlaceholder: 'sk-or-...',
     clearKey: '清除密钥',
     cancel: '取消',
     save: '保存',
@@ -162,11 +175,18 @@ const messages = {
     generationCancelled: '生成已取消',
     noImageGenerated: '未生成图片，请尝试不同的提示词。',
 
+    // Providers
+    providerGemini: 'Google Gemini',
+    providerOpenRouter: 'OpenRouter',
+    providerKeyNotSet: '未设置该服务商的 API 密钥',
+
     // Models
     modelNanoBanana2: 'Nano Banana 2',
     modelNanoBanana2Desc: '性能与成本的最佳平衡。支持 512–4K、思考、Google 搜索。',
     modelNanoBananaPro: 'Nano Banana Pro',
     modelNanoBananaProDesc: '专业品质。高级推理与文字渲染。',
+    modelORNanoBanana2Desc: '通过 OpenRouter 使用 Gemini Flash。支持宽高比和图片尺寸。',
+    modelORNanoBananaProDesc: '通过 OpenRouter 使用 Gemini Pro。专业品质。',
 
     // Theme
     themeSystem: '跟随系统',

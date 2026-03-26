@@ -1,19 +1,45 @@
-import type { ModelOption } from '../types'
+import type { ModelOption, Provider } from '../types'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
+  // Gemini Direct API
   {
     id: 'gemini-3.1-flash-image-preview',
     name: 'Nano Banana 2',
     description: 'Best balance of performance & cost. Supports 512–4K, thinking, Google Search.',
+    provider: 'gemini',
   },
   {
     id: 'gemini-3-pro-image-preview',
     name: 'Nano Banana Pro',
     description: 'Professional quality. Advanced reasoning & text rendering.',
+    provider: 'gemini',
+  },
+  // OpenRouter
+  {
+    id: 'google/gemini-3.1-flash-image-preview',
+    name: 'Nano Banana 2',
+    description: 'Gemini Flash via OpenRouter. Supports aspect ratio & image size.',
+    provider: 'openrouter',
+  },
+  {
+    id: 'google/gemini-3-pro-image-preview',
+    name: 'Nano Banana Pro',
+    description: 'Gemini Pro via OpenRouter. Professional quality.',
+    provider: 'openrouter',
   },
 ]
 
 export const DEFAULT_MODEL = AVAILABLE_MODELS[0]
+
+export function getModelsForProvider(provider: Provider): ModelOption[] {
+  return AVAILABLE_MODELS.filter((m) => m.provider === provider)
+}
+
+/** Strip provider prefix to get the base Gemini model ID for config lookups */
+export function getBaseModelId(modelId: string): string {
+  if (modelId.startsWith('google/')) return modelId.replace('google/', '')
+  return modelId
+}
 
 // Aspect ratios supported per model
 const FLASH_ASPECT_RATIOS = [
@@ -39,11 +65,13 @@ const PRO_IMAGE_SIZES = [
 ] as const
 
 export function getAspectRatios(modelId: string) {
-  return modelId === 'gemini-3-pro-image-preview' ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
+  const base = getBaseModelId(modelId)
+  return base === 'gemini-3-pro-image-preview' ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
 }
 
 export function getImageSizes(modelId: string) {
-  return modelId === 'gemini-3-pro-image-preview' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
+  const base = getBaseModelId(modelId)
+  return base === 'gemini-3-pro-image-preview' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
 }
 
 // Actual output resolutions per aspect ratio and image size
@@ -91,4 +119,10 @@ export const MODEL_PRICING: Record<string, {
     outputText: 12.00,  // $12.00 per 1M tokens (text + thinking output)
     outputImage: 120.00, // $120.00 per 1M tokens (image output)
   },
+}
+
+/** Map internal imageSize values to OpenRouter image_size values */
+export function toOpenRouterImageSize(size: string): string {
+  if (size === '512') return '0.5K'
+  return size // '1K', '2K', '4K' are the same
 }

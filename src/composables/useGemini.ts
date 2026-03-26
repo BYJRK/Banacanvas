@@ -14,7 +14,7 @@ export function useGemini() {
   const { t } = useI18n()
 
   watch(
-    () => apiKeyStore.apiKey,
+    () => apiKeyStore.geminiKey,
     (key) => {
       client = key ? new GoogleGenAI({ apiKey: key }) : null
     },

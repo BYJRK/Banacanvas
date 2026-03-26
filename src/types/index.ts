@@ -1,7 +1,10 @@
+export type Provider = 'gemini' | 'openrouter'
+
 export interface ModelOption {
   id: string
   name: string
   description: string
+  provider: Provider
 }
 
 export interface InputImage {
@@ -11,6 +14,7 @@ export interface InputImage {
 }
 
 export interface GenerationConfig {
+  provider: Provider
   model: string
   aspectRatio?: string
   imageSize?: '512' | '1K' | '2K' | '4K'

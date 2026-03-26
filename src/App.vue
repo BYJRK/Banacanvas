@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
+import { useOpenRouter } from './composables/useOpenRouter'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
-import { DEFAULT_MODEL, getAspectRatios, getImageSizes } from './config/models'
-import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo } from './types'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes } from './config/models'
+import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
@@ -16,17 +17,27 @@ import Toast from './components/Toast.vue'
 
 const apiKeyStore = useApiKeyStore()
 const historyStore = useHistoryStore()
-const { loading, generateImage, editImage, cancel } = useGemini()
+const gemini = useGemini()
+const openRouter = useOpenRouter()
 const { mode: themeMode, cycle: cycleTheme } = useTheme()
 const { t, locale, toggleLocale } = useI18n()
+
+const loading = computed(() => gemini.loading.value || openRouter.loading.value)
+
+function cancelGeneration() {
+  gemini.cancel()
+  openRouter.cancel()
+}
 
 // Dialog state
 const showApiKeyDialog = ref(false)
 
 // Generation state
 const prompt = ref('')
+const selectedProvider = ref<Provider>(DEFAULT_MODEL.provider)
 const selectedModel = ref<ModelOption>(DEFAULT_MODEL)
 const config = ref<GenerationConfig>({
+  provider: DEFAULT_MODEL.provider,
   model: DEFAULT_MODEL.id,
   aspectRatio: '1:1',
   imageSize: '1K',
@@ -59,9 +70,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 // History sidebar
 const showHistory = ref(false)
 
-// On mount: show API key dialog if no key set
+// On mount: show API key dialog if no key set for any provider
 onMounted(() => {
-  if (!apiKeyStore.hasKey) {
+  if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey) {
     showApiKeyDialog.value = true
   }
 })
@@ -69,7 +80,7 @@ onMounted(() => {
 // Sync model selection to config
 function onModelChange(model: ModelOption) {
   selectedModel.value = model
-  const newConfig = { ...config.value, model: model.id }
+  const newConfig = { ...config.value, model: model.id, provider: model.provider }
 
   // Reset imageSize if not supported by new model
   const validSizes = getImageSizes(model.id).map((s) => s.value)
@@ -86,8 +97,18 @@ function onModelChange(model: ModelOption) {
   config.value = newConfig
 }
 
+function onProviderChange(provider: Provider) {
+  selectedProvider.value = provider
+  // Auto-select first model of the new provider
+  const models = getModelsForProvider(provider)
+  if (models.length > 0) {
+    onModelChange(models[0])
+  }
+}
+
 async function handleGenerate() {
-  if (!apiKeyStore.hasKey) {
+  const provider = selectedModel.value.provider
+  if (!apiKeyStore.hasKeyFor(provider)) {
     showApiKeyDialog.value = true
     return
   }
@@ -99,17 +120,18 @@ async function handleGenerate() {
   resultUsage.value = undefined
 
   try {
-    const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id }
+    const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id, provider }
+    const api = provider === 'openrouter' ? openRouter : gemini
     let result
 
     if (inputImages.value.length > 0) {
-      result = await editImage(
+      result = await api.editImage(
         inputImages.value,
         prompt.value,
         currentConfig,
       )
     } else {
-      result = await generateImage(prompt.value, currentConfig)
+      result = await api.generateImage(prompt.value, currentConfig)
     }
 
     resultImage.value = result.imageBase64
@@ -138,9 +160,11 @@ async function handleGenerate() {
 
 function handleHistorySelect(entry: HistoryEntry) {
   prompt.value = entry.prompt
-  config.value = { ...entry.config }
-  selectedModel.value =
-    { id: entry.config.model, name: entry.config.model, description: '' }
+  const entryProvider = entry.config.provider ?? 'gemini'
+  config.value = { ...entry.config, provider: entryProvider }
+  selectedProvider.value = entryProvider
+  const matchedModel = AVAILABLE_MODELS.find((m) => m.id === entry.config.model)
+  selectedModel.value = matchedModel ?? { id: entry.config.model, name: entry.config.model, description: '', provider: entryProvider }
   resultImage.value = entry.imageBase64
   resultMimeType.value = entry.imageMimeType
   resultText.value = entry.textResponse
@@ -207,7 +231,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             @click="showApiKeyDialog = true"
             :class="[
               'rounded-lg p-2 transition-colors cursor-pointer',
-              apiKeyStore.hasKey
+              apiKeyStore.hasGeminiKey || apiKeyStore.hasOpenRouterKey
                 ? 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
                 : 'text-red-500 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50',
             ]"
@@ -228,14 +252,16 @@ function handleHistorySelect(entry: HistoryEntry) {
         <GenerationPanel
           v-model:prompt="prompt"
           v-model:model="selectedModel"
+          v-model:provider="selectedProvider"
           v-model:input-images="inputImages"
           :loading="loading"
           @generate="handleGenerate"
-          @cancel="cancel"
+          @cancel="cancelGeneration"
           @update:model="onModelChange"
+          @provider-change="onProviderChange"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
-        <ParameterPanel v-model="config" :model-id="config.model" />
+        <ParameterPanel v-model="config" :model-id="config.model" :provider="selectedProvider" />
       </aside>
 
       <!-- Center: Image display -->
@@ -245,11 +271,13 @@ function handleHistorySelect(entry: HistoryEntry) {
           <GenerationPanel
             v-model:prompt="prompt"
             v-model:model="selectedModel"
+            v-model:provider="selectedProvider"
             v-model:input-images="inputImages"
             :loading="loading"
             @generate="handleGenerate"
-            @cancel="cancel"
+            @cancel="cancelGeneration"
             @update:model="onModelChange"
+            @provider-change="onProviderChange"
           />
         </div>
 
@@ -300,8 +328,6 @@ function handleHistorySelect(entry: HistoryEntry) {
     <!-- Footer -->
     <footer class="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2 text-center text-xs text-gray-400 dark:text-gray-500">
       {{ t('poweredBy') }}
-      <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Google Gemini</a>
-      ·
       <a href="https://vite.dev/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Vite</a>
       ·
       <a href="https://vuejs.org/" target="_blank" rel="noopener noreferrer" class="text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300">Vue</a>

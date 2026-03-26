@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { getAspectRatios, getImageSizes, getResolution, THINKING_LEVELS } from '../config/models'
-import type { GenerationConfig } from '../types'
+import type { GenerationConfig, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
-const props = defineProps<{ modelId: string }>()
+const props = defineProps<{ modelId: string; provider: Provider }>()
 const config = defineModel<GenerationConfig>({ required: true })
 
 const { t } = useI18n()
@@ -82,8 +82,8 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
       </p>
     </div>
 
-    <!-- Thinking Level -->
-    <div>
+    <!-- Thinking Level (Gemini only) -->
+    <div v-if="props.provider === 'gemini'">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('thinkingLevel') }}
       </label>
@@ -104,8 +104,8 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
       </div>
     </div>
 
-    <!-- Google Search -->
-    <div class="flex items-center justify-between">
+    <!-- Google Search (Gemini only) -->
+    <div v-if="props.provider === 'gemini'" class="flex items-center justify-between">
       <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
         {{ t('googleSearch') }}
       </label>
@@ -125,8 +125,8 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
       </button>
     </div>
 
-    <!-- Person Generation -->
-    <div>
+    <!-- Person Generation (Gemini only) -->
+    <div v-if="props.provider === 'gemini'">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('personGeneration') }}
       </label>

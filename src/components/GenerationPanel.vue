@@ -6,8 +6,8 @@ import {
   ListboxOptions,
   ListboxOption,
 } from '@headlessui/vue'
-import { AVAILABLE_MODELS } from '../config/models'
-import type { ModelOption, InputImage } from '../types'
+import { getModelsForProvider } from '../config/models'
+import type { ModelOption, InputImage, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 import type { MessageKey } from '../i18n/messages'
 
@@ -18,20 +18,35 @@ const { t } = useI18n()
 const modelDescKeys: Record<string, MessageKey> = {
   'gemini-3.1-flash-image-preview': 'modelNanoBanana2Desc',
   'gemini-3-pro-image-preview': 'modelNanoBananaProDesc',
+  'google/gemini-3.1-flash-image-preview': 'modelORNanoBanana2Desc',
+  'google/gemini-3-pro-image-preview': 'modelORNanoBananaProDesc',
 }
+
+const providerOptions: { value: Provider; labelKey: MessageKey }[] = [
+  { value: 'gemini', labelKey: 'providerGemini' },
+  { value: 'openrouter', labelKey: 'providerOpenRouter' },
+]
 
 const prompt = defineModel<string>('prompt', { default: '' })
 const selectedModel = defineModel<ModelOption>('model', { required: true })
+const selectedProvider = defineModel<Provider>('provider', { required: true })
 const inputImages = defineModel<InputImage[]>('inputImages', { default: () => [] })
 
 const emit = defineEmits<{
   (e: 'generate'): void
   (e: 'cancel'): void
+  (e: 'providerChange', provider: Provider): void
 }>()
 
 defineProps<{
   loading: boolean
 }>()
+
+const filteredModels = computed(() => getModelsForProvider(selectedProvider.value))
+
+function onProviderChange(provider: Provider) {
+  emit('providerChange', provider)
+}
 
 const dragOver = ref(false)
 const fileInput = ref<HTMLInputElement>()
@@ -115,6 +130,47 @@ function onThumbDragEnd() {
 
 <template>
   <div class="flex flex-col gap-4">
+    <!-- Provider selector -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('provider') }}</label>
+      <Listbox :model-value="selectedProvider" @update:model-value="onProviderChange">
+        <div class="relative">
+          <ListboxButton
+            class="relative w-full cursor-pointer rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 py-2 pl-3 pr-10 text-left text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <span class="block truncate">{{ t(providerOptions.find((o) => o.value === selectedProvider)?.labelKey ?? 'providerGemini') }}</span>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+              ▾
+            </span>
+          </ListboxButton>
+          <ListboxOptions
+            class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-1 text-sm shadow-lg focus:outline-none"
+          >
+            <ListboxOption
+              v-for="opt in providerOptions"
+              :key="opt.value"
+              :value="opt.value"
+              v-slot="{ active, selected }"
+            >
+              <li
+                :class="[
+                  'cursor-pointer select-none px-3 py-2',
+                  active ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-900 dark:text-violet-200' : 'text-gray-900 dark:text-gray-100',
+                ]"
+              >
+                <div class="flex items-center justify-between">
+                  <span :class="['font-medium', selected ? 'text-violet-600 dark:text-violet-400' : '']">
+                    {{ t(opt.labelKey) }}
+                  </span>
+                  <span v-if="selected" class="text-violet-600 dark:text-violet-400">✓</span>
+                </div>
+              </li>
+            </ListboxOption>
+          </ListboxOptions>
+        </div>
+      </Listbox>
+    </div>
+
     <!-- Model selector -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('model') }}</label>
@@ -132,7 +188,7 @@ function onThumbDragEnd() {
             class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-1 text-sm shadow-lg focus:outline-none"
           >
             <ListboxOption
-              v-for="model in AVAILABLE_MODELS"
+              v-for="model in filteredModels"
               :key="model.id"
               :value="model"
               v-slot="{ active, selected }"
