@@ -49,7 +49,7 @@ const messages = {
     inputTokens: 'Input tokens',
     outputTokens: 'Output tokens',
     thinkingTokens: 'Thinking tokens',
-    totalTokens: 'Total tokens',
+    elapsed: 'Elapsed time',
     estimatedCost: 'Estimated cost (USD)',
 
     // HistoryPanel
@@ -146,7 +146,7 @@ const messages = {
     inputTokens: '输入 token',
     outputTokens: '输出 token',
     thinkingTokens: '思考 token',
-    totalTokens: '总 token',
+    elapsed: '耗时',
     estimatedCost: '预估费用（美元）',
 
     // HistoryPanel

@@ -122,6 +122,7 @@ async function handleGenerate() {
   try {
     const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id, provider }
     const api = provider === 'openrouter' ? openRouter : gemini
+    const startTime = performance.now()
     let result
 
     if (inputImages.value.length > 0) {
@@ -134,10 +135,14 @@ async function handleGenerate() {
       result = await api.generateImage(prompt.value, currentConfig)
     }
 
+    const elapsedMs = Math.round(performance.now() - startTime)
+
     resultImage.value = result.imageBase64
     resultMimeType.value = result.imageMimeType
     resultText.value = result.textResponse
     resultUsage.value = result.usage
+      ? { ...result.usage, elapsedMs }
+      : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
 
     // Save to history
     historyStore.addEntry({

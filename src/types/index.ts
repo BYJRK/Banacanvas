@@ -41,6 +41,7 @@ export interface UsageInfo {
   thoughtsTokenCount: number
   totalTokenCount: number
   estimatedCost: number
+  elapsedMs?: number
 }
 
 export interface GenerationResult {

@@ -114,7 +114,9 @@ function download() {
       <span :title="t('inputTokens')">⬆ {{ usage.promptTokenCount.toLocaleString() }}</span>
       <span :title="t('outputTokens')">⬇ {{ usage.candidatesTokenCount.toLocaleString() }}</span>
       <span v-if="usage.thoughtsTokenCount" :title="t('thinkingTokens')">💭 {{ usage.thoughtsTokenCount.toLocaleString() }}</span>
-      <span :title="t('totalTokens')">Σ {{ usage.totalTokenCount.toLocaleString() }}</span>
+      <span v-if="usage.elapsedMs != null" :title="t('elapsed')">
+        ⏱ {{ usage.elapsedMs >= 1000 ? (usage.elapsedMs / 1000).toFixed(1) + 's' : usage.elapsedMs + 'ms' }}
+      </span>
       <span class="ml-auto font-medium text-violet-600 dark:text-violet-400" :title="t('estimatedCost')">
         ~${{ usage.estimatedCost < 0.01 ? usage.estimatedCost.toFixed(4) : usage.estimatedCost.toFixed(3) }}
       </span>
