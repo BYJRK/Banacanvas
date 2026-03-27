@@ -27,6 +27,19 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Gemini Pro via OpenRouter. Professional quality.',
     provider: 'openrouter',
   },
+  // Vercel AI Gateway
+  {
+    id: 'google/gemini-3.1-flash-image-preview',
+    name: 'Nano Banana 2',
+    description: 'Gemini Flash via Vercel AI Gateway. Fast image generation.',
+    provider: 'vercel',
+  },
+  {
+    id: 'google/gemini-3-pro-image',
+    name: 'Nano Banana Pro',
+    description: 'Gemini Pro via Vercel AI Gateway. Professional quality.',
+    provider: 'vercel',
+  },
 ]
 
 export const DEFAULT_MODEL = AVAILABLE_MODELS[0]
@@ -37,8 +50,13 @@ export function getModelsForProvider(provider: Provider): ModelOption[] {
 
 /** Strip provider prefix to get the base Gemini model ID for config lookups */
 export function getBaseModelId(modelId: string): string {
-  if (modelId.startsWith('google/')) return modelId.replace('google/', '')
-  return modelId
+  let base = modelId.startsWith('google/') ? modelId.replace('google/', '') : modelId
+  // Map Vercel AI Gateway model IDs to canonical config IDs
+  const vercelAliases: Record<string, string> = {
+    'gemini-3-pro-image': 'gemini-3-pro-image-preview',
+  }
+  base = vercelAliases[base] ?? base
+  return base
 }
 
 // Aspect ratios supported per model

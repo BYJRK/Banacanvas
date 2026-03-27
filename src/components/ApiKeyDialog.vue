@@ -25,6 +25,7 @@ const { t } = useI18n()
 const providerOptions: { value: Provider; labelKey: MessageKey; placeholderKey: MessageKey }[] = [
   { value: 'gemini', labelKey: 'providerGemini', placeholderKey: 'apiKeyPlaceholder' },
   { value: 'openrouter', labelKey: 'providerOpenRouter', placeholderKey: 'openRouterKeyPlaceholder' },
+  { value: 'vercel', labelKey: 'providerVercel', placeholderKey: 'vercelKeyPlaceholder' },
 ]
 
 const selectedProvider = ref<Provider>('gemini')
@@ -33,6 +34,7 @@ const selectedProvider = ref<Provider>('gemini')
 const keyInputs = ref<Record<Provider, string>>({
   gemini: '',
   openrouter: '',
+  vercel: '',
 })
 
 const currentInput = computed({
@@ -53,6 +55,7 @@ watch(
       keyInputs.value = {
         gemini: apiKeyStore.geminiKey,
         openrouter: apiKeyStore.openRouterKey,
+        vercel: apiKeyStore.vercelKey,
       }
     }
   },

@@ -66,6 +66,8 @@ const messages = {
     apiKeyPlaceholder: 'AIza...',
     openRouterKeyLabel: 'OpenRouter API Key',
     openRouterKeyPlaceholder: 'sk-or-...',
+    vercelKeyLabel: 'Vercel AI Gateway API Key',
+    vercelKeyPlaceholder: 'Enter your Vercel AI Gateway key...',
     clearKey: 'Clear Key',
     cancel: 'Cancel',
     save: 'Save',
@@ -81,6 +83,7 @@ const messages = {
     // Providers
     providerGemini: 'Google Gemini',
     providerOpenRouter: 'OpenRouter',
+    providerVercel: 'Vercel AI Gateway',
     providerKeyNotSet: 'API key not set for this provider',
 
     // Models
@@ -90,6 +93,8 @@ const messages = {
     modelNanoBananaProDesc: 'Professional quality. Advanced reasoning & text rendering.',
     modelORNanoBanana2Desc: 'Gemini Flash via OpenRouter. Supports aspect ratio & image size.',
     modelORNanoBananaProDesc: 'Gemini Pro via OpenRouter. Professional quality.',
+    modelVercelNanoBanana2Desc: 'Gemini Flash via Vercel AI Gateway. Fast image generation.',
+    modelVercelNanoBananaProDesc: 'Gemini Pro via Vercel AI Gateway. Professional quality.',
 
     // Theme
     themeSystem: 'System',
@@ -163,6 +168,8 @@ const messages = {
     apiKeyPlaceholder: 'AIza...',
     openRouterKeyLabel: 'OpenRouter API 密钥',
     openRouterKeyPlaceholder: 'sk-or-...',
+    vercelKeyLabel: 'Vercel AI Gateway API 密钥',
+    vercelKeyPlaceholder: '输入你的 Vercel AI Gateway 密钥...',
     clearKey: '清除密钥',
     cancel: '取消',
     save: '保存',
@@ -178,6 +185,7 @@ const messages = {
     // Providers
     providerGemini: 'Google Gemini',
     providerOpenRouter: 'OpenRouter',
+    providerVercel: 'Vercel AI Gateway',
     providerKeyNotSet: '未设置该服务商的 API 密钥',
 
     // Models
@@ -187,6 +195,8 @@ const messages = {
     modelNanoBananaProDesc: '专业品质。高级推理与文字渲染。',
     modelORNanoBanana2Desc: '通过 OpenRouter 使用 Gemini Flash。支持宽高比和图片尺寸。',
     modelORNanoBananaProDesc: '通过 OpenRouter 使用 Gemini Pro。专业品质。',
+    modelVercelNanoBanana2Desc: '通过 Vercel AI Gateway 使用 Gemini Flash。快速图像生成。',
+    modelVercelNanoBananaProDesc: '通过 Vercel AI Gateway 使用 Gemini Pro。专业品质。',
 
     // Theme
     themeSystem: '跟随系统',

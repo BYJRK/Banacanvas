@@ -1,4 +1,4 @@
-export type Provider = 'gemini' | 'openrouter'
+export type Provider = 'gemini' | 'openrouter' | 'vercel'
 
 export interface ModelOption {
   id: string

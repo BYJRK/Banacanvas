@@ -4,6 +4,7 @@ import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
 import { useOpenRouter } from './composables/useOpenRouter'
+import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
 import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes } from './config/models'
@@ -19,14 +20,16 @@ const apiKeyStore = useApiKeyStore()
 const historyStore = useHistoryStore()
 const gemini = useGemini()
 const openRouter = useOpenRouter()
+const vercelAI = useVercelAI()
 const { mode: themeMode, cycle: cycleTheme } = useTheme()
 const { t, locale, toggleLocale } = useI18n()
 
-const loading = computed(() => gemini.loading.value || openRouter.loading.value)
+const loading = computed(() => gemini.loading.value || openRouter.loading.value || vercelAI.loading.value)
 
 function cancelGeneration() {
   gemini.cancel()
   openRouter.cancel()
+  vercelAI.cancel()
 }
 
 // Dialog state
@@ -72,7 +75,7 @@ const showHistory = ref(false)
 
 // On mount: show API key dialog if no key set for any provider
 onMounted(() => {
-  if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey) {
+  if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey && !apiKeyStore.hasVercelKey) {
     showApiKeyDialog.value = true
   }
 })
@@ -121,7 +124,7 @@ async function handleGenerate() {
 
   try {
     const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id, provider }
-    const api = provider === 'openrouter' ? openRouter : gemini
+    const api = provider === 'vercel' ? vercelAI : provider === 'openrouter' ? openRouter : gemini
     const startTime = performance.now()
     let result
 
@@ -236,7 +239,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             @click="showApiKeyDialog = true"
             :class="[
               'rounded-lg p-2 transition-colors cursor-pointer',
-              apiKeyStore.hasGeminiKey || apiKeyStore.hasOpenRouterKey
+              apiKeyStore.hasGeminiKey || apiKeyStore.hasOpenRouterKey || apiKeyStore.hasVercelKey
                 ? 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
                 : 'text-red-500 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50',
             ]"

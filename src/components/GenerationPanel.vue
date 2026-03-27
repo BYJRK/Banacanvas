@@ -16,15 +16,18 @@ const MAX_IMAGES = 14
 const { t } = useI18n()
 
 const modelDescKeys: Record<string, MessageKey> = {
-  'gemini-3.1-flash-image-preview': 'modelNanoBanana2Desc',
-  'gemini-3-pro-image-preview': 'modelNanoBananaProDesc',
-  'google/gemini-3.1-flash-image-preview': 'modelORNanoBanana2Desc',
-  'google/gemini-3-pro-image-preview': 'modelORNanoBananaProDesc',
+  'gemini:gemini-3.1-flash-image-preview': 'modelNanoBanana2Desc',
+  'gemini:gemini-3-pro-image-preview': 'modelNanoBananaProDesc',
+  'openrouter:google/gemini-3.1-flash-image-preview': 'modelORNanoBanana2Desc',
+  'openrouter:google/gemini-3-pro-image-preview': 'modelORNanoBananaProDesc',
+  'vercel:google/gemini-3.1-flash-image-preview': 'modelVercelNanoBanana2Desc',
+  'vercel:google/gemini-3-pro-image': 'modelVercelNanoBananaProDesc',
 }
 
 const providerOptions: { value: Provider; labelKey: MessageKey }[] = [
   { value: 'gemini', labelKey: 'providerGemini' },
   { value: 'openrouter', labelKey: 'providerOpenRouter' },
+  { value: 'vercel', labelKey: 'providerVercel' },
 ]
 
 const prompt = defineModel<string>('prompt', { default: '' })
@@ -204,7 +207,7 @@ function onThumbDragEnd() {
                     <span :class="['font-medium', selected ? 'text-violet-600 dark:text-violet-400' : '']">
                       {{ model.name }}
                     </span>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ t(modelDescKeys[model.id] ?? 'modelNanoBanana2Desc') }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ t(modelDescKeys[`${selectedProvider}:${model.id}`] ?? 'modelNanoBanana2Desc') }}</p>
                   </div>
                   <span v-if="selected" class="text-violet-600 dark:text-violet-400">✓</span>
                 </div>
