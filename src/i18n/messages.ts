@@ -80,6 +80,11 @@ const messages = {
     imageGenerated: 'Image generated!',
     batchComplete: 'Batch complete: {success}/{total} succeeded',
     batchPartialError: 'Some images failed to generate',
+    generationSuccess: 'Image generated successfully!',
+    generationFailed: 'Image generation failed',
+
+    // Notification
+    showNotification: 'Notify on completion',
 
     // Batch
     batchSize: 'Batch Size',
@@ -192,6 +197,11 @@ const messages = {
     imageGenerated: '图片已生成！',
     batchComplete: '批量完成：{success}/{total} 张成功',
     batchPartialError: '部分图片生成失败',
+    generationSuccess: '图片生成成功！',
+    generationFailed: '图片生成失败',
+
+    // Notification
+    showNotification: '完成时通知',
 
     // Batch
     batchSize: '批量数量',

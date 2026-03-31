@@ -75,6 +75,24 @@ let batchControllers: AbortController[] = []
 const toasts = ref<{ id: number; message: string; type: 'success' | 'error' | 'info' }[]>([])
 let toastId = 0
 
+async function showSystemNotification(title: string, body: string) {
+  const showNotification = localStorage.getItem('banacanvas-show-notification')
+  if (showNotification === 'false') return
+
+  if (!('Notification' in window)) {
+    return
+  }
+
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body })
+  } else if (Notification.permission !== 'denied') {
+    const permission = await Notification.requestPermission()
+    if (permission === 'granted') {
+      new Notification(title, { body })
+    }
+  }
+}
+
 function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
   const id = ++toastId
   toasts.value.push({ id, message, type })
@@ -171,12 +189,13 @@ async function handleGenerate() {
         inputImageMimeType: inputImages.value[0]?.mimeType,
         textResponse: result.textResponse,
       })
-
       showToast(t('imageGenerated'), 'success')
+      showSystemNotification(t('appName'), t('generationSuccess'))
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       errorMessage.value = msg
       showToast(msg, 'error')
+      showSystemNotification(t('appName'), t('generationFailed'))
     }
   } else {
     // Batch generation with concurrency control
@@ -243,10 +262,13 @@ async function handleGenerate() {
     const toastMsg = t('batchComplete').replace('{success}', String(successCount)).replace('{total}', String(batchSize))
     if (successCount === batchSize) {
       showToast(toastMsg, 'success')
+      showSystemNotification(t('appName'), t('generationSuccess'))
     } else if (successCount > 0) {
       showToast(toastMsg, 'info')
+      showSystemNotification(t('appName'), t('batchPartialError'))
     } else {
       showToast(toastMsg, 'error')
+      showSystemNotification(t('appName'), t('generationFailed'))
     }
   }
 }
