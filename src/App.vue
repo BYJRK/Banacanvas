@@ -77,6 +77,21 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 // History sidebar
 const showHistory = ref(false)
 
+// Notification state
+const notifyOnEnd = ref(false)
+watch(notifyOnEnd, (val) => {
+  if (val && Notification.permission === 'default') {
+    Notification.requestPermission()
+  }
+})
+
+function sendNotification(success: boolean) {
+  if (!notifyOnEnd.value) return
+  if (Notification.permission !== 'granted') return
+  const title = success ? t('notificationSuccess') : t('notificationError')
+  new Notification(title)
+}
+
 // On mount: show API key dialog if no key set for any provider
 onMounted(() => {
   if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey && !apiKeyStore.hasVercelKey) {
@@ -163,10 +178,12 @@ async function handleGenerate() {
     })
 
     showToast(t('imageGenerated'), 'success')
+    sendNotification(true)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     errorMessage.value = msg
     showToast(msg, 'error')
+    sendNotification(false)
   }
 }
 
@@ -273,7 +290,7 @@ function handleHistorySelect(entry: HistoryEntry) {
           @provider-change="onProviderChange"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
-        <ParameterPanel v-model="config" v-model:download-format="downloadFormat" :model-id="config.model" :provider="selectedProvider" />
+        <ParameterPanel v-model="config" v-model:download-format="downloadFormat" :model-id="config.model" :provider="selectedProvider" :notify-on-end="notifyOnEnd" @notify-change="notifyOnEnd = $event" />
       </aside>
 
       <!-- Center: Image display -->

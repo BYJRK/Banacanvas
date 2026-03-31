@@ -104,6 +104,11 @@ const messages = {
     themeSystem: 'System',
     themeLight: 'Light',
     themeDark: 'Dark',
+
+    // Notifications
+    notifyOnEnd: 'Notify on completion',
+    notificationSuccess: 'Image generated successfully!',
+    notificationError: 'Image generation failed',
   },
   zh: {
     // Header
@@ -210,6 +215,11 @@ const messages = {
     themeSystem: '跟随系统',
     themeLight: '浅色',
     themeDark: '深色',
+
+    // Notifications
+    notifyOnEnd: '完成时通知',
+    notificationSuccess: '图片生成成功！',
+    notificationError: '图片生成失败',
   },
 } as const
 
