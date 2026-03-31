@@ -15,13 +15,14 @@ const { t } = useI18n()
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
 const imageSizes = computed(() => getImageSizes(props.modelId))
 const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K'))
+const is512Disabled = computed(() => props.provider === 'openrouter' || props.provider === 'vercel')
 
 function setAspectRatio(ratio: string) {
   config.value = { ...config.value, aspectRatio: ratio }
 }
 
 function setImageSize(size: GenerationConfig['imageSize']) {
-  // If current size is not available for this model, reset
+  if (is512Disabled.value && size === '512') return
   const validValues = imageSizes.value.map((s) => s.value)
   const newSize = validValues.includes(size as any) ? size : (validValues[0] as GenerationConfig['imageSize'])
   config.value = { ...config.value, imageSize: newSize }
@@ -48,11 +49,15 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
           v-for="size in imageSizes"
           :key="size.value"
           @click="setImageSize(size.value as GenerationConfig['imageSize'])"
+          :disabled="is512Disabled && size.value === '512'"
+          :title="is512Disabled && size.value === '512' ? t('imageSizeNotSupported') : undefined"
           :class="[
-            'rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
-            config.imageSize === size.value
-              ? 'bg-violet-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
+            'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+            is512Disabled && size.value === '512'
+              ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
+              : config.imageSize === size.value
+                ? 'bg-violet-600 text-white cursor-pointer'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer',
           ]"
         >
           {{ size.label }}

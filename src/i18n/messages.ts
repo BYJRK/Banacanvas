@@ -29,6 +29,7 @@ const messages = {
     // ParameterPanel
     parameters: 'Parameters',
     imageSize: 'Image Size',
+    imageSizeNotSupported: 'API does not support 512 resolution',
     aspectRatio: 'Aspect Ratio',
     thinkingLevel: 'Thinking Level',
     googleSearch: 'Google Search',
@@ -140,6 +141,7 @@ const messages = {
     // ParameterPanel
     parameters: '参数',
     imageSize: '图片尺寸',
+    imageSizeNotSupported: 'API 不支持 512 分辨率',
     aspectRatio: '宽高比',
     thinkingLevel: '思考等级',
     googleSearch: 'Google 搜索',
