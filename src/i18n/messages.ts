@@ -43,6 +43,10 @@ const messages = {
     // ImageDisplay
     generatingImage: 'Generating image...',
     download: '⬇ Download',
+    downloadFormat: 'Download Format',
+    formatPng: 'PNG',
+    formatJpg: 'JPG',
+    formatWebp: 'WebP',
     fullscreen: '⛶ Fullscreen',
     clear: '✕ Clear',
     emptyState: 'Generated image will appear here',
@@ -145,6 +149,10 @@ const messages = {
     // ImageDisplay
     generatingImage: '正在生成图片...',
     download: '⬇ 下载',
+    downloadFormat: '下载格式',
+    formatPng: 'PNG',
+    formatJpg: 'JPG',
+    formatWebp: 'WebP',
     fullscreen: '⛶ 全屏',
     clear: '✕ 清除',
     emptyState: '生成的图片将显示在这里',

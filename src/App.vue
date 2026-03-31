@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
@@ -8,7 +8,7 @@ import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
 import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes } from './config/models'
-import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider } from './types'
+import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
@@ -47,6 +47,10 @@ const config = ref<GenerationConfig>({
   thinkingLevel: 'MINIMAL',
   googleSearch: false,
 })
+const downloadFormat = ref<DownloadFormat>(
+  (localStorage.getItem('banacanvas-download-format') as DownloadFormat) || 'png',
+)
+watch(downloadFormat, (val) => localStorage.setItem('banacanvas-download-format', val))
 
 // Input images (for image-to-image, max 14)
 const inputImages = ref<InputImage[]>([])
@@ -269,7 +273,7 @@ function handleHistorySelect(entry: HistoryEntry) {
           @provider-change="onProviderChange"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
-        <ParameterPanel v-model="config" :model-id="config.model" :provider="selectedProvider" />
+        <ParameterPanel v-model="config" v-model:download-format="downloadFormat" :model-id="config.model" :provider="selectedProvider" />
       </aside>
 
       <!-- Center: Image display -->
@@ -298,6 +302,7 @@ function handleHistorySelect(entry: HistoryEntry) {
               :error-message="errorMessage"
               :loading="loading"
               :usage="resultUsage"
+              :download-format="downloadFormat"
               @clear="resultImage = undefined; resultMimeType = undefined; resultText = undefined; resultUsage = undefined; errorMessage = null"
             />
           </div>

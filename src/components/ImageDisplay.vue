@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { UsageInfo } from '../types'
+import type { UsageInfo, DownloadFormat } from '../types'
 import { useI18n } from '../composables/useI18n'
 
 const props = defineProps<{
@@ -10,6 +10,7 @@ const props = defineProps<{
   errorMessage?: string | null
   loading?: boolean
   usage?: UsageInfo
+  downloadFormat?: DownloadFormat
 }>()
 
 const emit = defineEmits<{
@@ -24,13 +25,58 @@ const imageUrl = () => {
   return `data:${props.imageMimeType};base64,${props.imageBase64}`
 }
 
+const FORMAT_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  webp: 'image/webp',
+}
+
 function download() {
   if (!props.imageBase64 || !props.imageMimeType) return
-  const link = document.createElement('a')
-  link.href = imageUrl()
-  const ext = props.imageMimeType.includes('png') ? 'png' : 'jpg'
-  link.download = `banacanvas-${Date.now()}.${ext}`
-  link.click()
+
+  const fmt = props.downloadFormat ?? 'png'
+  const targetMime = FORMAT_MIME[fmt]
+
+  // If already matches target format, download directly without re-encoding
+  if (props.imageMimeType === targetMime) {
+    const link = document.createElement('a')
+    link.href = imageUrl()
+    link.download = `banacanvas-${Date.now()}.${fmt}`
+    link.click()
+    return
+  }
+
+  // Decode base64 to blob, then re-encode via canvas for format conversion
+  const binary = atob(props.imageBase64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const srcBlob = new Blob([bytes], { type: props.imageMimeType })
+
+  createImageBitmap(srcBlob).then((bitmap) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(bitmap, 0, 0)
+    bitmap.close()
+
+    const quality = fmt === 'png' ? undefined : 0.95
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return
+        // Verify browser actually encoded the requested format
+        const actualFmt = blob.type === targetMime ? fmt : (blob.type.includes('png') ? 'png' : 'jpg')
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `banacanvas-${Date.now()}.${actualFmt}`
+        link.click()
+        URL.revokeObjectURL(url)
+      },
+      targetMime,
+      quality,
+    )
+  })
 }
 </script>
 

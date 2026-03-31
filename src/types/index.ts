@@ -1,5 +1,7 @@
 export type Provider = 'gemini' | 'openrouter' | 'vercel'
 
+export type DownloadFormat = 'png' | 'jpg' | 'webp'
+
 export interface ModelOption {
   id: string
   name: string

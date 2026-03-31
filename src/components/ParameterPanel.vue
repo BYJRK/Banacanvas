@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { getAspectRatios, getImageSizes, getResolution, THINKING_LEVELS } from '../config/models'
-import type { GenerationConfig, Provider } from '../types'
+import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
 const props = defineProps<{ modelId: string; provider: Provider }>()
 const config = defineModel<GenerationConfig>({ required: true })
+const downloadFormat = defineModel<DownloadFormat>('downloadFormat', { required: true })
 
 const { t } = useI18n()
 
@@ -139,6 +140,28 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
         <option value="ALLOW_ADULT">{{ t('personAdultOnly') }}</option>
         <option value="ALLOW_NONE">{{ t('personNone') }}</option>
       </select>
+    </div>
+
+    <!-- Download Format -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {{ t('downloadFormat') }}
+      </label>
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          v-for="fmt in (['png', 'jpg', 'webp'] as const)"
+          :key="fmt"
+          @click="downloadFormat = fmt"
+          :class="[
+            'rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+            downloadFormat === fmt
+              ? 'bg-violet-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
+          ]"
+        >
+          {{ fmt === 'png' ? t('formatPng') : fmt === 'jpg' ? t('formatJpg') : t('formatWebp') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
