@@ -78,8 +78,9 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 const showHistory = ref(false)
 
 // Notification state
-const notifyOnEnd = ref(false)
+const notifyOnEnd = ref(localStorage.getItem('banacanvas-notify-on-end') === 'true')
 watch(notifyOnEnd, (val) => {
+  localStorage.setItem('banacanvas-notify-on-end', String(val))
   if (val && Notification.permission === 'default') {
     Notification.requestPermission()
   }
