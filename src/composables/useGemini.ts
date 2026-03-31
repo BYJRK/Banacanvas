@@ -60,16 +60,20 @@ export function useGemini() {
   async function generateImage(
     prompt: string,
     config: GenerationConfig,
+    externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
     if (!client) throw new Error(t('apiKeyNotSet'))
 
-    loading.value = true
-    error.value = null
-    abortController = new AbortController()
+    const managed = !externalSignal
+    if (managed) {
+      loading.value = true
+      error.value = null
+      abortController = new AbortController()
+    }
 
     try {
       const apiConfig = buildApiConfig(config)
-      apiConfig.abortSignal = abortController.signal
+      apiConfig.abortSignal = externalSignal ?? abortController!.signal
 
       const contents = [
         {
@@ -90,11 +94,13 @@ export function useGemini() {
       if (msg.includes('abort')) {
         throw new Error(t('generationCancelled'))
       }
-      error.value = msg
+      if (managed) error.value = msg
       throw new Error(msg)
     } finally {
-      loading.value = false
-      abortController = null
+      if (managed) {
+        loading.value = false
+        abortController = null
+      }
     }
   }
 
@@ -102,16 +108,20 @@ export function useGemini() {
     images: InputImage[],
     prompt: string,
     config: GenerationConfig,
+    externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
     if (!client) throw new Error(t('apiKeyNotSet'))
 
-    loading.value = true
-    error.value = null
-    abortController = new AbortController()
+    const managed = !externalSignal
+    if (managed) {
+      loading.value = true
+      error.value = null
+      abortController = new AbortController()
+    }
 
     try {
       const apiConfig = buildApiConfig(config)
-      apiConfig.abortSignal = abortController.signal
+      apiConfig.abortSignal = externalSignal ?? abortController!.signal
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parts: any[] = images.map((img) => ({
@@ -141,11 +151,13 @@ export function useGemini() {
       if (msg.includes('abort')) {
         throw new Error(t('generationCancelled'))
       }
-      error.value = msg
+      if (managed) error.value = msg
       throw new Error(msg)
     } finally {
-      loading.value = false
-      abortController = null
+      if (managed) {
+        loading.value = false
+        abortController = null
+      }
     }
   }
 

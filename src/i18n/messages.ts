@@ -78,6 +78,12 @@ const messages = {
 
     // Toast / Messages
     imageGenerated: 'Image generated!',
+    batchComplete: 'Batch complete: {success}/{total} succeeded',
+    batchPartialError: 'Some images failed to generate',
+
+    // Batch
+    batchSize: 'Batch Size',
+    batchProgress: 'Generating {current}/{total}...',
 
     // Errors
     apiKeyNotSet: 'API Key not set',
@@ -184,6 +190,12 @@ const messages = {
 
     // Toast / Messages
     imageGenerated: '图片已生成！',
+    batchComplete: '批量完成：{success}/{total} 张成功',
+    batchPartialError: '部分图片生成失败',
+
+    // Batch
+    batchSize: '批量数量',
+    batchProgress: '正在生成 {current}/{total}...',
 
     // Errors
     apiKeyNotSet: '未设置 API 密钥',

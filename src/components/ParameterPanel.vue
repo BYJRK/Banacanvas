@@ -28,6 +28,10 @@ function setImageSize(size: GenerationConfig['imageSize']) {
 function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
   config.value = { ...config.value, thinkingLevel: level }
 }
+
+function setBatchSize(size: number) {
+  config.value = { ...config.value, batchSize: Math.max(1, Math.min(4, size)) }
+}
 </script>
 
 <template>
@@ -140,6 +144,24 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
         <option value="ALLOW_ADULT">{{ t('personAdultOnly') }}</option>
         <option value="ALLOW_NONE">{{ t('personNone') }}</option>
       </select>
+    </div>
+
+    <!-- Batch Size -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {{ t('batchSize') }}
+      </label>
+      <div class="flex items-center gap-3">
+        <input
+          type="range"
+          min="1"
+          max="4"
+          :value="config.batchSize ?? 1"
+          @input="setBatchSize(Number(($event.target as HTMLInputElement).value))"
+          class="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-600"
+        />
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-6 text-center">{{ config.batchSize ?? 1 }}</span>
+      </div>
     </div>
 
     <!-- Download Format -->

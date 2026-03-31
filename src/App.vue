@@ -8,7 +8,7 @@ import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
 import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes } from './config/models'
-import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat } from './types'
+import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
@@ -24,12 +24,15 @@ const vercelAI = useVercelAI()
 const { mode: themeMode, cycle: cycleTheme } = useTheme()
 const { t, locale, toggleLocale } = useI18n()
 
-const loading = computed(() => gemini.loading.value || openRouter.loading.value || vercelAI.loading.value)
+const loading = computed(() => gemini.loading.value || openRouter.loading.value || vercelAI.loading.value || batchLoading.value)
 
 function cancelGeneration() {
   gemini.cancel()
   openRouter.cancel()
   vercelAI.cancel()
+  batchControllers.forEach((c) => c.abort())
+  batchControllers = []
+  batchLoading.value = false
 }
 
 // Dialog state
@@ -61,6 +64,12 @@ const resultMimeType = ref<string | undefined>()
 const resultText = ref<string | undefined>()
 const resultUsage = ref<UsageInfo | undefined>()
 const errorMessage = ref<string | null>(null)
+
+// Batch generation
+const batchResults = ref<BatchResultItem[]>([])
+const batchProgress = ref<{ current: number; total: number } | null>(null)
+const batchLoading = ref(false)
+let batchControllers: AbortController[] = []
 
 // Toast
 const toasts = ref<{ id: number; message: string; type: 'success' | 'error' | 'info' }[]>([])
@@ -125,48 +134,120 @@ async function handleGenerate() {
   resultMimeType.value = undefined
   resultText.value = undefined
   resultUsage.value = undefined
+  batchResults.value = []
+  batchProgress.value = null
 
-  try {
-    const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id, provider }
-    const api = provider === 'vercel' ? vercelAI : provider === 'openrouter' ? openRouter : gemini
-    const startTime = performance.now()
-    let result
+  const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id, provider }
+  const api = provider === 'vercel' ? vercelAI : provider === 'openrouter' ? openRouter : gemini
+  const batchSize = currentConfig.batchSize ?? 1
 
-    if (inputImages.value.length > 0) {
-      result = await api.editImage(
-        inputImages.value,
-        prompt.value,
-        currentConfig,
-      )
-    } else {
-      result = await api.generateImage(prompt.value, currentConfig)
+  if (batchSize <= 1) {
+    // Single generation — original path
+    try {
+      const startTime = performance.now()
+      let result
+
+      if (inputImages.value.length > 0) {
+        result = await api.editImage(inputImages.value, prompt.value, currentConfig)
+      } else {
+        result = await api.generateImage(prompt.value, currentConfig)
+      }
+
+      const elapsedMs = Math.round(performance.now() - startTime)
+
+      resultImage.value = result.imageBase64
+      resultMimeType.value = result.imageMimeType
+      resultText.value = result.textResponse
+      resultUsage.value = result.usage
+        ? { ...result.usage, elapsedMs }
+        : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
+
+      historyStore.addEntry({
+        prompt: prompt.value,
+        config: currentConfig,
+        imageBase64: result.imageBase64,
+        imageMimeType: result.imageMimeType,
+        inputImageBase64: inputImages.value[0]?.base64,
+        inputImageMimeType: inputImages.value[0]?.mimeType,
+        textResponse: result.textResponse,
+      })
+
+      showToast(t('imageGenerated'), 'success')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      errorMessage.value = msg
+      showToast(msg, 'error')
     }
+  } else {
+    // Batch generation with concurrency control
+    batchLoading.value = true
+    batchProgress.value = { current: 0, total: batchSize }
+    batchControllers = []
+    const startTime = performance.now()
+    const tasks = Array.from({ length: batchSize }, () => async () => {
+      const ac = new AbortController()
+      batchControllers.push(ac)
+      try {
+        const result = inputImages.value.length > 0
+          ? await api.editImage(inputImages.value, prompt.value, currentConfig, ac.signal)
+          : await api.generateImage(prompt.value, currentConfig, ac.signal)
+
+        const item: BatchResultItem = {
+          imageBase64: result.imageBase64,
+          imageMimeType: result.imageMimeType,
+          textResponse: result.textResponse,
+          usage: result.usage,
+        }
+        batchResults.value = [...batchResults.value, item]
+
+        historyStore.addEntry({
+          prompt: prompt.value,
+          config: currentConfig,
+          imageBase64: result.imageBase64,
+          imageMimeType: result.imageMimeType,
+          inputImageBase64: inputImages.value[0]?.base64,
+          inputImageMimeType: inputImages.value[0]?.mimeType,
+          textResponse: result.textResponse,
+        })
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        batchResults.value = [...batchResults.value, { error: msg }]
+      } finally {
+        if (batchProgress.value) {
+          batchProgress.value = { ...batchProgress.value, current: batchProgress.value.current + 1 }
+        }
+      }
+    })
+
+    await Promise.allSettled(tasks.map((task) => task()))
 
     const elapsedMs = Math.round(performance.now() - startTime)
 
-    resultImage.value = result.imageBase64
-    resultMimeType.value = result.imageMimeType
-    resultText.value = result.textResponse
-    resultUsage.value = result.usage
-      ? { ...result.usage, elapsedMs }
-      : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
+    // Aggregate usage for display
+    const successCount = batchResults.value.filter((r) => r.imageBase64).length
+    const aggregatedUsage: UsageInfo = { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
+    for (const r of batchResults.value) {
+      if (r.usage) {
+        aggregatedUsage.promptTokenCount += r.usage.promptTokenCount
+        aggregatedUsage.candidatesTokenCount += r.usage.candidatesTokenCount
+        aggregatedUsage.thoughtsTokenCount += r.usage.thoughtsTokenCount
+        aggregatedUsage.totalTokenCount += r.usage.totalTokenCount
+        aggregatedUsage.estimatedCost += r.usage.estimatedCost
+      }
+    }
+    resultUsage.value = aggregatedUsage
 
-    // Save to history
-    historyStore.addEntry({
-      prompt: prompt.value,
-      config: currentConfig,
-      imageBase64: result.imageBase64,
-      imageMimeType: result.imageMimeType,
-      inputImageBase64: inputImages.value[0]?.base64,
-      inputImageMimeType: inputImages.value[0]?.mimeType,
-      textResponse: result.textResponse,
-    })
+    batchLoading.value = false
+    batchControllers = []
 
-    showToast(t('imageGenerated'), 'success')
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    errorMessage.value = msg
-    showToast(msg, 'error')
+    const toastMsg = t('batchComplete').replace('{success}', String(successCount)).replace('{total}', String(batchSize))
+    if (successCount === batchSize) {
+      showToast(toastMsg, 'success')
+    } else if (successCount > 0) {
+      showToast(toastMsg, 'info')
+    } else {
+      showToast(toastMsg, 'error')
+    }
   }
 }
 
@@ -303,7 +384,9 @@ function handleHistorySelect(entry: HistoryEntry) {
               :loading="loading"
               :usage="resultUsage"
               :download-format="downloadFormat"
-              @clear="resultImage = undefined; resultMimeType = undefined; resultText = undefined; resultUsage = undefined; errorMessage = null"
+              :batch-results="batchResults"
+              :batch-progress="batchProgress"
+              @clear="resultImage = undefined; resultMimeType = undefined; resultText = undefined; resultUsage = undefined; errorMessage = null; batchResults = []; batchProgress = null"
             />
           </div>
         </div>
