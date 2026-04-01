@@ -178,7 +178,7 @@ async function handleGenerate() {
         ? { ...result.usage, elapsedMs }
         : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
 
-      historyStore.addEntry({
+      await historyStore.addEntry({
         prompt: prompt.value,
         config: currentConfig,
         imageBase64: result.imageBase64,
@@ -218,7 +218,7 @@ async function handleGenerate() {
         }
         batchResults.value = [...batchResults.value, item]
 
-        historyStore.addEntry({
+        await historyStore.addEntry({
           prompt: prompt.value,
           config: currentConfig,
           imageBase64: result.imageBase64,
