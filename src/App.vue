@@ -40,20 +40,55 @@ const showApiKeyDialog = ref(false)
 
 // Generation state
 const prompt = ref('')
-const selectedProvider = ref<Provider>(DEFAULT_MODEL.provider)
-const selectedModel = ref<ModelOption>(DEFAULT_MODEL)
+
+// Restore persisted params
+function loadPersistedConfig(): { provider: Provider; modelId: string; config: Partial<GenerationConfig>; downloadFormat: DownloadFormat } {
+  try {
+    const raw = localStorage.getItem('banacanvas-params')
+    if (raw) return JSON.parse(raw)
+  } catch { /* ignore */ }
+  return { provider: DEFAULT_MODEL.provider, modelId: DEFAULT_MODEL.id, config: {}, downloadFormat: 'png' }
+}
+
+const persisted = loadPersistedConfig()
+// migrate legacy separate download-format key
+if (!persisted.downloadFormat) {
+  persisted.downloadFormat = (localStorage.getItem('banacanvas-download-format') as DownloadFormat) || 'png'
+  localStorage.removeItem('banacanvas-download-format')
+}
+const persistedProvider = persisted.provider as Provider
+const persistedModelOption = AVAILABLE_MODELS.find((m) => m.id === persisted.modelId && m.provider === persistedProvider) ?? DEFAULT_MODEL
+
+const selectedProvider = ref<Provider>(persistedProvider)
+const selectedModel = ref<ModelOption>(persistedModelOption)
 const config = ref<GenerationConfig>({
-  provider: DEFAULT_MODEL.provider,
-  model: DEFAULT_MODEL.id,
-  aspectRatio: '1:1',
-  imageSize: '1K',
-  thinkingLevel: 'MINIMAL',
-  googleSearch: false,
+  provider: persistedProvider,
+  model: persistedModelOption.id,
+  aspectRatio: persisted.config.aspectRatio ?? '1:1',
+  imageSize: persisted.config.imageSize ?? '1K',
+  thinkingLevel: persisted.config.thinkingLevel ?? 'MINIMAL',
+  googleSearch: persisted.config.googleSearch ?? false,
+  batchSize: persisted.config.batchSize ?? 1,
 })
-const downloadFormat = ref<DownloadFormat>(
-  (localStorage.getItem('banacanvas-download-format') as DownloadFormat) || 'png',
-)
-watch(downloadFormat, (val) => localStorage.setItem('banacanvas-download-format', val))
+
+const downloadFormat = ref<DownloadFormat>(persisted.downloadFormat ?? 'png')
+
+function persistParams() {
+  localStorage.setItem('banacanvas-params', JSON.stringify({
+    provider: selectedProvider.value,
+    modelId: selectedModel.value.id,
+    downloadFormat: downloadFormat.value,
+    config: {
+      aspectRatio: config.value.aspectRatio,
+      imageSize: config.value.imageSize,
+      thinkingLevel: config.value.thinkingLevel,
+      googleSearch: config.value.googleSearch,
+      batchSize: config.value.batchSize,
+    },
+  }))
+}
+
+watch([selectedProvider, selectedModel, config, downloadFormat], persistParams, { deep: true })
 
 // Input images (for image-to-image, max 14)
 const inputImages = ref<InputImage[]>([])
