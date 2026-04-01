@@ -1,7 +1,7 @@
 const messages = {
   en: {
     // Header
-    appName: '🍌 Banacanvas',
+    appName: 'Banacanvas',
     beta: 'beta',
     history: 'History',
     apiKeySettings: 'API Key Settings',
@@ -130,7 +130,7 @@ const messages = {
   },
   zh: {
     // Header
-    appName: '🍌 Banacanvas',
+    appName: 'Banacanvas',
     beta: 'beta',
     history: '历史记录',
     apiKeySettings: 'API 密钥设置',

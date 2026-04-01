@@ -371,10 +371,8 @@ function handleHistorySelect(entry: HistoryEntry) {
     <header class="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div class="flex items-center gap-2">
+          <img src="/favicon-128x128.png" alt="Banacanvas" class="w-10 h-10" />
           <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ t('appName') }}</span>
-          <span class="text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded-full font-medium">
-            {{ t('beta') }}
-          </span>
         </div>
         <div class="flex items-center gap-2">
           <!-- Language toggle -->
