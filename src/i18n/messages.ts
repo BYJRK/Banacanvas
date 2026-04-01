@@ -65,6 +65,10 @@ const messages = {
     justNow: 'Just now',
     timeSuffixMinutes: 'm ago',
     timeSuffixHours: 'h ago',
+    viewGrid: 'Grid view',
+    viewWaterfall: 'Waterfall view',
+    viewList: 'List view',
+    viewMode: 'View mode',
 
     // ApiKeyDialog
     apiKeyTitle: 'API Key Settings',
@@ -194,6 +198,10 @@ const messages = {
     justNow: '刚刚',
     timeSuffixMinutes: '分钟前',
     timeSuffixHours: '小时前',
+    viewGrid: '网格视图',
+    viewWaterfall: '瀑布流',
+    viewList: '列表视图',
+    viewMode: '视图模式',
 
     // ApiKeyDialog
     apiKeyTitle: 'API 密钥设置',

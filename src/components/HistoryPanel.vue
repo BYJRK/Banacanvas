@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useHistoryStore } from '../stores/history'
 import type { HistoryEntry } from '../types'
 import { useI18n } from '../composables/useI18n'
+import { AVAILABLE_MODELS } from '../config/models'
 
 const emit = defineEmits<{
   (e: 'select', entry: HistoryEntry): void
@@ -45,6 +46,31 @@ async function refreshStorageEstimate() {
 
 refreshStorageEstimate()
 watch(() => historyStore.entries, refreshStorageEstimate, { deep: true })
+
+// View mode
+type HistoryViewMode = 'grid' | 'waterfall' | 'list'
+const viewMode = ref<HistoryViewMode>((localStorage.getItem('historyViewMode') as HistoryViewMode) || 'grid')
+watch(viewMode, (v) => localStorage.setItem('historyViewMode', v))
+
+const showViewDropdown = ref(false)
+const viewDropdownRef = ref<HTMLElement | null>(null)
+function onDocClick(e: MouseEvent) {
+  if (viewDropdownRef.value && !viewDropdownRef.value.contains(e.target as Node)) {
+    showViewDropdown.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', onDocClick))
+onUnmounted(() => document.removeEventListener('click', onDocClick))
+
+// Waterfall: split entries into two columns
+const leftEntries = computed(() => historyStore.entries.filter((_, i) => i % 2 === 0))
+const rightEntries = computed(() => historyStore.entries.filter((_, i) => i % 2 === 1))
+
+// List: resolve short model name
+function modelName(entry: HistoryEntry): string {
+  const found = AVAILABLE_MODELS.find((m) => m.id === entry.config.model && m.provider === entry.config.provider)
+  return found ? found.name : (entry.config.model.split('/').pop() ?? entry.config.model)
+}
 
 const storagePercent = computed(() =>
   storageQuotaBytes.value > 0 ? Math.min(100, (storageUsedBytes.value / storageQuotaBytes.value) * 100) : 0
@@ -126,6 +152,53 @@ function onMeterEnter() {
             </div>
           </div>
         </Teleport>
+        <!-- View mode dropdown -->
+        <div class="relative" ref="viewDropdownRef">
+          <button
+            @click="showViewDropdown = !showViewDropdown"
+            class="flex items-center gap-0.5 rounded p-1 transition-colors cursor-pointer text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            :title="t('viewMode')"
+          >
+            <!-- Grid icon -->
+            <svg v-if="viewMode === 'grid'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 0h6v6h-6v-6z"/>
+            </svg>
+            <!-- Waterfall icon -->
+            <svg v-else-if="viewMode === 'waterfall'" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3 3h6v13H3V3zm8 0h6v8h-6V3z"/>
+            </svg>
+            <!-- List icon -->
+            <svg v-else class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3 5h2v2H3V5zm4 0h10v2H7V5zM3 9h2v2H3V9zm4 0h10v2H7V9zM3 13h2v2H3v-2zm4 0h10v2H7v-2z"/>
+            </svg>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div
+            v-if="showViewDropdown"
+            class="absolute right-0 top-full mt-1 w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg z-50 py-1"
+          >
+            <button
+              v-for="mode in (['grid', 'waterfall', 'list'] as const)"
+              :key="mode"
+              @click="viewMode = mode; showViewDropdown = false"
+              class="flex items-center gap-2 w-full px-3 py-1.5 text-xs cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="viewMode === mode ? 'text-violet-500 font-medium' : 'text-gray-600 dark:text-gray-300'"
+            >
+              <svg v-if="mode === 'grid'" class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 0h6v6h-6v-6z"/>
+              </svg>
+              <svg v-else-if="mode === 'waterfall'" class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 3h6v13H3V3zm8 0h6v8h-6V3z"/>
+              </svg>
+              <svg v-else class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 5h2v2H3V5zm4 0h10v2H7V5zM3 9h2v2H3V9zm4 0h10v2H7V9zM3 13h2v2H3v-2zm4 0h10v2H7v-2z"/>
+              </svg>
+              {{ t(mode === 'grid' ? 'viewGrid' : mode === 'waterfall' ? 'viewWaterfall' : 'viewList') }}
+            </button>
+          </div>
+        </div>
         <button
           v-if="historyStore.entries.length > 0"
           @click="historyStore.clearAll()"
@@ -143,7 +216,8 @@ function onMeterEnter() {
       <p class="text-sm text-gray-400 dark:text-gray-600">{{ t('noHistory') }}</p>
     </div>
 
-    <div v-else class="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
+    <!-- Grid view -->
+    <div v-else-if="viewMode === 'grid'" class="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
       <div
         v-for="entry in historyStore.entries"
         :key="entry.id"
@@ -151,21 +225,90 @@ function onMeterEnter() {
         @click="emit('select', entry)"
         :title="entry.prompt.length > 100 ? entry.prompt.slice(0, 100) + '…' : entry.prompt"
       >
-        <img
-          :src="thumbUrl(entry)"
-          :alt="entry.prompt"
-          class="w-full aspect-16/9 object-cover object-center"
-          loading="lazy"
-        />
+        <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-full aspect-16/9 object-cover object-center" loading="lazy" />
         <div class="p-2">
-          <p class="text-[10px] text-gray-400 dark:text-gray-600">
-            {{ formatTime(entry.timestamp) }}
-          </p>
+          <p class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(entry.timestamp) }}</p>
         </div>
-        <!-- Delete button -->
         <button
           @click.stop="historyStore.removeEntry(entry.id)"
           class="absolute top-1 right-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
+        >
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Waterfall view -->
+    <div v-else-if="viewMode === 'waterfall'" class="flex gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
+      <div class="flex flex-col gap-2 flex-1 min-w-0">
+        <div
+          v-for="entry in leftEntries"
+          :key="entry.id"
+          class="group relative rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
+          @click="emit('select', entry)"
+          :title="entry.prompt.length > 100 ? entry.prompt.slice(0, 100) + '…' : entry.prompt"
+        >
+          <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-full object-cover object-center" loading="lazy" />
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <p class="text-[10px] text-white/80">{{ formatTime(entry.timestamp) }}</p>
+          </div>
+          <button
+            @click.stop="historyStore.removeEntry(entry.id)"
+            class="absolute top-1 right-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
+          >
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2 flex-1 min-w-0">
+        <div
+          v-for="entry in rightEntries"
+          :key="entry.id"
+          class="group relative rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
+          @click="emit('select', entry)"
+          :title="entry.prompt.length > 100 ? entry.prompt.slice(0, 100) + '…' : entry.prompt"
+        >
+          <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-full object-cover object-center" loading="lazy" />
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <p class="text-[10px] text-white/80">{{ formatTime(entry.timestamp) }}</p>
+          </div>
+          <button
+            @click.stop="historyStore.removeEntry(entry.id)"
+            class="absolute top-1 right-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
+          >
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- List view -->
+    <div v-else class="flex flex-col gap-1 overflow-y-auto flex-1 min-h-0 pr-1">
+      <div
+        v-for="entry in historyStore.entries"
+        :key="entry.id"
+        class="group flex items-start gap-2.5 p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer relative"
+        @click="emit('select', entry)"
+      >
+        <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-12 h-12 rounded object-cover shrink-0" loading="lazy" />
+        <div class="flex-1 min-w-0 pr-5">
+          <p class="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 mb-1 leading-relaxed">{{ entry.prompt }}</p>
+          <div class="flex flex-wrap gap-x-2 gap-y-0.5">
+            <span class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(entry.timestamp) }}</span>
+            <span v-if="entry.config.aspectRatio" class="text-[10px] text-gray-400 dark:text-gray-600">{{ entry.config.aspectRatio }}</span>
+            <span v-if="entry.config.imageSize" class="text-[10px] text-gray-400 dark:text-gray-600">{{ entry.config.imageSize }}</span>
+            <span class="text-[10px] text-violet-400 dark:text-violet-500">{{ modelName(entry) }}</span>
+          </div>
+        </div>
+        <button
+          @click.stop="historyStore.removeEntry(entry.id)"
+          class="absolute top-1.5 right-1.5 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
         >
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
