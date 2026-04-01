@@ -15,17 +15,17 @@ function loadHistory(): HistoryEntry[] {
 }
 
 function saveHistory(entries: HistoryEntry[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
-  } catch {
-    // localStorage full — trim oldest entries and retry
-    const trimmed = entries.slice(0, Math.floor(entries.length / 2))
+  let toSave = entries
+  while (toSave.length > 0) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
+      return
     } catch {
-      // give up
+      // localStorage full — drop oldest entry and retry
+      toSave = toSave.slice(0, toSave.length - 1)
     }
   }
+  localStorage.removeItem(STORAGE_KEY)
 }
 
 export const useHistoryStore = defineStore('history', () => {

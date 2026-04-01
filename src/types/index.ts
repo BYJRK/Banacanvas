@@ -23,6 +23,7 @@ export interface GenerationConfig {
   personGeneration?: 'ALLOW_ALL' | 'ALLOW_ADULT' | 'ALLOW_NONE'
   thinkingLevel?: 'MINIMAL' | 'HIGH'
   googleSearch?: boolean
+  batchSize?: number
 }
 
 export interface HistoryEntry {
@@ -52,4 +53,12 @@ export interface GenerationResult {
   textResponse?: string
   raiFilteredReason?: string
   usage?: UsageInfo
+}
+
+export interface BatchResultItem {
+  imageBase64?: string
+  imageMimeType?: string
+  textResponse?: string
+  usage?: UsageInfo
+  error?: string
 }

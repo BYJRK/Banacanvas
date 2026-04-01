@@ -31,13 +31,17 @@ export function useOpenRouter() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: any[],
     config: GenerationConfig,
+    externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
     const apiKey = apiKeyStore.getKey('openrouter')
     if (!apiKey) throw new Error(t('apiKeyNotSet'))
 
-    loading.value = true
-    error.value = null
-    abortController = new AbortController()
+    const managed = !externalSignal
+    if (managed) {
+      loading.value = true
+      error.value = null
+      abortController = new AbortController()
+    }
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,7 +62,7 @@ export function useOpenRouter() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-        signal: abortController.signal,
+        signal: externalSignal ?? abortController!.signal,
       })
 
       if (!response.ok) {
@@ -74,11 +78,13 @@ export function useOpenRouter() {
       if (msg.includes('abort')) {
         throw new Error(t('generationCancelled'))
       }
-      error.value = msg
+      if (managed) error.value = msg
       throw new Error(msg)
     } finally {
-      loading.value = false
-      abortController = null
+      if (managed) {
+        loading.value = false
+        abortController = null
+      }
     }
   }
 
@@ -144,6 +150,7 @@ export function useOpenRouter() {
   async function generateImage(
     prompt: string,
     config: GenerationConfig,
+    externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
     const messages = [
       {
@@ -151,13 +158,14 @@ export function useOpenRouter() {
         content: prompt,
       },
     ]
-    return doRequest(messages, config)
+    return doRequest(messages, config, externalSignal)
   }
 
   async function editImage(
     images: InputImage[],
     prompt: string,
     config: GenerationConfig,
+    externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
     // Build multimodal content array in OpenAI vision format
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,7 +183,7 @@ export function useOpenRouter() {
         content,
       },
     ]
-    return doRequest(messages, config)
+    return doRequest(messages, config, externalSignal)
   }
 
   return { loading, error, generateImage, editImage, cancel }

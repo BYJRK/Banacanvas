@@ -79,6 +79,17 @@ const messages = {
 
     // Toast / Messages
     imageGenerated: 'Image generated!',
+    batchComplete: 'Batch complete: {success}/{total} succeeded',
+    batchPartialError: 'Some images failed to generate',
+
+    // Batch
+    batchSize: 'Batch Size',
+    batchProgress: 'Generating {current}/{total}...',
+
+    // Notifications
+    notifyOnEnd: 'Notify on completion',
+    notificationSuccess: 'Image generated successfully!',
+    notificationError: 'Image generation failed',
 
     // Errors
     apiKeyNotSet: 'API Key not set',
@@ -106,10 +117,6 @@ const messages = {
     themeLight: 'Light',
     themeDark: 'Dark',
 
-    // Notifications
-    notifyOnEnd: 'Notify on completion',
-    notificationSuccess: 'Image generated successfully!',
-    notificationError: 'Image generation failed',
   },
   zh: {
     // Header
@@ -191,6 +198,17 @@ const messages = {
 
     // Toast / Messages
     imageGenerated: '图片已生成！',
+    batchComplete: '批量完成：{success}/{total} 张成功',
+    batchPartialError: '部分图片生成失败',
+
+    // Batch
+    batchSize: '批量数量',
+    batchProgress: '正在生成 {current}/{total}...',
+
+    // Notifications
+    notifyOnEnd: '完成时通知',
+    notificationSuccess: '图片生成成功！',
+    notificationError: '图片生成失败',
 
     // Errors
     apiKeyNotSet: '未设置 API 密钥',
@@ -218,10 +236,6 @@ const messages = {
     themeLight: '浅色',
     themeDark: '深色',
 
-    // Notifications
-    notifyOnEnd: '完成时通知',
-    notificationSuccess: '图片生成成功！',
-    notificationError: '图片生成失败',
   },
 } as const
 
