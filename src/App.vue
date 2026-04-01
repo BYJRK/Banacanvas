@@ -27,6 +27,7 @@ const { t, locale, toggleLocale } = useI18n()
 const loading = computed(() => gemini.loading.value || openRouter.loading.value || vercelAI.loading.value || batchLoading.value)
 
 function cancelGeneration() {
+  userCancelled = true
   gemini.cancel()
   openRouter.cancel()
   vercelAI.cancel()
@@ -105,6 +106,7 @@ const batchResults = ref<BatchResultItem[]>([])
 const batchProgress = ref<{ current: number; total: number } | null>(null)
 const batchLoading = ref(false)
 let batchControllers: AbortController[] = []
+let userCancelled = false
 
 // Toast
 const toasts = ref<{ id: number; message: string; type: 'success' | 'error' | 'info' }[]>([])
@@ -182,6 +184,7 @@ async function handleGenerate() {
   }
 
   errorMessage.value = null
+  userCancelled = false
   resultImage.value = undefined
   resultMimeType.value = undefined
   resultText.value = undefined
@@ -227,6 +230,7 @@ async function handleGenerate() {
       showToast(t('imageGenerated'), 'success')
       sendNotification(true)
     } catch (e: unknown) {
+      if (userCancelled) return
       const msg = e instanceof Error ? e.message : String(e)
       errorMessage.value = msg
       showToast(msg, 'error')
@@ -293,6 +297,8 @@ async function handleGenerate() {
 
     batchLoading.value = false
     batchControllers = []
+
+    if (userCancelled) return
 
     const toastMsg = t('batchComplete').replace('{success}', String(successCount)).replace('{total}', String(batchSize))
     if (successCount === batchSize) {
