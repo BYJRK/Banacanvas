@@ -188,6 +188,10 @@ function onModelChange(model: ModelOption) {
   if (newConfig.imageSize && !validSizes.includes(newConfig.imageSize as any)) {
     newConfig.imageSize = validSizes[0] as GenerationConfig['imageSize']
   }
+  // Reset 4K to 2K for Vercel (not supported by Vercel AI Gateway)
+  if (model.provider === 'vercel' && newConfig.imageSize === '4K') {
+    newConfig.imageSize = '2K'
+  }
 
   // Reset aspectRatio if not supported by new model
   const validRatios = getAspectRatios(model.id) as readonly string[]
