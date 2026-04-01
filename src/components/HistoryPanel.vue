@@ -241,7 +241,7 @@ function onMeterEnter() {
     </div>
 
     <!-- Waterfall view -->
-    <div v-else-if="viewMode === 'waterfall'" class="flex gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
+    <div v-else-if="viewMode === 'waterfall'" class="flex gap-2 items-start overflow-y-auto flex-1 min-h-0 pr-1">
       <div class="flex flex-col gap-2 flex-1 min-w-0">
         <div
           v-for="entry in leftEntries"
