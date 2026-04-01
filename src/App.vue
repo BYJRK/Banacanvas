@@ -10,6 +10,7 @@ import { useI18n } from './composables/useI18n'
 import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
+import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
 import ImageDisplay from './components/ImageDisplay.vue'
@@ -38,6 +39,31 @@ function cancelGeneration() {
 
 // Dialog state
 const showApiKeyDialog = ref(false)
+const showAspectRatioDialog = ref(false)
+const aspectRatioSuggestion = ref({ width: 0, height: 0, ratio: '' })
+
+function handleFirstImageAdded(width: number, height: number) {
+  if (!suggestAspectRatio.value) return
+  const ratios = getAspectRatios(selectedModel.value.id) as readonly string[]
+  const imgRatio = width / height
+  let closest = ratios[0]
+  let minDiff = Infinity
+  for (const r of ratios) {
+    const [w, h] = r.split(':').map(Number)
+    const diff = Math.abs(imgRatio - w / h)
+    if (diff < minDiff) {
+      minDiff = diff
+      closest = r
+    }
+  }
+  aspectRatioSuggestion.value = { width, height, ratio: closest }
+  showAspectRatioDialog.value = true
+}
+
+function applyAspectRatioSuggestion() {
+  config.value = { ...config.value, aspectRatio: aspectRatioSuggestion.value.ratio }
+  showAspectRatioDialog.value = false
+}
 
 // Generation state
 const prompt = ref('')
@@ -130,6 +156,11 @@ watch(notifyOnEnd, (val) => {
   if (val && Notification.permission === 'default') {
     Notification.requestPermission()
   }
+})
+
+const suggestAspectRatio = ref(localStorage.getItem('banacanvas-suggest-aspect-ratio') !== 'false')
+watch(suggestAspectRatio, (val) => {
+  localStorage.setItem('banacanvas-suggest-aspect-ratio', String(val))
 })
 
 function sendNotification(success: boolean) {
@@ -427,9 +458,10 @@ function handleHistorySelect(entry: HistoryEntry) {
           @cancel="cancelGeneration"
           @update:model="onModelChange"
           @provider-change="onProviderChange"
+          @first-image-added="handleFirstImageAdded"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
-        <ParameterPanel v-model="config" v-model:download-format="downloadFormat" :model-id="config.model" :provider="selectedProvider" :notify-on-end="notifyOnEnd" @notify-change="notifyOnEnd = $event" />
+        <ParameterPanel v-model="config" v-model:download-format="downloadFormat" :model-id="config.model" :provider="selectedProvider" :notify-on-end="notifyOnEnd" :suggest-aspect-ratio="suggestAspectRatio" @notify-change="notifyOnEnd = $event" @suggest-aspect-ratio-change="suggestAspectRatio = $event" />
       </aside>
 
       <!-- Center: Image display -->
@@ -446,6 +478,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             @cancel="cancelGeneration"
             @update:model="onModelChange"
             @provider-change="onProviderChange"
+            @first-image-added="handleFirstImageAdded"
           />
         </div>
 
@@ -510,6 +543,16 @@ function handleHistorySelect(entry: HistoryEntry) {
 
     <!-- API Key Dialog -->
     <ApiKeyDialog :open="showApiKeyDialog" @close="showApiKeyDialog = false" />
+
+    <!-- Aspect Ratio Suggestion Dialog -->
+    <AspectRatioSuggestionDialog
+      :open="showAspectRatioDialog"
+      :image-width="aspectRatioSuggestion.width"
+      :image-height="aspectRatioSuggestion.height"
+      :suggested-ratio="aspectRatioSuggestion.ratio"
+      @apply="applyAspectRatioSuggestion"
+      @close="showAspectRatioDialog = false"
+    />
   </div>
 </template>
 

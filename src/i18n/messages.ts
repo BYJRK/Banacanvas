@@ -115,6 +115,13 @@ const messages = {
     modelVercelNanoBanana2Desc: 'Gemini Flash via Vercel AI Gateway. Fast image generation.',
     modelVercelNanoBananaProDesc: 'Gemini Pro via Vercel AI Gateway. Professional quality.',
 
+    // AspectRatioSuggestionDialog
+    aspectRatioSuggestionTitle: 'Aspect Ratio Suggestion',
+    aspectRatioSuggestionDesc: 'Reference image is {width}×{height}. The closest supported aspect ratio is {ratio}. Apply it?',
+    apply: 'Apply',
+    skip: 'Skip',
+    suggestAspectRatio: 'Suggest aspect ratio for reference image',
+
     // Theme
     themeSystem: 'System',
     themeLight: 'Light',
@@ -236,6 +243,13 @@ const messages = {
     modelORNanoBananaProDesc: '通过 OpenRouter 使用 Gemini Pro。专业品质。',
     modelVercelNanoBanana2Desc: '通过 Vercel AI Gateway 使用 Gemini Flash。快速图像生成。',
     modelVercelNanoBananaProDesc: '通过 Vercel AI Gateway 使用 Gemini Pro。专业品质。',
+
+    // AspectRatioSuggestionDialog
+    aspectRatioSuggestionTitle: '长宽比建议',
+    aspectRatioSuggestionDesc: '参考图分辨率为 {width}×{height}，最接近的支持比例为 {ratio}，是否应用？',
+    apply: '应用',
+    skip: '跳过',
+    suggestAspectRatio: '添加参考图时建议长宽比',
 
     // Theme
     themeSystem: '跟随系统',

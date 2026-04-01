@@ -4,11 +4,14 @@ import { getAspectRatios, getImageSizes, getResolution, THINKING_LEVELS } from '
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
-const props = defineProps<{ modelId: string; provider: Provider; notifyOnEnd: boolean }>()
+const props = defineProps<{ modelId: string; provider: Provider; notifyOnEnd: boolean; suggestAspectRatio: boolean }>()
 const config = defineModel<GenerationConfig>({ required: true })
 const downloadFormat = defineModel<DownloadFormat>('downloadFormat', { required: true })
 
-defineEmits<{ (e: 'notify-change', value: boolean): void }>()
+defineEmits<{
+  (e: 'notify-change', value: boolean): void
+  (e: 'suggest-aspect-ratio-change', value: boolean): void
+}>()
 
 const { t } = useI18n()
 
@@ -210,6 +213,27 @@ function setBatchSize(size: number) {
           :class="[
             'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
             notifyOnEnd ? 'translate-x-4' : 'translate-x-0',
+          ]"
+        />
+      </button>
+    </div>
+
+    <!-- Suggest Aspect Ratio on first reference image -->
+    <div class="flex items-center justify-between">
+      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {{ t('suggestAspectRatio') }}
+      </label>
+      <button
+        @click="$emit('suggest-aspect-ratio-change', !suggestAspectRatio)"
+        :class="[
+          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900',
+          suggestAspectRatio ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-700',
+        ]"
+      >
+        <span
+          :class="[
+            'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+            suggestAspectRatio ? 'translate-x-4' : 'translate-x-0',
           ]"
         />
       </button>

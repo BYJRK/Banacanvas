@@ -39,6 +39,7 @@ const emit = defineEmits<{
   (e: 'generate'): void
   (e: 'cancel'): void
   (e: 'providerChange', provider: Provider): void
+  (e: 'firstImageAdded', width: number, height: number): void
 }>()
 
 defineProps<{
@@ -82,7 +83,11 @@ function addFiles(files: FileList) {
     .filter((f) => f.type.startsWith('image/'))
     .slice(0, remaining)
 
-  for (const file of toAdd) {
+  const isFirstImage = inputImages.value.length === 0
+
+  for (let i = 0; i < toAdd.length; i++) {
+    const file = toAdd[i]
+    const shouldDetectDimensions = isFirstImage && i === 0
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result as string
@@ -92,6 +97,13 @@ function addFiles(files: FileList) {
         ...inputImages.value,
         { id: crypto.randomUUID(), base64: data, mimeType },
       ]
+      if (shouldDetectDimensions) {
+        const img = new Image()
+        img.onload = () => {
+          emit('firstImageAdded', img.naturalWidth, img.naturalHeight)
+        }
+        img.src = result
+      }
     }
     reader.readAsDataURL(file)
   }
