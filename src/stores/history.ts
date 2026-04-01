@@ -2,31 +2,75 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { HistoryEntry } from '../types'
 
-const STORAGE_KEY = 'banacanvas-history'
-const MAX_ENTRIES = 50
+const DB_NAME = 'banacanvas'
+const DB_VERSION = 1
+const STORE_NAME = 'history'
 const WEBP_QUALITY = 0.85
 
-function loadHistory(): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+// IndexedDB helpers
+
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    req.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' })
+        store.createIndex('timestamp', 'timestamp')
+      }
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
 }
 
-function saveHistory(entries: HistoryEntry[]) {
-  let toSave = entries
-  while (toSave.length > 0) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
-      return
-    } catch {
-      // localStorage full — drop oldest entry and retry
-      toSave = toSave.slice(0, toSave.length - 1)
-    }
-  }
-  localStorage.removeItem(STORAGE_KEY)
+function idbGetAll(db: IDBDatabase): Promise<HistoryEntry[]> {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).index('timestamp').getAll()
+    req.onsuccess = () => resolve((req.result as HistoryEntry[]).sort((a, b) => b.timestamp - a.timestamp))
+    req.onerror = () => reject(req.error)
+  })
+}
+
+function idbPut(db: IDBDatabase, entry: HistoryEntry): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).put(entry)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+function idbDelete(db: IDBDatabase, id: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).delete(id)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+function idbClear(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
+// Migrate existing localStorage history into IndexedDB then remove it
+async function migrateFromLocalStorage(db: IDBDatabase): Promise<void> {
+  const raw = localStorage.getItem('banacanvas-history')
+  if (!raw) return
+  try {
+    const entries: HistoryEntry[] = JSON.parse(raw)
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    const store = tx.objectStore(STORE_NAME)
+    for (const entry of entries) store.put(entry)
+    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error) })
+    localStorage.removeItem('banacanvas-history')
+  } catch { /* ignore */ }
 }
 
 async function toWebP(base64: string, mimeType: string): Promise<{ base64: string; mimeType: string }> {
@@ -44,14 +88,10 @@ async function toWebP(base64: string, mimeType: string): Promise<{ base64: strin
     return new Promise((resolve) => {
       canvas.toBlob(
         (webpBlob) => {
-          if (!webpBlob) {
-            resolve({ base64, mimeType })
-            return
-          }
+          if (!webpBlob) { resolve({ base64, mimeType }); return }
           const reader = new FileReader()
           reader.onload = () => {
-            const dataUrl = reader.result as string
-            const b64 = dataUrl.split(',')[1]
+            const b64 = (reader.result as string).split(',')[1]
             resolve({ base64: b64, mimeType: 'image/webp' })
           }
           reader.readAsDataURL(webpBlob)
@@ -66,7 +106,14 @@ async function toWebP(base64: string, mimeType: string): Promise<{ base64: strin
 }
 
 export const useHistoryStore = defineStore('history', () => {
-  const entries = ref<HistoryEntry[]>(loadHistory())
+  const entries = ref<HistoryEntry[]>([])
+  let db: IDBDatabase | null = null
+
+  async function init() {
+    db = await openDB()
+    await migrateFromLocalStorage(db)
+    entries.value = await idbGetAll(db)
+  }
 
   async function addEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'>) {
     const [main, input] = await Promise.all([
@@ -84,24 +131,26 @@ export const useHistoryStore = defineStore('history', () => {
       imageMimeType: main.mimeType,
       ...(input ? { inputImageBase64: input.base64, inputImageMimeType: input.mimeType } : {}),
     }
+
     entries.value.unshift(newEntry)
-    if (entries.value.length > MAX_ENTRIES) {
-      entries.value = entries.value.slice(0, MAX_ENTRIES)
+
+    if (db) {
+      await idbPut(db, newEntry)
     }
-    saveHistory(entries.value)
+
     return newEntry
   }
 
-  function removeEntry(id: string) {
+  async function removeEntry(id: string) {
     entries.value = entries.value.filter((e) => e.id !== id)
-    saveHistory(entries.value)
+    if (db) await idbDelete(db, id)
   }
 
-  function clearAll() {
+  async function clearAll() {
     entries.value = []
-    localStorage.removeItem(STORAGE_KEY)
+    if (db) await idbClear(db)
   }
 
-  return { entries, addEntry, removeEntry, clearAll }
+  return { entries, init, addEntry, removeEntry, clearAll }
 })
 

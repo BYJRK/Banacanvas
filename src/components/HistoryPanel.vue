@@ -26,29 +26,29 @@ function thumbUrl(entry: HistoryEntry) {
   return `data:${entry.imageMimeType};base64,${entry.imageBase64}`
 }
 
-// Storage meter
-const STORAGE_TOTAL = 5 * 1024 * 1024 // ~5 MB typical localStorage limit
-
-function measureLocalStorage(): number {
-  let total = 0
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)!
-    const val = localStorage.getItem(key) ?? ''
-    total += (key.length + val.length) * 2
-  }
-  return total
-}
-
+// Storage meter — uses navigator.storage.estimate() for IndexedDB-aware measurement
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
-const storageUsedBytes = ref(measureLocalStorage())
-watch(() => historyStore.entries, () => { storageUsedBytes.value = measureLocalStorage() }, { deep: true })
+const storageUsedBytes = ref(0)
+const storageQuotaBytes = ref(0)
 
-const storagePercent = computed(() => Math.min(100, (storageUsedBytes.value / STORAGE_TOTAL) * 100))
+async function refreshStorageEstimate() {
+  if (!navigator.storage?.estimate) return
+  const { usage = 0, quota = 0 } = await navigator.storage.estimate()
+  storageUsedBytes.value = usage
+  storageQuotaBytes.value = quota
+}
+
+refreshStorageEstimate()
+watch(() => historyStore.entries, refreshStorageEstimate, { deep: true })
+
+const storagePercent = computed(() =>
+  storageQuotaBytes.value > 0 ? Math.min(100, (storageUsedBytes.value / storageQuotaBytes.value) * 100) : 0
+)
 const DONUT_R = 7
 const DONUT_C = 2 * Math.PI * DONUT_R
 
@@ -110,11 +110,11 @@ function onMeterEnter() {
             <p class="font-semibold mb-2 text-gray-900 dark:text-gray-100">{{ t('storageTitle') }}</p>
             <div class="flex justify-between mb-1">
               <span class="text-gray-500 dark:text-gray-400">{{ t('storageUsed') }}</span>
-              <span class="font-medium">{{ formatBytes(storageUsedBytes) }} / {{ formatBytes(STORAGE_TOTAL) }}</span>
+              <span class="font-medium">{{ formatBytes(storageUsedBytes) }} / {{ formatBytes(storageQuotaBytes) }}</span>
             </div>
             <div class="flex justify-between mb-2">
               <span class="text-gray-500 dark:text-gray-400">{{ t('storageFree') }}</span>
-              <span class="font-medium">{{ formatBytes(Math.max(0, STORAGE_TOTAL - storageUsedBytes)) }}</span>
+              <span class="font-medium">{{ formatBytes(Math.max(0, storageQuotaBytes - storageUsedBytes)) }}</span>
             </div>
             <!-- Mini progress bar -->
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mb-2">
@@ -124,7 +124,6 @@ function onMeterEnter() {
                 :style="{ width: storagePercent + '%' }"
               />
             </div>
-            <p class="text-gray-400 dark:text-gray-500 leading-relaxed">{{ t('storageNote') }}</p>
           </div>
         </Teleport>
         <button

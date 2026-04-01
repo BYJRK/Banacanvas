@@ -139,6 +139,7 @@ function sendNotification(success: boolean) {
 
 // On mount: show API key dialog if no key set for any provider
 onMounted(() => {
+  historyStore.init()
   if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey && !apiKeyStore.hasVercelKey) {
     showApiKeyDialog.value = true
   }

@@ -59,10 +59,9 @@ const messages = {
 
     // HistoryPanel
     noHistory: 'No history yet',
-    storageTitle: 'Browser Storage (localStorage)',
+    storageTitle: 'Browser Storage (IndexedDB)',
     storageUsed: 'Used',
     storageFree: 'Free',
-    storageNote: 'History images are stored in browser localStorage (~5 MB limit). Oldest entries are automatically removed when full.',
     justNow: 'Just now',
     timeSuffixMinutes: 'm ago',
     timeSuffixHours: 'h ago',
@@ -182,10 +181,9 @@ const messages = {
 
     // HistoryPanel
     noHistory: '暂无历史记录',
-    storageTitle: '浏览器存储（localStorage）',
+    storageTitle: '浏览器存储（IndexedDB）',
     storageUsed: '已用',
     storageFree: '剩余',
-    storageNote: '历史图片存储在浏览器 localStorage 中（上限约 5 MB）。超出容量时自动删除最旧的记录。',
     justNow: '刚刚',
     timeSuffixMinutes: '分钟前',
     timeSuffixHours: '小时前',

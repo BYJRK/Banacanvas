@@ -12,7 +12,8 @@ A modern web UI for AI image generation powered by Google Gemini Image (aka. Nan
 - **Streaming generation** — Real-time feedback as the image is being created
 - **Configurable output** — Aspect ratio, image size (512 to 4K), thinking level, Google Search grounding, person generation control
 - **Token counting & cost estimation** — Live display of input/output/thinking tokens, elapsed time, and estimated USD cost
-- **Generation history** — Auto-saved locally (up to 50 entries), click to restore any previous generation
+- **Batch generation** — Generate up to 4 images simultaneously in parallel with a single prompt
+- **Generation history** — Auto-saved in browser IndexedDB (no entry limit), click to restore any previous generation
 - **Bilingual UI** — English and Chinese, auto-detected from browser locale
 - **Dark mode** — System / Light / Dark, follows OS preference
 - **Keyboard shortcut** — <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to generate
