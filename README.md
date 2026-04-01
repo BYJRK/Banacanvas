@@ -2,6 +2,8 @@
 
 English | [中文](./README.zh.md)
 
+![Banacanvas icon](./public/apple-touch-icon.png)
+
 A modern web UI for AI image generation powered by Google Gemini Image (aka. Nano Banana). Supports text-to-image, image editing with reference images, multiple API providers, bilingual interface, dark mode, generation history, and real-time cost estimation.
 
 ## Features

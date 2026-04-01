@@ -2,6 +2,8 @@
 
 [English](./README.md) | 中文
 
+![Banacanvas 图标](./public/apple-touch-icon.png)
+
 基于 Google Gemini Image（即 Nano Banana）的 AI 图像生成的网页应用。支持文生图、图生图编辑、多 API 提供商、中英双语界面、暗色模式、生成历史记录和实时费用估算。
 
 ## 功能特性
