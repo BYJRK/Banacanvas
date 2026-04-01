@@ -34,7 +34,7 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
 }
 
 function setBatchSize(size: number) {
-  config.value = { ...config.value, batchSize: Math.max(1, Math.min(4, size)) }
+  config.value = { ...config.value, batchSize: Math.max(1, Math.min(9, size)) }
 }
 </script>
 
@@ -163,7 +163,7 @@ function setBatchSize(size: number) {
         <input
           type="range"
           min="1"
-          max="4"
+          max="9"
           :value="config.batchSize ?? 1"
           @input="setBatchSize(Number(($event.target as HTMLInputElement).value))"
           class="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-600"
