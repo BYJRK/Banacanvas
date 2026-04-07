@@ -304,7 +304,7 @@ function onMeterEnter() {
       >
         <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-12 h-12 rounded object-cover shrink-0" loading="lazy" />
         <div class="flex-1 min-w-0 pr-5">
-          <p class="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 mb-1 leading-relaxed">{{ entry.prompt }}</p>
+          <p class="text-xs text-gray-700 dark:text-gray-300 line-clamp-1 mb-1 leading-relaxed">{{ entry.prompt }}</p>
           <div class="flex flex-wrap gap-x-2 gap-y-0.5">
             <span class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(entry.timestamp) }}</span>
             <span v-if="entry.config.aspectRatio" class="text-[10px] text-gray-400 dark:text-gray-600">{{ entry.config.aspectRatio }}</span>
