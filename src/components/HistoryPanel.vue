@@ -62,9 +62,37 @@ function onDocClick(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', onDocClick))
 onUnmounted(() => document.removeEventListener('click', onDocClick))
 
-// Waterfall: split entries into two columns
-const leftEntries = computed(() => historyStore.entries.filter((_, i) => i % 2 === 0))
-const rightEntries = computed(() => historyStore.entries.filter((_, i) => i % 2 === 1))
+// Waterfall: split entries into N columns based on container width
+const containerRef = ref<HTMLElement | null>(null)
+const containerWidth = ref(0)
+
+let resizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  if (containerRef.value) {
+    resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        containerWidth.value = entry.contentRect.width
+      }
+    })
+    resizeObserver.observe(containerRef.value)
+  }
+})
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+})
+
+// Grid: 1 column default, 2 columns when wide
+const gridCols = computed(() => containerWidth.value >= 400 ? 2 : 1)
+
+// Waterfall: 2 columns default, 3 columns when wide
+const waterfallColCount = computed(() => containerWidth.value >= 400 ? 3 : 2)
+const waterfallColumns = computed(() => {
+  const cols: HistoryEntry[][] = Array.from({ length: waterfallColCount.value }, () => [])
+  historyStore.entries.forEach((entry, i) => {
+    cols[i % waterfallColCount.value].push(entry)
+  })
+  return cols
+})
 
 // List: resolve short model name
 function modelName(entry: HistoryEntry): string {
@@ -101,7 +129,7 @@ function onMeterEnter() {
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
+  <div ref="containerRef" class="flex flex-col h-full">
     <div class="flex items-center justify-between px-1 mb-3">
       <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
         {{ t('history') }}
@@ -217,7 +245,7 @@ function onMeterEnter() {
     </div>
 
     <!-- Grid view -->
-    <div v-else-if="viewMode === 'grid'" class="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
+    <div v-else-if="viewMode === 'grid'" class="grid auto-rows-max gap-2 overflow-y-auto flex-1 min-h-0 pr-1" :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }">
       <div
         v-for="entry in historyStore.entries"
         :key="entry.id"
@@ -242,31 +270,9 @@ function onMeterEnter() {
 
     <!-- Waterfall view -->
     <div v-else-if="viewMode === 'waterfall'" class="flex gap-2 items-start overflow-y-auto flex-1 min-h-0 pr-1">
-      <div class="flex flex-col gap-2 flex-1 min-w-0">
+      <div v-for="(col, ci) in waterfallColumns" :key="ci" class="flex flex-col gap-2 flex-1 min-w-0">
         <div
-          v-for="entry in leftEntries"
-          :key="entry.id"
-          class="group relative rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
-          @click="emit('select', entry)"
-          :title="entry.prompt.length > 100 ? entry.prompt.slice(0, 100) + '…' : entry.prompt"
-        >
-          <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-full object-cover object-center" loading="lazy" />
-          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <p class="text-[10px] text-white/80">{{ formatTime(entry.timestamp) }}</p>
-          </div>
-          <button
-            @click.stop="historyStore.removeEntry(entry.id)"
-            class="absolute top-1 right-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
-          >
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div class="flex flex-col gap-2 flex-1 min-w-0">
-        <div
-          v-for="entry in rightEntries"
+          v-for="entry in col"
           :key="entry.id"
           class="group relative rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
           @click="emit('select', entry)"

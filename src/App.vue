@@ -149,6 +149,43 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 // History sidebar
 const showHistory = ref(false)
 
+// Sidebar resizable width
+const SIDEBAR_MIN_W = 288   // w-72 = 18rem = 288px (current default)
+const SIDEBAR_MAX_W = 450
+const sidebarWidth = ref(Number(localStorage.getItem('banacanvas-sidebar-width')) || SIDEBAR_MIN_W)
+
+function onResizeStart(e: MouseEvent) {
+  const startX = e.clientX
+  const startW = sidebarWidth.value
+  const onMove = (ev: MouseEvent) => {
+    const delta = startX - ev.clientX  // dragging left = wider
+    sidebarWidth.value = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + delta))
+  }
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+    localStorage.setItem('banacanvas-sidebar-width', String(sidebarWidth.value))
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
+function onResizeTouchStart(e: TouchEvent) {
+  const startX = e.touches[0].clientX
+  const startW = sidebarWidth.value
+  const onMove = (ev: TouchEvent) => {
+    const delta = startX - ev.touches[0].clientX
+    sidebarWidth.value = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + delta))
+  }
+  const onEnd = () => {
+    document.removeEventListener('touchmove', onMove)
+    document.removeEventListener('touchend', onEnd)
+    localStorage.setItem('banacanvas-sidebar-width', String(sidebarWidth.value))
+  }
+  document.addEventListener('touchmove', onMove)
+  document.addEventListener('touchend', onEnd)
+}
+
 // Notification state
 const notifyOnEnd = ref(localStorage.getItem('banacanvas-notify-on-end') === 'true')
 watch(notifyOnEnd, (val) => {
@@ -513,8 +550,15 @@ function handleHistorySelect(entry: HistoryEntry) {
       <Transition name="history-panel">
         <aside
           v-if="showHistory"
-          class="fixed right-0 top-0 bottom-0 z-50 w-72 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-3 shadow-xl"
+          class="fixed right-0 top-0 bottom-0 z-50 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-3 shadow-xl"
+          :style="{ width: sidebarWidth + 'px' }"
         >
+          <!-- Resize drag handle -->
+          <div
+            class="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-violet-500/30 active:bg-violet-500/40 transition-colors"
+            @mousedown.prevent="onResizeStart"
+            @touchstart.prevent="onResizeTouchStart"
+          />
           <HistoryPanel @select="handleHistorySelect" />
         </aside>
       </Transition>
