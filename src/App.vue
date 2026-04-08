@@ -559,7 +559,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             @mousedown.prevent="onResizeStart"
             @touchstart.prevent="onResizeTouchStart"
           />
-          <HistoryPanel @select="handleHistorySelect" />
+          <HistoryPanel @select="handleHistorySelect" @toast="showToast" />
         </aside>
       </Transition>
     </div>

@@ -7,6 +7,7 @@ import { AVAILABLE_MODELS } from '../config/models'
 
 const emit = defineEmits<{
   (e: 'select', entry: HistoryEntry): void
+  (e: 'toast', message: string, type?: 'success' | 'error' | 'info'): void
 }>()
 
 const historyStore = useHistoryStore()
@@ -126,6 +127,57 @@ function onMeterEnter() {
   }
   showMeterTooltip.value = true
 }
+
+// Export / Import
+const exporting = ref(false)
+const showImportDialog = ref(false)
+const pendingImportFile = ref<File | null>(null)
+const importFileInput = ref<HTMLInputElement | null>(null)
+
+async function handleExport() {
+  if (historyStore.entries.length === 0) return
+  exporting.value = true
+  try {
+    const blob = await historyStore.exportZip()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `banacanvas-history-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.zip`
+    a.click()
+    URL.revokeObjectURL(url)
+    emit('toast', t('exportSuccess'), 'success')
+  } catch (e: unknown) {
+    emit('toast', e instanceof Error ? e.message : String(e), 'error')
+  } finally {
+    exporting.value = false
+  }
+}
+
+function triggerImport() {
+  importFileInput.value?.click()
+}
+
+function onImportFileSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  pendingImportFile.value = file
+  showImportDialog.value = true
+}
+
+async function confirmImport(mode: 'merge' | 'overwrite') {
+  showImportDialog.value = false
+  const file = pendingImportFile.value
+  pendingImportFile.value = null
+  if (!file) return
+  try {
+    const count = await historyStore.importZip(file, mode)
+    emit('toast', t('importSuccess').replace('{count}', String(count)), 'success')
+  } catch (e: unknown) {
+    emit('toast', e instanceof Error ? e.message : t('importErrorInvalid'), 'error')
+  }
+}
 </script>
 
 <template>
@@ -227,6 +279,33 @@ function onMeterEnter() {
             </button>
           </div>
         </div>
+        <!-- Export button -->
+        <button
+          v-if="historyStore.entries.length > 0"
+          @click="handleExport"
+          :disabled="exporting"
+          class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          :title="t('exportHistory')"
+        >
+          <svg v-if="exporting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        </button>
+        <!-- Import button -->
+        <button
+          @click="triggerImport"
+          class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer"
+          :title="t('importHistory')"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+        </button>
+        <input ref="importFileInput" type="file" accept=".zip" class="hidden" @change="onImportFileSelected" />
         <button
           v-if="historyStore.entries.length > 0"
           @click="historyStore.clearAll()"
@@ -322,5 +401,47 @@ function onMeterEnter() {
         </button>
       </div>
     </div>
+
+    <!-- Import mode dialog -->
+    <Teleport to="body">
+      <div v-if="showImportDialog" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" @click.self="showImportDialog = false; pendingImportFile = null">
+        <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-80 p-5">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">{{ t('importModeTitle') }}</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">{{ t('importModeDesc') }}</p>
+          <div class="flex flex-col gap-2">
+            <button
+              @click="confirmImport('merge')"
+              class="flex items-center gap-3 w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer text-left"
+            >
+              <svg class="w-5 h-5 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+              </svg>
+              <div>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('importModeMerge') }}</p>
+                <p class="text-[11px] text-gray-400 dark:text-gray-500">{{ t('importModeMergeDesc') }}</p>
+              </div>
+            </button>
+            <button
+              @click="confirmImport('overwrite')"
+              class="flex items-center gap-3 w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-red-400 dark:hover:border-red-600 transition-colors cursor-pointer text-left"
+            >
+              <svg class="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <div>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('importModeOverwrite') }}</p>
+                <p class="text-[11px] text-gray-400 dark:text-gray-500">{{ t('importModeOverwriteDesc') }}</p>
+              </div>
+            </button>
+          </div>
+          <button
+            @click="showImportDialog = false; pendingImportFile = null"
+            class="mt-3 w-full text-center text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer py-1"
+          >
+            {{ t('cancel') }}
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
