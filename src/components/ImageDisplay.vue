@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { UsageInfo, DownloadFormat, BatchResultItem } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -90,11 +90,175 @@ function openFullscreen(base64?: string, mimeType?: string) {
   if (!base64 || !mimeType) return
   fullscreenImage.value = { base64, mimeType }
   showFullscreen.value = true
+  // Reset zoom/pan state
+  zoomLevel.value = 1
+  panX.value = 0
+  panY.value = 0
 }
 
 function closeFullscreen() {
   showFullscreen.value = false
   fullscreenImage.value = null
+  zoomLevel.value = 1
+  panX.value = 0
+  panY.value = 0
+}
+
+// --- Zoom & Pan ---
+const zoomLevel = ref(1)
+const panX = ref(0)
+const panY = ref(0)
+const MIN_ZOOM = 0.5
+const MAX_ZOOM = 10
+const ZOOM_STEP = 0.15
+
+const fullscreenImgRef = ref<HTMLImageElement | null>(null)
+const fullscreenContainerRef = ref<HTMLDivElement | null>(null)
+
+const imageTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoomLevel.value})`)
+
+const showMinimap = computed(() => {
+  if (!fullscreenImgRef.value || zoomLevel.value <= 1) return false
+  return true
+})
+
+function onWheel(e: WheelEvent) {
+  e.preventDefault()
+  const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+  const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoomLevel.value + delta * zoomLevel.value))
+
+  if (!fullscreenImgRef.value || !fullscreenContainerRef.value) {
+    zoomLevel.value = newZoom
+    return
+  }
+
+  // Zoom toward cursor position
+  const rect = fullscreenContainerRef.value.getBoundingClientRect()
+  const cursorX = e.clientX - rect.left - rect.width / 2
+  const cursorY = e.clientY - rect.top - rect.height / 2
+
+  const ratio = newZoom / zoomLevel.value
+  panX.value = cursorX - ratio * (cursorX - panX.value)
+  panY.value = cursorY - ratio * (cursorY - panY.value)
+  zoomLevel.value = newZoom
+}
+
+// --- Image dragging ---
+const isDragging = ref(false)
+const dragStartX = ref(0)
+const dragStartY = ref(0)
+const dragStartPanX = ref(0)
+const dragStartPanY = ref(0)
+
+function onImagePointerDown(e: PointerEvent) {
+  if (zoomLevel.value <= 1) return
+  isDragging.value = true
+  dragStartX.value = e.clientX
+  dragStartY.value = e.clientY
+  dragStartPanX.value = panX.value
+  dragStartPanY.value = panY.value
+  ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+}
+
+function onImagePointerMove(e: PointerEvent) {
+  if (!isDragging.value) return
+  panX.value = dragStartPanX.value + (e.clientX - dragStartX.value)
+  panY.value = dragStartPanY.value + (e.clientY - dragStartY.value)
+}
+
+function onImagePointerUp() {
+  isDragging.value = false
+}
+
+// --- Minimap ---
+const MINIMAP_SIZE = 160
+const isMinimapDragging = ref(false)
+
+const minimapViewport = computed(() => {
+  if (!fullscreenImgRef.value || !fullscreenContainerRef.value) return { x: 0, y: 0, w: MINIMAP_SIZE, h: MINIMAP_SIZE }
+
+  const img = fullscreenImgRef.value
+  const imgW = img.naturalWidth
+  const imgH = img.naturalHeight
+  if (!imgW || !imgH) return { x: 0, y: 0, w: MINIMAP_SIZE, h: MINIMAP_SIZE }
+
+  // Compute displayed image size at zoom=1 (fit within 95vw/95vh)
+  const containerW = window.innerWidth * 0.95
+  const containerH = window.innerHeight * 0.95
+  const fitScale = Math.min(containerW / imgW, containerH / imgH, 1)
+  const displayedW = imgW * fitScale
+  const displayedH = imgH * fitScale
+
+  // Minimap scale: fit image into minimap box
+  const minimapScale = Math.min(MINIMAP_SIZE / displayedW, MINIMAP_SIZE / displayedH)
+  const minimapImgW = displayedW * minimapScale
+  const minimapImgH = displayedH * minimapScale
+
+  // Viewport rect in minimap coords
+  const viewW = (containerW / (displayedW * zoomLevel.value)) * minimapImgW
+  const viewH = (containerH / (displayedH * zoomLevel.value)) * minimapImgH
+
+  // Pan offset to minimap coords
+  const viewX = (minimapImgW - viewW) / 2 - (panX.value / (displayedW * zoomLevel.value)) * minimapImgW
+  const viewY = (minimapImgH - viewH) / 2 - (panY.value / (displayedH * zoomLevel.value)) * minimapImgH
+
+  return {
+    x: viewX,
+    y: viewY,
+    w: viewW,
+    h: viewH,
+    imgW: minimapImgW,
+    imgH: minimapImgH,
+  }
+})
+
+function onMinimapPointerDown(e: PointerEvent) {
+  e.stopPropagation()
+  isMinimapDragging.value = true
+  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  updatePanFromMinimap(e)
+}
+
+function onMinimapPointerMove(e: PointerEvent) {
+  if (!isMinimapDragging.value) return
+  updatePanFromMinimap(e)
+}
+
+function onMinimapPointerUp() {
+  isMinimapDragging.value = false
+}
+
+function updatePanFromMinimap(e: PointerEvent) {
+  if (!fullscreenImgRef.value || !fullscreenContainerRef.value) return
+
+  const minimapEl = (e.currentTarget as HTMLElement)
+  const rect = minimapEl.getBoundingClientRect()
+  const clickX = e.clientX - rect.left
+  const clickY = e.clientY - rect.top
+
+  const img = fullscreenImgRef.value
+  const imgW = img.naturalWidth
+  const imgH = img.naturalHeight
+  if (!imgW || !imgH) return
+
+  const containerW = window.innerWidth * 0.95
+  const containerH = window.innerHeight * 0.95
+  const fitScale = Math.min(containerW / imgW, containerH / imgH, 1)
+  const displayedW = imgW * fitScale
+  const displayedH = imgH * fitScale
+
+  const minimapScale = Math.min(MINIMAP_SIZE / displayedW, MINIMAP_SIZE / displayedH)
+  const minimapImgW = displayedW * minimapScale
+  const minimapImgH = displayedH * minimapScale
+
+  // Where the user clicked relative to center of minimap image
+  const offsetX = (minimapImgW - MINIMAP_SIZE) / 2
+  const offsetY = (minimapImgH - MINIMAP_SIZE) / 2
+  const relX = (clickX + offsetX) / minimapImgW - 0.5
+  const relY = (clickY + offsetY) / minimapImgH - 0.5
+
+  panX.value = -relX * displayedW * zoomLevel.value
+  panY.value = -relY * displayedH * zoomLevel.value
 }
 
 const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchProgress != null && props.batchProgress.total > 1)
@@ -305,27 +469,79 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
     </div>
   </div>
 
-  <!-- Fullscreen overlay -->
+  <!-- Fullscreen overlay with zoom & minimap -->
   <Teleport to="body">
     <div
       v-if="showFullscreen && fullscreenImage"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 cursor-pointer"
-      @click="closeFullscreen"
+      ref="fullscreenContainerRef"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 overflow-hidden"
+      :class="zoomLevel > 1 ? 'cursor-grab' : 'cursor-pointer'"
+      @click.self="zoomLevel <= 1 ? closeFullscreen() : undefined"
+      @wheel.prevent="onWheel"
     >
       <img
+        ref="fullscreenImgRef"
         :src="`data:${fullscreenImage.mimeType};base64,${fullscreenImage.base64}`"
         alt="Generated image fullscreen"
-        class="max-w-[95vw] max-h-[95vh] object-contain"
+        class="max-w-[95vw] max-h-[95vh] object-contain select-none"
+        :class="{ 'cursor-grabbing': isDragging, 'cursor-grab': zoomLevel > 1 && !isDragging }"
+        :style="{ transform: imageTransform, transformOrigin: 'center center', transition: isDragging ? 'none' : 'transform 0.1s ease-out' }"
+        draggable="false"
+        @pointerdown="onImagePointerDown"
+        @pointermove="onImagePointerMove"
+        @pointerup="onImagePointerUp"
+        @pointercancel="onImagePointerUp"
         @click.stop
       />
+
+      <!-- Close button -->
       <button
         @click="closeFullscreen"
-        class="absolute top-4 right-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors cursor-pointer"
+        class="absolute top-4 right-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors cursor-pointer z-10"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
+
+      <!-- Zoom level indicator (click to reset) -->
+      <button
+        v-if="zoomLevel !== 1"
+        class="absolute bottom-4 left-4 rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-sm text-white font-medium select-none hover:bg-white/20 transition-colors cursor-pointer z-10"
+        @click.stop="zoomLevel = 1; panX = 0; panY = 0"
+      >
+        {{ Math.round(zoomLevel * 100) }}%
+      </button>
+
+      <!-- Minimap -->
+      <div
+        v-if="showMinimap"
+        class="absolute bottom-4 right-4 rounded-lg overflow-hidden border border-white/20 bg-black/60 backdrop-blur-sm select-none"
+        :style="{ width: MINIMAP_SIZE + 'px', height: MINIMAP_SIZE + 'px' }"
+        @pointerdown="onMinimapPointerDown"
+        @pointermove="onMinimapPointerMove"
+        @pointerup="onMinimapPointerUp"
+        @pointercancel="onMinimapPointerUp"
+        @click.stop
+      >
+        <img
+          :src="`data:${fullscreenImage.mimeType};base64,${fullscreenImage.base64}`"
+          alt="Minimap"
+          class="absolute inset-0 m-auto object-contain pointer-events-none"
+          :style="{ maxWidth: MINIMAP_SIZE + 'px', maxHeight: MINIMAP_SIZE + 'px' }"
+          draggable="false"
+        />
+        <!-- Viewport indicator -->
+        <div
+          class="absolute border-2 border-violet-400 bg-violet-400/15 rounded-sm pointer-events-none"
+          :style="{
+            left: minimapViewport.x + 'px',
+            top: minimapViewport.y + 'px',
+            width: Math.max(minimapViewport.w, 8) + 'px',
+            height: Math.max(minimapViewport.h, 8) + 'px',
+          }"
+        />
+      </div>
     </div>
   </Teleport>
 </template>
