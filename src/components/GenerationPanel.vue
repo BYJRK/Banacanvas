@@ -234,15 +234,27 @@ function onThumbDragEnd() {
     <div>
       <div class="flex items-center justify-between mb-1">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('prompt') }}</label>
-        <button
-          @click="showFullscreenPrompt = true"
-          class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer"
-          :title="t('fullscreenEdit')"
-        >
+        <div class="flex items-center gap-2">
+          <button
+            v-if="prompt.length > 0"
+            @click="prompt = ''"
+            class="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+            :title="t('clearPrompt')"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <button
+            @click="showFullscreenPrompt = true"
+            class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer"
+            :title="t('fullscreenEdit')"
+          >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9m11.25-5.25v4.5m0-4.5h-4.5m4.5 0L15 9m-11.25 11.25v-4.5m0 4.5h4.5m-4.5 0L9 15m11.25 5.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
           </svg>
-        </button>
+          </button>
+        </div>
       </div>
       <textarea
         v-model="prompt"
@@ -383,15 +395,27 @@ function onThumbDragEnd() {
             <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ t('prompt') }}</h2>
             <span class="text-xs text-gray-400">{{ prompt.length }} {{ t('promptCharCount') }}</span>
           </div>
-          <button
-            @click="showFullscreenPrompt = false"
-            class="rounded-lg bg-violet-600 p-2 text-white hover:bg-violet-700 transition-colors cursor-pointer"
-            :title="t('done')"
-          >
+          <div class="flex items-center gap-2">
+            <button
+              v-if="prompt.length > 0"
+              @click="prompt = ''"
+              class="rounded-lg p-2 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+              :title="t('clearPrompt')"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <button
+              @click="showFullscreenPrompt = false"
+              class="rounded-lg bg-violet-600 p-2 text-white hover:bg-violet-700 transition-colors cursor-pointer"
+              :title="t('done')"
+            >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
-          </button>
+            </button>
+          </div>
         </div>
         <!-- Editor -->
         <textarea
