@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, THINKING_LEVELS } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, THINKING_LEVELS, estimateImageOutputCost } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -40,6 +40,16 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
 
 function setBatchSize(size: number) {
   config.value = { ...config.value, batchSize: Math.max(1, Math.min(9, size)) }
+}
+
+const estimatedTotalCost = computed(() =>
+  estimateImageOutputCost(props.modelId, config.value.imageSize ?? '1K', config.value.batchSize ?? 1)
+)
+
+function formatCost(cost: number): string {
+  if (cost < 0.001) return cost.toFixed(6)
+  if (cost < 0.1) return cost.toFixed(4)
+  return cost.toFixed(2)
 }
 </script>
 
@@ -175,6 +185,9 @@ function setBatchSize(size: number) {
         />
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-6 text-center">{{ config.batchSize ?? 1 }}</span>
       </div>
+      <p class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+        {{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost) }}
+      </p>
     </div>
 
     <!-- Download Format -->

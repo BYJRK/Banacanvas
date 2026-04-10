@@ -41,6 +41,8 @@ const messages = {
     thinkingMinimal: 'Minimal',
     thinkingHigh: 'High',
     outputResolution: 'Output resolution',
+    estCostPerImage: 'per image (output only)',
+    estCostTotal: 'Est. total',
 
     // ImageDisplay
     generatingImage: 'Generating image...',
@@ -187,6 +189,8 @@ const messages = {
     thinkingMinimal: '最小',
     thinkingHigh: '高',
     outputResolution: '输出分辨率',
+    estCostPerImage: '每张（仅输出）',
+    estCostTotal: '预估合计',
 
     // ImageDisplay
     generatingImage: '正在生成图片...',

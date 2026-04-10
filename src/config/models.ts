@@ -144,3 +144,31 @@ export function toOpenRouterImageSize(size: string): string {
   if (size === '512') return '0.5K'
   return size // '1K', '2K', '4K' are the same
 }
+
+// Official image output token counts per model and size
+// Source: https://ai.google.dev/gemini-api/docs/pricing
+const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
+  'gemini-3.1-flash-image-preview': {
+    '512': 747,   // $0.045/image at $60/1M
+    '1K':  1120,  // $0.067/image
+    '2K':  1680,  // $0.101/image
+    '4K':  2520,  // $0.151/image
+  },
+  'gemini-3-pro-image-preview': {
+    '1K':  1120,  // $0.134/image at $120/1M (1K and 2K share same count)
+    '2K':  1120,  // $0.134/image (same as 1K per Google's pricing)
+    '4K':  2000,  // $0.240/image
+  },
+}
+
+/**
+ * Estimate image output cost in USD per image (ignores input cost).
+ * Based on Gemini output image token pricing.
+ */
+export function estimateImageOutputCost(modelId: string, imageSize: string, batchSize: number = 1): number {
+  const base = getBaseModelId(modelId)
+  const pricing = MODEL_PRICING[base] ?? MODEL_PRICING['gemini-3.1-flash-image-preview']
+  const modelTokens = IMAGE_OUTPUT_TOKENS[base] ?? IMAGE_OUTPUT_TOKENS['gemini-3.1-flash-image-preview']
+  const tokens = modelTokens[imageSize] ?? modelTokens['1K']
+  return (tokens / 1_000_000) * pricing.outputImage * batchSize
+}
