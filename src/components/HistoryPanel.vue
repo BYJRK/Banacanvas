@@ -282,20 +282,14 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
         <Teleport to="body">
           <div
             v-if="showMeterTooltip"
-            class="fixed z-[200] w-64 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3 text-xs text-gray-700 dark:text-gray-300 pointer-events-none"
+            class="fixed z-[200] w-56 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3 text-xs text-gray-700 dark:text-gray-300 pointer-events-none"
             :style="{ top: tooltipPos.top + 'px', left: tooltipPos.left + 'px', transform: 'translateX(-100%)' }"
           >
-            <p class="font-semibold mb-2 text-gray-900 dark:text-gray-100">{{ t('storageTitle') }}</p>
-            <div class="flex justify-between mb-1">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('storageUsed') }}</span>
-              <span class="font-medium">{{ formatBytes(storageUsedBytes) }} / {{ formatBytes(storageQuotaBytes) }}</span>
+            <div class="flex justify-between mb-1.5 font-medium">
+              <span>{{ formatBytes(storageUsedBytes) }}</span>
+              <span class="text-gray-500 dark:text-gray-400">{{ formatBytes(storageQuotaBytes) }}</span>
             </div>
-            <div class="flex justify-between mb-2">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('storageFree') }}</span>
-              <span class="font-medium">{{ formatBytes(Math.max(0, storageQuotaBytes - storageUsedBytes)) }}</span>
-            </div>
-            <!-- Mini progress bar -->
-            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mb-2">
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
               <div
                 class="h-1 rounded-full transition-all"
                 :class="storagePercent >= 90 ? 'bg-red-500' : storagePercent >= 70 ? 'bg-amber-500' : 'bg-violet-500'"
