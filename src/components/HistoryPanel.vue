@@ -117,9 +117,6 @@ interface HistoryGroup {
 const BATCH_WINDOW_MS = 60_000
 
 function canGroup(a: HistoryEntry, b: HistoryEntry): boolean {
-  // If either has an explicit batchId, require exact match
-  if (a.batchId || b.batchId) return a.batchId != null && a.batchId === b.batchId
-  // Heuristic for legacy entries
   if (a.prompt !== b.prompt) return false
   if (a.config.model !== b.config.model) return false
   if ((a.config.provider ?? 'gemini') !== (b.config.provider ?? 'gemini')) return false
@@ -145,7 +142,7 @@ const historyGroups = computed<HistoryGroup[]>(() => {
       last.entries.push(entry)
     } else {
       groups.push({
-        key: entry.batchId ?? entry.id,
+        key: entry.id,
         entries: [entry],
         ordered: [],
         representative: entry,
@@ -154,10 +151,7 @@ const historyGroups = computed<HistoryGroup[]>(() => {
   }
   // Build chronological ordering for batch playback
   for (const g of groups) {
-    g.ordered = [...g.entries].sort((a, b) => {
-      if (a.batchIndex != null && b.batchIndex != null) return a.batchIndex - b.batchIndex
-      return a.timestamp - b.timestamp
-    })
+    g.ordered = [...g.entries].sort((a, b) => a.timestamp - b.timestamp)
   }
   return groups
 })

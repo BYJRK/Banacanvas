@@ -314,8 +314,7 @@ async function handleGenerate() {
     batchProgress.value = { current: 0, total: batchSize }
     batchControllers = []
     const startTime = performance.now()
-    const batchId = crypto.randomUUID()
-    const tasks = Array.from({ length: batchSize }, (_, batchIndex) => async () => {
+    const tasks = Array.from({ length: batchSize }, () => async () => {
       const ac = new AbortController()
       batchControllers.push(ac)
       try {
@@ -339,8 +338,6 @@ async function handleGenerate() {
           inputImageBase64: inputImages.value[0]?.base64,
           inputImageMimeType: inputImages.value[0]?.mimeType,
           textResponse: result.textResponse,
-          batchId,
-          batchIndex,
         })
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
