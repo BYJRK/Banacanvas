@@ -314,7 +314,8 @@ async function handleGenerate() {
     batchProgress.value = { current: 0, total: batchSize }
     batchControllers = []
     const startTime = performance.now()
-    const tasks = Array.from({ length: batchSize }, () => async () => {
+    const batchId = crypto.randomUUID()
+    const tasks = Array.from({ length: batchSize }, (_, batchIndex) => async () => {
       const ac = new AbortController()
       batchControllers.push(ac)
       try {
@@ -338,6 +339,8 @@ async function handleGenerate() {
           inputImageBase64: inputImages.value[0]?.base64,
           inputImageMimeType: inputImages.value[0]?.mimeType,
           textResponse: result.textResponse,
+          batchId,
+          batchIndex,
         })
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -402,6 +405,45 @@ function handleHistorySelect(entry: HistoryEntry) {
     inputImages.value = []
   }
   errorMessage.value = null
+  batchResults.value = []
+  batchProgress.value = null
+  resultUsage.value = undefined
+  showHistory.value = false
+}
+
+function handleHistorySelectBatch(entries: HistoryEntry[]) {
+  if (entries.length === 0) return
+  if (entries.length === 1) {
+    handleHistorySelect(entries[0])
+    return
+  }
+  const first = entries[0]
+  prompt.value = first.prompt
+  const entryProvider = first.config.provider ?? 'gemini'
+  config.value = { ...first.config, provider: entryProvider }
+  selectedProvider.value = entryProvider
+  const matchedModel = AVAILABLE_MODELS.find((m) => m.id === first.config.model)
+  selectedModel.value = matchedModel ?? { id: first.config.model, name: first.config.model, description: '', provider: entryProvider }
+
+  if (first.inputImageBase64 && first.inputImageMimeType) {
+    inputImages.value = [{ id: crypto.randomUUID(), base64: first.inputImageBase64, mimeType: first.inputImageMimeType }]
+  } else {
+    inputImages.value = []
+  }
+
+  // Populate batch gallery; clear single-image state
+  resultImage.value = undefined
+  resultMimeType.value = undefined
+  resultText.value = undefined
+  errorMessage.value = null
+
+  batchResults.value = entries.map((e) => ({
+    imageBase64: e.imageBase64,
+    imageMimeType: e.imageMimeType,
+    textResponse: e.textResponse,
+  }))
+  batchProgress.value = null
+  resultUsage.value = undefined
   showHistory.value = false
 }
 </script>
@@ -559,7 +601,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             @mousedown.prevent="onResizeStart"
             @touchstart.prevent="onResizeTouchStart"
           />
-          <HistoryPanel @select="handleHistorySelect" @toast="showToast" />
+          <HistoryPanel @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
         </aside>
       </Transition>
     </div>

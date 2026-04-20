@@ -36,6 +36,10 @@ export interface HistoryEntry {
   inputImageBase64?: string
   inputImageMimeType?: string
   textResponse?: string
+  /** Shared id across all images generated in the same batch request. Missing on legacy entries. */
+  batchId?: string
+  /** 0-based index within the batch. Missing on legacy entries. */
+  batchIndex?: number
 }
 
 export interface UsageInfo {

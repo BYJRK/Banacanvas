@@ -7,6 +7,7 @@ import { AVAILABLE_MODELS } from '../config/models'
 
 const emit = defineEmits<{
   (e: 'select', entry: HistoryEntry): void
+  (e: 'selectBatch', entries: HistoryEntry[]): void
   (e: 'toast', message: string, type?: 'success' | 'error' | 'info'): void
 }>()
 
@@ -88,9 +89,9 @@ const gridCols = computed(() => containerWidth.value >= 400 ? 2 : 1)
 // Waterfall: 2 columns default, 3 columns when wide
 const waterfallColCount = computed(() => containerWidth.value >= 400 ? 3 : 2)
 const waterfallColumns = computed(() => {
-  const cols: HistoryEntry[][] = Array.from({ length: waterfallColCount.value }, () => [])
-  historyStore.entries.forEach((entry, i) => {
-    cols[i % waterfallColCount.value].push(entry)
+  const cols: HistoryGroup[][] = Array.from({ length: waterfallColCount.value }, () => [])
+  historyGroups.value.forEach((group, i) => {
+    cols[i % waterfallColCount.value].push(group)
   })
   return cols
 })
@@ -99,6 +100,67 @@ const waterfallColumns = computed(() => {
 function modelName(entry: HistoryEntry): string {
   const found = AVAILABLE_MODELS.find((m) => m.id === entry.config.model && m.provider === entry.config.provider)
   return found ? found.name : (entry.config.model.split('/').pop() ?? entry.config.model)
+}
+
+// --- Batch grouping ---
+interface HistoryGroup {
+  key: string
+  entries: HistoryEntry[] // ordered: representative (newest) first; includes batchIndex-sorted copy in `ordered`
+  ordered: HistoryEntry[] // chronological order within batch (batchIndex asc, then timestamp asc)
+  representative: HistoryEntry
+}
+
+const BATCH_WINDOW_MS = 60_000
+
+function canGroup(a: HistoryEntry, b: HistoryEntry): boolean {
+  // If either has an explicit batchId, require exact match
+  if (a.batchId || b.batchId) return a.batchId != null && a.batchId === b.batchId
+  // Heuristic for legacy entries
+  if (a.prompt !== b.prompt) return false
+  if (a.config.model !== b.config.model) return false
+  if ((a.config.provider ?? 'gemini') !== (b.config.provider ?? 'gemini')) return false
+  if ((a.config.aspectRatio ?? '') !== (b.config.aspectRatio ?? '')) return false
+  if ((a.config.imageSize ?? '') !== (b.config.imageSize ?? '')) return false
+  if ((a.inputImageBase64 ?? '') !== (b.inputImageBase64 ?? '')) return false
+  if (Math.abs(a.timestamp - b.timestamp) > BATCH_WINDOW_MS) return false
+  return true
+}
+
+const historyGroups = computed<HistoryGroup[]>(() => {
+  const groups: HistoryGroup[] = []
+  // entries are sorted by timestamp desc
+  for (const entry of historyStore.entries) {
+    const last = groups[groups.length - 1]
+    if (last && canGroup(last.entries[last.entries.length - 1], entry)) {
+      last.entries.push(entry)
+    } else {
+      groups.push({
+        key: entry.batchId ?? entry.id,
+        entries: [entry],
+        ordered: [],
+        representative: entry,
+      })
+    }
+  }
+  // Build chronological ordering for batch playback
+  for (const g of groups) {
+    g.ordered = [...g.entries].sort((a, b) => {
+      if (a.batchIndex != null && b.batchIndex != null) return a.batchIndex - b.batchIndex
+      return a.timestamp - b.timestamp
+    })
+  }
+  return groups
+})
+
+function handleSelectGroup(group: HistoryGroup) {
+  if (group.entries.length === 1) emit('select', group.entries[0])
+  else emit('selectBatch', group.ordered)
+}
+
+async function handleRemoveGroup(group: HistoryGroup) {
+  for (const e of group.entries) {
+    await historyStore.removeEntry(e.id)
+  }
 }
 
 const storagePercent = computed(() =>
@@ -326,19 +388,30 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
     <!-- Grid view -->
     <div v-else-if="viewMode === 'grid'" class="grid auto-rows-max gap-2 overflow-y-auto flex-1 min-h-0 pr-1" :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }">
       <div
-        v-for="entry in historyStore.entries"
-        :key="entry.id"
+        v-for="group in historyGroups"
+        :key="group.key"
         class="group relative shrink-0 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
-        @click="emit('select', entry)"
-        :title="entry.prompt.length > 100 ? entry.prompt.slice(0, 100) + '…' : entry.prompt"
+        @click="handleSelectGroup(group)"
+        :title="group.representative.prompt.length > 100 ? group.representative.prompt.slice(0, 100) + '…' : group.representative.prompt"
       >
-        <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-full aspect-16/9 object-cover object-center" loading="lazy" />
+        <div class="relative">
+          <img :src="thumbUrl(group.representative)" :alt="group.representative.prompt" class="w-full aspect-16/9 object-cover object-center" loading="lazy" />
+          <!-- Count badge -->
+          <div
+            v-if="group.entries.length > 1"
+            class="absolute bottom-1 right-1 rounded bg-black/40 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white"
+            :title="t('batchGroupTooltip').replace('{count}', String(group.entries.length))"
+          >
+            ×{{ group.entries.length }}
+          </div>
+        </div>
         <div class="p-2">
-          <p class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(entry.timestamp) }}</p>
+          <p class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(group.representative.timestamp) }}</p>
         </div>
         <button
-          @click.stop="historyStore.removeEntry(entry.id)"
+          @click.stop="handleRemoveGroup(group)"
           class="absolute top-1 right-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
+          :title="group.entries.length > 1 ? t('deleteBatch') : ''"
         >
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -351,19 +424,28 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
     <div v-else-if="viewMode === 'waterfall'" class="flex gap-2 items-start overflow-y-auto flex-1 min-h-0 pr-1">
       <div v-for="(col, ci) in waterfallColumns" :key="ci" class="flex flex-col gap-2 flex-1 min-w-0">
         <div
-          v-for="entry in col"
-          :key="entry.id"
+          v-for="group in col"
+          :key="group.key"
           class="group relative rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
-          @click="emit('select', entry)"
-          :title="entry.prompt.length > 100 ? entry.prompt.slice(0, 100) + '…' : entry.prompt"
+          @click="handleSelectGroup(group)"
+          :title="group.representative.prompt.length > 100 ? group.representative.prompt.slice(0, 100) + '…' : group.representative.prompt"
         >
-          <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-full object-cover object-center" loading="lazy" />
+          <img :src="thumbUrl(group.representative)" :alt="group.representative.prompt" class="w-full object-cover object-center" loading="lazy" />
+          <!-- Count badge -->
+          <div
+            v-if="group.entries.length > 1"
+            class="absolute bottom-1 right-1 rounded bg-black/40 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white"
+            :title="t('batchGroupTooltip').replace('{count}', String(group.entries.length))"
+          >
+            ×{{ group.entries.length }}
+          </div>
           <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <p class="text-[10px] text-white/80">{{ formatTime(entry.timestamp) }}</p>
+            <p class="text-[10px] text-white/80">{{ formatTime(group.representative.timestamp) }}</p>
           </div>
           <button
-            @click.stop="historyStore.removeEntry(entry.id)"
+            @click.stop="handleRemoveGroup(group)"
             class="absolute top-1 right-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
+            :title="group.entries.length > 1 ? t('deleteBatch') : ''"
           >
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -376,24 +458,32 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
     <!-- List view -->
     <div v-else class="flex flex-col gap-1 overflow-y-auto flex-1 min-h-0 pr-1">
       <div
-        v-for="entry in historyStore.entries"
-        :key="entry.id"
+        v-for="group in historyGroups"
+        :key="group.key"
         class="group flex items-start gap-2.5 p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer relative"
-        @click="emit('select', entry)"
+        @click="handleSelectGroup(group)"
       >
-        <img :src="thumbUrl(entry)" :alt="entry.prompt" class="w-12 h-12 rounded object-cover shrink-0" loading="lazy" />
+        <div class="relative shrink-0">
+          <img :src="thumbUrl(group.representative)" :alt="group.representative.prompt" class="w-12 h-12 rounded object-cover" loading="lazy" />
+          <span
+            v-if="group.entries.length > 1"
+            class="absolute bottom-0.5 right-0.5 rounded bg-black/40 backdrop-blur-sm px-1 py-0.5 text-[9px] font-medium text-white leading-none"
+            :title="t('batchGroupTooltip').replace('{count}', String(group.entries.length))"
+          >×{{ group.entries.length }}</span>
+        </div>
         <div class="flex-1 min-w-0 pr-5">
-          <p class="text-xs text-gray-700 dark:text-gray-300 line-clamp-1 mb-1 leading-relaxed">{{ entry.prompt }}</p>
+          <p class="text-xs text-gray-700 dark:text-gray-300 line-clamp-1 mb-1 leading-relaxed">{{ group.representative.prompt }}</p>
           <div class="flex flex-wrap gap-x-2 gap-y-0.5">
-            <span class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(entry.timestamp) }}</span>
-            <span v-if="entry.config.aspectRatio" class="text-[10px] text-gray-400 dark:text-gray-600">{{ entry.config.aspectRatio }}</span>
-            <span v-if="entry.config.imageSize" class="text-[10px] text-gray-400 dark:text-gray-600">{{ entry.config.imageSize }}</span>
-            <span class="text-[10px] text-violet-400 dark:text-violet-500">{{ modelName(entry) }}</span>
+            <span class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(group.representative.timestamp) }}</span>
+            <span v-if="group.representative.config.aspectRatio" class="text-[10px] text-gray-400 dark:text-gray-600">{{ group.representative.config.aspectRatio }}</span>
+            <span v-if="group.representative.config.imageSize" class="text-[10px] text-gray-400 dark:text-gray-600">{{ group.representative.config.imageSize }}</span>
+            <span class="text-[10px] text-violet-400 dark:text-violet-500">{{ modelName(group.representative) }}</span>
           </div>
         </div>
         <button
-          @click.stop="historyStore.removeEntry(entry.id)"
+          @click.stop="handleRemoveGroup(group)"
           class="absolute top-1.5 right-1.5 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 cursor-pointer"
+          :title="group.entries.length > 1 ? t('deleteBatch') : ''"
         >
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
