@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import type { UsageInfo, DownloadFormat, BatchResultItem } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -86,9 +86,10 @@ function downloadImage(base64: string, mimeType: string) {
   })
 }
 
-function openFullscreen(base64?: string, mimeType?: string) {
+function openFullscreen(base64?: string, mimeType?: string, index?: number) {
   if (!base64 || !mimeType) return
   fullscreenImage.value = { base64, mimeType }
+  fullscreenIndex.value = index ?? -1
   showFullscreen.value = true
   // Reset zoom/pan state
   zoomLevel.value = 1
@@ -99,10 +100,58 @@ function openFullscreen(base64?: string, mimeType?: string) {
 function closeFullscreen() {
   showFullscreen.value = false
   fullscreenImage.value = null
+  fullscreenIndex.value = -1
   zoomLevel.value = 1
   panX.value = 0
   panY.value = 0
 }
+
+// --- Batch navigation in fullscreen ---
+const fullscreenIndex = ref(-1)
+
+const navigableResults = computed(() =>
+  (props.batchResults ?? []).filter((r) => r.imageBase64 && r.imageMimeType)
+)
+
+const canNavigate = computed(() => fullscreenIndex.value >= 0 && navigableResults.value.length > 1)
+
+function navigate(delta: number) {
+  if (!canNavigate.value) return
+  const list = navigableResults.value
+  // Find current position within navigable list by identity
+  const currentItem = list[fullscreenIndex.value] ?? list.find((r) =>
+    r.imageBase64 === fullscreenImage.value?.base64 && r.imageMimeType === fullscreenImage.value?.mimeType
+  )
+  let idx = currentItem ? list.indexOf(currentItem) : fullscreenIndex.value
+  idx = (idx + delta + list.length) % list.length
+  const next = list[idx]
+  if (!next?.imageBase64 || !next?.imageMimeType) return
+  fullscreenImage.value = { base64: next.imageBase64, mimeType: next.imageMimeType }
+  fullscreenIndex.value = idx
+  zoomLevel.value = 1
+  panX.value = 0
+  panY.value = 0
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (!showFullscreen.value) return
+  if (e.key === 'Escape') {
+    closeFullscreen()
+  } else if (e.key === 'ArrowLeft' && canNavigate.value) {
+    e.preventDefault()
+    navigate(-1)
+  } else if (e.key === 'ArrowRight' && canNavigate.value) {
+    e.preventDefault()
+    navigate(1)
+  }
+}
+
+watch(showFullscreen, (visible) => {
+  if (visible) window.addEventListener('keydown', onKeydown)
+  else window.removeEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 // --- Zoom & Pan ---
 const zoomLevel = ref(1)
@@ -290,7 +339,7 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
             :src="`data:${item.imageMimeType};base64,${item.imageBase64}`"
             alt="Generated image"
             class="w-full aspect-square object-cover cursor-pointer"
-            @click="openFullscreen(item.imageBase64, item.imageMimeType)"
+            @click="openFullscreen(item.imageBase64, item.imageMimeType, index)"
           />
           <div class="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
@@ -302,7 +351,7 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
               </svg>
             </button>
             <button
-              @click="openFullscreen(item.imageBase64, item.imageMimeType)"
+              @click="openFullscreen(item.imageBase64, item.imageMimeType, index)"
               class="rounded-md bg-black/60 backdrop-blur-sm p-1.5 text-white hover:bg-black/80 transition-colors cursor-pointer"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -503,6 +552,34 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
+
+      <!-- Prev / Next arrows -->
+      <button
+        v-if="canNavigate"
+        @click.stop="navigate(-1)"
+        class="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors cursor-pointer z-10"
+      >
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <button
+        v-if="canNavigate"
+        @click.stop="navigate(1)"
+        class="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors cursor-pointer z-10"
+      >
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      <!-- Counter -->
+      <div
+        v-if="canNavigate"
+        class="absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 backdrop-blur-sm px-3 py-1 text-sm text-white font-medium select-none z-10"
+      >
+        {{ fullscreenIndex + 1 }} / {{ navigableResults.length }}
+      </div>
 
       <!-- Zoom level indicator (click to reset) -->
       <button
