@@ -54,6 +54,10 @@ type HistoryViewMode = 'grid' | 'waterfall' | 'list'
 const viewMode = ref<HistoryViewMode>((localStorage.getItem('historyViewMode') as HistoryViewMode) || 'grid')
 watch(viewMode, (v) => localStorage.setItem('historyViewMode', v))
 
+// Group batches toggle
+const groupBatches = ref(localStorage.getItem('historyGroupBatches') !== 'false')
+watch(groupBatches, (v) => localStorage.setItem('historyGroupBatches', String(v)))
+
 const showViewDropdown = ref(false)
 const viewDropdownRef = ref<HTMLElement | null>(null)
 function onDocClick(e: MouseEvent) {
@@ -128,6 +132,12 @@ function canGroup(a: HistoryEntry, b: HistoryEntry): boolean {
 
 const historyGroups = computed<HistoryGroup[]>(() => {
   const groups: HistoryGroup[] = []
+  if (!groupBatches.value) {
+    for (const entry of historyStore.entries) {
+      groups.push({ key: entry.id, entries: [entry], ordered: [entry], representative: entry })
+    }
+    return groups
+  }
   // entries are sorted by timestamp desc
   for (const entry of historyStore.entries) {
     const last = groups[groups.length - 1]
@@ -294,9 +304,23 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
             </div>
           </div>
         </Teleport>
+        <!-- Group batches toggle -->
+        <button
+          @click="groupBatches = !groupBatches"
+          class="rounded p-1 transition-colors cursor-pointer"
+          :class="groupBatches ? 'text-violet-500 hover:text-violet-600' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+          :title="groupBatches ? t('groupBatchesOn') : t('groupBatchesOff')"
+        >
+          <svg v-if="groupBatches" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M5 3h7a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" opacity="0.4"/>
+            <path d="M8 6h7a2 2 0 012 2v7a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2z"/>
+          </svg>
+          <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 20 20">
+            <rect x="3" y="3" width="14" height="14" rx="2" stroke-width="1.5" />
+          </svg>
+        </button>
         <!-- View mode dropdown -->
-        <div class="relative" ref="viewDropdownRef">
-          <button
+        <div class="relative" ref="viewDropdownRef">          <button
             @click="showViewDropdown = !showViewDropdown"
             class="flex items-center gap-0.5 rounded p-1 transition-colors cursor-pointer text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             :title="t('viewMode')"
