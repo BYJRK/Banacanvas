@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
@@ -32,9 +32,12 @@ function cancelGeneration() {
   gemini.cancel()
   openRouter.cancel()
   vercelAI.cancel()
-  batchControllers.forEach((c) => c.abort())
+  for (const c of batchControllers) {
+    try { c.abort() } catch { /* ignore */ }
+  }
   batchControllers = []
   batchLoading.value = false
+  batchProgress.value = null
 }
 
 // Dialog state
@@ -154,37 +157,57 @@ const SIDEBAR_MIN_W = 288   // w-72 = 18rem = 288px (current default)
 const SIDEBAR_MAX_W = 450
 const sidebarWidth = ref(Number(localStorage.getItem('banacanvas-sidebar-width')) || SIDEBAR_MIN_W)
 
+// Track active resize cleanup so we can remove listeners if component unmounts mid-drag
+let resizeCleanup: (() => void) | null = null
+
 function onResizeStart(e: MouseEvent) {
+  resizeCleanup?.()
   const startX = e.clientX
   const startW = sidebarWidth.value
   const onMove = (ev: MouseEvent) => {
     const delta = startX - ev.clientX  // dragging left = wider
     sidebarWidth.value = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + delta))
   }
-  const onUp = () => {
+  const cleanup = () => {
     document.removeEventListener('mousemove', onMove)
     document.removeEventListener('mouseup', onUp)
+    resizeCleanup = null
+  }
+  const onUp = () => {
+    cleanup()
     localStorage.setItem('banacanvas-sidebar-width', String(sidebarWidth.value))
   }
+  resizeCleanup = cleanup
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
 }
 
 function onResizeTouchStart(e: TouchEvent) {
+  resizeCleanup?.()
   const startX = e.touches[0].clientX
   const startW = sidebarWidth.value
   const onMove = (ev: TouchEvent) => {
     const delta = startX - ev.touches[0].clientX
     sidebarWidth.value = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + delta))
   }
-  const onEnd = () => {
+  const cleanup = () => {
     document.removeEventListener('touchmove', onMove)
     document.removeEventListener('touchend', onEnd)
+    resizeCleanup = null
+  }
+  const onEnd = () => {
+    cleanup()
     localStorage.setItem('banacanvas-sidebar-width', String(sidebarWidth.value))
   }
+  resizeCleanup = cleanup
   document.addEventListener('touchmove', onMove)
   document.addEventListener('touchend', onEnd)
 }
+
+onBeforeUnmount(() => {
+  resizeCleanup?.()
+  cancelGeneration()
+})
 
 // Notification state
 const notifyOnEnd = ref(localStorage.getItem('banacanvas-notify-on-end') === 'true')
@@ -314,74 +337,76 @@ async function handleGenerate() {
     batchProgress.value = { current: 0, total: batchSize }
     batchControllers = []
     const startTime = performance.now()
-    const tasks = Array.from({ length: batchSize }, () => async () => {
-      const ac = new AbortController()
-      batchControllers.push(ac)
-      try {
-        const result = inputImages.value.length > 0
-          ? await api.editImage(inputImages.value, prompt.value, currentConfig, ac.signal)
-          : await api.generateImage(prompt.value, currentConfig, ac.signal)
+    try {
+      const tasks = Array.from({ length: batchSize }, () => async () => {
+        const ac = new AbortController()
+        batchControllers.push(ac)
+        try {
+          const result = inputImages.value.length > 0
+            ? await api.editImage(inputImages.value, prompt.value, currentConfig, ac.signal)
+            : await api.generateImage(prompt.value, currentConfig, ac.signal)
 
-        const item: BatchResultItem = {
-          imageBase64: result.imageBase64,
-          imageMimeType: result.imageMimeType,
-          textResponse: result.textResponse,
-          usage: result.usage,
+          const item: BatchResultItem = {
+            imageBase64: result.imageBase64,
+            imageMimeType: result.imageMimeType,
+            textResponse: result.textResponse,
+            usage: result.usage,
+          }
+          batchResults.value = [...batchResults.value, item]
+
+          await historyStore.addEntry({
+            prompt: prompt.value,
+            config: currentConfig,
+            imageBase64: result.imageBase64,
+            imageMimeType: result.imageMimeType,
+            inputImageBase64: inputImages.value[0]?.base64,
+            inputImageMimeType: inputImages.value[0]?.mimeType,
+            textResponse: result.textResponse,
+          })
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e)
+          batchResults.value = [...batchResults.value, { error: msg }]
+        } finally {
+          if (batchProgress.value) {
+            batchProgress.value = { ...batchProgress.value, current: batchProgress.value.current + 1 }
+          }
         }
-        batchResults.value = [...batchResults.value, item]
+      })
 
-        await historyStore.addEntry({
-          prompt: prompt.value,
-          config: currentConfig,
-          imageBase64: result.imageBase64,
-          imageMimeType: result.imageMimeType,
-          inputImageBase64: inputImages.value[0]?.base64,
-          inputImageMimeType: inputImages.value[0]?.mimeType,
-          textResponse: result.textResponse,
-        })
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        batchResults.value = [...batchResults.value, { error: msg }]
-      } finally {
-        if (batchProgress.value) {
-          batchProgress.value = { ...batchProgress.value, current: batchProgress.value.current + 1 }
+      await Promise.allSettled(tasks.map((task) => task()))
+
+      const elapsedMs = Math.round(performance.now() - startTime)
+
+      // Aggregate usage for display
+      const successCount = batchResults.value.filter((r) => r.imageBase64).length
+      const aggregatedUsage: UsageInfo = { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
+      for (const r of batchResults.value) {
+        if (r.usage) {
+          aggregatedUsage.promptTokenCount += r.usage.promptTokenCount
+          aggregatedUsage.candidatesTokenCount += r.usage.candidatesTokenCount
+          aggregatedUsage.thoughtsTokenCount += r.usage.thoughtsTokenCount
+          aggregatedUsage.totalTokenCount += r.usage.totalTokenCount
+          aggregatedUsage.estimatedCost += r.usage.estimatedCost
         }
       }
-    })
+      resultUsage.value = aggregatedUsage
 
-    await Promise.allSettled(tasks.map((task) => task()))
+      if (userCancelled) return
 
-    const elapsedMs = Math.round(performance.now() - startTime)
-
-    // Aggregate usage for display
-    const successCount = batchResults.value.filter((r) => r.imageBase64).length
-    const aggregatedUsage: UsageInfo = { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
-    for (const r of batchResults.value) {
-      if (r.usage) {
-        aggregatedUsage.promptTokenCount += r.usage.promptTokenCount
-        aggregatedUsage.candidatesTokenCount += r.usage.candidatesTokenCount
-        aggregatedUsage.thoughtsTokenCount += r.usage.thoughtsTokenCount
-        aggregatedUsage.totalTokenCount += r.usage.totalTokenCount
-        aggregatedUsage.estimatedCost += r.usage.estimatedCost
+      const toastMsg = t('batchComplete').replace('{success}', String(successCount)).replace('{total}', String(batchSize))
+      if (successCount === batchSize) {
+        showToast(toastMsg, 'success')
+        sendNotification(true)
+      } else if (successCount > 0) {
+        showToast(toastMsg, 'info')
+        sendNotification(true)
+      } else {
+        showToast(toastMsg, 'error')
+        sendNotification(false)
       }
-    }
-    resultUsage.value = aggregatedUsage
-
-    batchLoading.value = false
-    batchControllers = []
-
-    if (userCancelled) return
-
-    const toastMsg = t('batchComplete').replace('{success}', String(successCount)).replace('{total}', String(batchSize))
-    if (successCount === batchSize) {
-      showToast(toastMsg, 'success')
-      sendNotification(true)
-    } else if (successCount > 0) {
-      showToast(toastMsg, 'info')
-      sendNotification(true)
-    } else {
-      showToast(toastMsg, 'error')
-      sendNotification(false)
+    } finally {
+      batchLoading.value = false
+      batchControllers = []
     }
   }
 }
@@ -579,28 +604,26 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
       </main>
 
       <!-- Right: History sidebar overlay -->
-      <Transition name="history-backdrop">
+      <div
+        class="fixed inset-0 z-40 bg-black/40 transition-opacity duration-250"
+        :class="showHistory ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+        aria-hidden="true"
+        @click="showHistory = false"
+      />
+      <aside
+        class="fixed right-0 top-0 bottom-0 z-50 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-3 shadow-xl transition-transform duration-250 ease-out"
+        :class="showHistory ? 'translate-x-0' : 'translate-x-full pointer-events-none'"
+        :style="{ width: sidebarWidth + 'px' }"
+        :aria-hidden="!showHistory"
+      >
+        <!-- Resize drag handle -->
         <div
-          v-if="showHistory"
-          class="fixed inset-0 z-40 bg-black/40"
-          @click="showHistory = false"
+          class="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-violet-500/30 active:bg-violet-500/40 transition-colors"
+          @mousedown.prevent="onResizeStart"
+          @touchstart.prevent="onResizeTouchStart"
         />
-      </Transition>
-      <Transition name="history-panel">
-        <aside
-          v-if="showHistory"
-          class="fixed right-0 top-0 bottom-0 z-50 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-3 shadow-xl"
-          :style="{ width: sidebarWidth + 'px' }"
-        >
-          <!-- Resize drag handle -->
-          <div
-            class="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-violet-500/30 active:bg-violet-500/40 transition-colors"
-            @mousedown.prevent="onResizeStart"
-            @touchstart.prevent="onResizeTouchStart"
-          />
-          <HistoryPanel @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
-        </aside>
-      </Transition>
+        <HistoryPanel @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
+      </aside>
     </div>
 
     <!-- Toasts -->
@@ -642,21 +665,4 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
 </template>
 
 <style scoped>
-.history-backdrop-enter-active,
-.history-backdrop-leave-active {
-  transition: opacity 0.25s ease;
-}
-.history-backdrop-enter-from,
-.history-backdrop-leave-to {
-  opacity: 0;
-}
-
-.history-panel-enter-active,
-.history-panel-leave-active {
-  transition: transform 0.25s ease;
-}
-.history-panel-enter-from,
-.history-panel-leave-to {
-  transform: translateX(100%);
-}
 </style>

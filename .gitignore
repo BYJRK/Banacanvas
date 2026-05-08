@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 bun.lock
+skills-lock.json
+.agents/

@@ -402,6 +402,7 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
       <div
         v-for="group in historyGroups"
         :key="group.key"
+        v-memo="[group.key, group.entries.length, group.representative.timestamp]"
         class="group relative shrink-0 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
         @click="handleSelectGroup(group)"
         :title="group.representative.prompt.length > 100 ? group.representative.prompt.slice(0, 100) + '…' : group.representative.prompt"
@@ -438,6 +439,7 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
         <div
           v-for="group in col"
           :key="group.key"
+          v-memo="[group.key, group.entries.length, group.representative.timestamp]"
           class="group relative rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer"
           @click="handleSelectGroup(group)"
           :title="group.representative.prompt.length > 100 ? group.representative.prompt.slice(0, 100) + '…' : group.representative.prompt"
@@ -472,6 +474,7 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
       <div
         v-for="group in historyGroups"
         :key="group.key"
+        v-memo="[group.key, group.entries.length, group.representative.timestamp]"
         class="group flex items-start gap-2.5 p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-violet-400 dark:hover:border-violet-600 transition-colors cursor-pointer relative"
         @click="handleSelectGroup(group)"
       >

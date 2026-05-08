@@ -339,6 +339,8 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
             :src="`data:${item.imageMimeType};base64,${item.imageBase64}`"
             alt="Generated image"
             class="w-full aspect-square object-cover cursor-pointer"
+            loading="lazy"
+            decoding="async"
             @click="openFullscreen(item.imageBase64, item.imageMimeType, index)"
           />
           <div class="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -446,6 +448,7 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
         :src="imageUrl()"
         alt="Generated image"
         class="w-full rounded-xl shadow-lg cursor-pointer"
+        decoding="async"
         @click="openFullscreen(imageBase64, imageMimeType)"
       />
       <!-- Overlay controls -->
@@ -533,6 +536,7 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
         :src="`data:${fullscreenImage.mimeType};base64,${fullscreenImage.base64}`"
         alt="Generated image fullscreen"
         class="max-w-[95vw] max-h-[95vh] object-contain select-none"
+        decoding="async"
         :class="{ 'cursor-grabbing': isDragging, 'cursor-grab': zoomLevel > 1 && !isDragging }"
         :style="{ transform: imageTransform, transformOrigin: 'center center', transition: isDragging ? 'none' : 'transform 0.1s ease-out' }"
         draggable="false"
