@@ -1,6 +1,8 @@
 # Project Guidelines — Banacanvas
 
-Google Gemini AI image generation Web UI — text-to-image, image editing, multi-provider, bilingual (EN/ZH), dark mode, generation history.
+Google Gemini AI image generation Web UI — text-to-image, image editing, multi-provider, bilingual (EN/ZH), dark mode, batch generation, generation history.
+
+See [README.md](../README.md) for user-facing features and [README.zh.md](../README.zh.md) for Chinese version.
 
 ## Architecture
 
@@ -9,9 +11,9 @@ Google Gemini AI image generation Web UI — text-to-image, image editing, multi
 - **Components**: `<script setup lang="ts">` SFC, Headless UI for accessible primitives
 - **State**: Pinia stores (`apiKey`, `history`) + component-local reactive refs
 - **Composables**: `useGemini`, `useOpenRouter`, `useVercelAI` (API calls), `useI18n` (translation), `useTheme` (theme)
-- **Types**: all interfaces in `src/types/index.ts`
-- **i18n**: custom composable, `MessageKey` type-constrained, supports `en`/`zh`
-- **Storage**: localStorage for API keys, theme, locale, history
+- **Types**: all interfaces in [src/types/index.ts](../src/types/index.ts)
+- **i18n**: custom composable in [src/i18n/messages.ts](../src/i18n/messages.ts), `MessageKey` type-constrained, supports `en`/`zh`
+- **Storage**: localStorage for API keys / theme / locale / config; **IndexedDB** (via [src/stores/history.ts](../src/stores/history.ts)) for generation history
 
 ### Multi-Provider Routing
 
@@ -33,6 +35,20 @@ All three composables expose identical public interface: `{ loading, error, gene
 - **`defineEmits`** for non-data events (`@generate`, `@cancel`, `@providerChange`)
 - **No provide/inject** — composition via stores + composables only
 - **Toast**: App.vue manages toast array locally, 5-second auto-cleanup; `Toast.vue` is stateless
+
+### Batch Generation
+
+- Configurable `batchSize` (1–9). When `> 1`, App.vue runs N parallel requests via fresh composable instances and `Promise.allSettled`, tracking `batchControllers: AbortController[]` and `batchProgress` ref.
+- Single-generation path (`batchSize === 1`) uses the shared composable directly — do not unify the two code paths.
+- Results stored in `batchResults: BatchResultItem[]`; each successful item is persisted to history independently.
+
+### History (IndexedDB)
+
+- Object store `history` in DB `banacanvas`, keyed by `id`, indexed by `timestamp`.
+- Images stored as Blobs (re-encoded to WebP at quality 0.85 on save).
+- **No entry cap** — relies on browser storage quota; UI shows usage via `navigator.storage.estimate()`.
+- Auto-migrates legacy localStorage history on first load, then removes it.
+- Import/export uses JSZip (zip contains `manifest.json` + image files).
 
 ## Build & Dev
 
@@ -61,7 +77,7 @@ No test framework configured.
 
 - New translations must include both `en` and `zh`
 - Model config (sizes, ratios, pricing) in `src/config/models.ts`
-- History capped at 50 entries; auto-trims oldest on localStorage quota exceeded
+- History stored in IndexedDB without a hard entry cap — never reintroduce the old 50-entry localStorage trim; images must be saved as WebP Blobs, not base64 data URLs
 - Gemini streaming: iterate all chunks for final `usageMetadata` — partial collection loses cost data
 - On model/provider change: validate and reset unsupported aspect ratios/sizes via `getAspectRatios()` / `getImageSizes()`
 - Provider-specific features (thinking level, Google Search, person generation) guarded by `provider === 'gemini'`
@@ -77,4 +93,5 @@ No test framework configured.
 | `@google/genai` | Gemini SDK (streaming generation + image input) |
 | `@headlessui/vue` | Accessible UI components (Dialog, Listbox, Transition) |
 | `pinia` | State management |
+| `jszip` | Pack/unpack history import/export archives |
 | `tailwindcss` + `@tailwindcss/vite` | CSS framework (v4) |
