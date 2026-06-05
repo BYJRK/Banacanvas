@@ -27,6 +27,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Gemini Pro via OpenRouter. Professional quality.',
     provider: 'openrouter',
   },
+  {
+    id: 'x-ai/grok-imagine-image-quality',
+    name: 'Grok Imagine Image Quality',
+    description: 'Grok Imagine Image Quality is xAI\'s fast, high-fidelity image generation and editing model.',
+    provider: 'openrouter'
+  },
   // Vercel AI Gateway
   {
     id: 'google/gemini-3.1-flash-image-preview',
@@ -82,12 +88,23 @@ const PRO_IMAGE_SIZES = [
   { value: '4K', label: '4K' },
 ] as const
 
+const GROK_ASPECT_RATIOS = [
+  '1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2', '9:19.5', '19.5:9', '9:20', '20:9', '1:2', '2:1',
+] as const
+
+const GROK_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+  { value: '2K', label: '2K' },
+] as const
+
 export function getAspectRatios(modelId: string) {
+  if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_ASPECT_RATIOS
   const base = getBaseModelId(modelId)
   return base === 'gemini-3-pro-image-preview' ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
 }
 
 export function getImageSizes(modelId: string) {
+  if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_IMAGE_SIZES
   const base = getBaseModelId(modelId)
   return base === 'gemini-3-pro-image-preview' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
 }
@@ -111,7 +128,25 @@ const RESOLUTIONS: Record<string, Record<string, string>> = {
   '21:9': { '512': '792×168',    '1K': '1584×672',   '2K': '3168×1344',  '4K': '6336×2688' },
 }
 
-export function getResolution(aspectRatio: string, imageSize: string): string | undefined {
+// Output resolutions for Grok Imagine (xAI via OpenRouter)
+const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
+  '1:1':    { '1K': '1024×1024',  '2K': '2048×2048' },
+  '3:4':    { '1K': '896×1280',   '2K': '1712×2432' },
+  '4:3':    { '1K': '1280×896',   '2K': '2432×1712' },
+  '9:16':   { '1K': '768×1408',   '2K': '1504×2752' },
+  '16:9':   { '1K': '1408×768',   '2K': '2752×1504' },
+  '2:3':    { '1K': '864×1296',   '2K': '1664×2496' },
+  '3:2':    { '1K': '1296×864',   '2K': '2496×1664' },
+  '9:19.5': { '1K': '576×1248',   '2K': '1376×2976' },
+  '19.5:9': { '1K': '1248×576',   '2K': '2976×1376' },
+  '9:20':   { '1K': '576×1280',   '2K': '1360×3008' },
+  '20:9':   { '1K': '1280×576',   '2K': '3008×1360' },
+  '1:2':    { '1K': '704×1408',   '2K': '1440×2880' },
+  '2:1':    { '1K': '1408×704',   '2K': '2880×1440' },
+}
+
+export function getResolution(aspectRatio: string, imageSize: string, modelId?: string): string | undefined {
+  if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
   return RESOLUTIONS[aspectRatio]?.[imageSize]
 }
 
@@ -136,6 +171,23 @@ export const MODEL_PRICING: Record<string, {
     inputText: 2.00,    // $2.00 per 1M tokens (text/image input)
     outputText: 12.00,  // $12.00 per 1M tokens (text + thinking output)
     outputImage: 120.00, // $120.00 per 1M tokens (image output)
+  },
+}
+
+/** Models that do not accept OpenRouter's output modalities field */
+const MODELS_WITHOUT_OUTPUT_MODALITIES = new Set([
+  'x-ai/grok-imagine-image-quality',
+])
+
+export function supportsOutputModalities(modelId: string): boolean {
+  return !MODELS_WITHOUT_OUTPUT_MODALITIES.has(modelId)
+}
+
+/** Flat per-image pricing (USD) for models not using token-based pricing */
+const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
+  'x-ai/grok-imagine-image-quality': {
+    '1K': 0.05, // $0.05/image
+    '2K': 0.07, // $0.07/image
   },
 }
 
@@ -166,6 +218,10 @@ const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
  * Based on Gemini output image token pricing.
  */
 export function estimateImageOutputCost(modelId: string, imageSize: string, batchSize: number = 1): number {
+  const flatPrices = FLAT_IMAGE_PRICES[modelId]
+  if (flatPrices) {
+    return (flatPrices[imageSize] ?? flatPrices['1K'] ?? 0) * batchSize
+  }
   const base = getBaseModelId(modelId)
   const pricing = MODEL_PRICING[base] ?? MODEL_PRICING['gemini-3.1-flash-image-preview']
   const modelTokens = IMAGE_OUTPUT_TOKENS[base] ?? IMAGE_OUTPUT_TOKENS['gemini-3.1-flash-image-preview']

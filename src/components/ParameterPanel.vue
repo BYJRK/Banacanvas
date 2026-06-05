@@ -17,7 +17,7 @@ const { t } = useI18n()
 
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
 const imageSizes = computed(() => getImageSizes(props.modelId))
-const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K'))
+const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K', props.modelId))
 const is512Disabled = computed(() => props.provider === 'openrouter' || props.provider === 'vercel')
 const is4KDisabled = computed(() => props.provider === 'vercel')
 

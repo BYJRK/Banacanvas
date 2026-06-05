@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { getBaseModelId, MODEL_PRICING, toOpenRouterImageSize } from '../config/models'
+import { getBaseModelId, MODEL_PRICING, toOpenRouterImageSize, supportsOutputModalities } from '../config/models'
 import { useI18n } from './useI18n'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
@@ -48,7 +48,7 @@ export function useOpenRouter() {
       const body: Record<string, any> = {
         model: config.model,
         messages,
-        modalities: ['image', 'text'],
+        ...(supportsOutputModalities(config.model) && { modalities: ['image', 'text'] }),
         stream: false,
       }
 
