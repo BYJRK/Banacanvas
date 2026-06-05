@@ -3,13 +3,13 @@ import type { ModelOption, Provider } from '../types'
 export const AVAILABLE_MODELS: ModelOption[] = [
   // Gemini Direct API
   {
-    id: 'gemini-3.1-flash-image-preview',
+    id: 'gemini-3.1-flash-image',
     name: 'Nano Banana 2',
     description: 'Best balance of performance & cost. Supports 512–4K, thinking, Google Search.',
     provider: 'gemini',
   },
   {
-    id: 'gemini-3-pro-image-preview',
+    id: 'gemini-3-pro-image',
     name: 'Nano Banana Pro',
     description: 'Professional quality. Advanced reasoning & text rendering.',
     provider: 'gemini',
