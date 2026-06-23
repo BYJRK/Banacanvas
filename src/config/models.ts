@@ -16,13 +16,13 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   },
   // OpenRouter
   {
-    id: 'google/gemini-3.1-flash-image-preview',
+    id: 'google/gemini-3.1-flash-image',
     name: 'Nano Banana 2',
     description: 'Gemini Flash via OpenRouter. Supports aspect ratio & image size.',
     provider: 'openrouter',
   },
   {
-    id: 'google/gemini-3-pro-image-preview',
+    id: 'google/gemini-3-pro-image',
     name: 'Nano Banana Pro',
     description: 'Gemini Pro via OpenRouter. Professional quality.',
     provider: 'openrouter',
@@ -35,7 +35,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   },
   // Vercel AI Gateway
   {
-    id: 'google/gemini-3.1-flash-image-preview',
+    id: 'google/gemini-3.1-flash-image',
     name: 'Nano Banana 2',
     description: 'Gemini Flash via Vercel AI Gateway. Fast image generation.',
     provider: 'vercel',
@@ -56,13 +56,7 @@ export function getModelsForProvider(provider: Provider): ModelOption[] {
 
 /** Strip provider prefix to get the base Gemini model ID for config lookups */
 export function getBaseModelId(modelId: string): string {
-  let base = modelId.startsWith('google/') ? modelId.replace('google/', '') : modelId
-  // Map Vercel AI Gateway model IDs to canonical config IDs
-  const vercelAliases: Record<string, string> = {
-    'gemini-3-pro-image': 'gemini-3-pro-image-preview',
-  }
-  base = vercelAliases[base] ?? base
-  return base
+  return modelId.startsWith('google/') ? modelId.replace('google/', '') : modelId
 }
 
 // Aspect ratios supported per model
@@ -100,13 +94,13 @@ const GROK_IMAGE_SIZES = [
 export function getAspectRatios(modelId: string) {
   if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_ASPECT_RATIOS
   const base = getBaseModelId(modelId)
-  return base === 'gemini-3-pro-image-preview' ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
+  return base === 'gemini-3-pro-image' ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
 }
 
 export function getImageSizes(modelId: string) {
   if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_IMAGE_SIZES
   const base = getBaseModelId(modelId)
-  return base === 'gemini-3-pro-image-preview' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
+  return base === 'gemini-3-pro-image' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
 }
 
 // Actual output resolutions per aspect ratio and image size
@@ -162,12 +156,12 @@ export const MODEL_PRICING: Record<string, {
   outputText: number
   outputImage: number
 }> = {
-  'gemini-3.1-flash-image-preview': {
+  'gemini-3.1-flash-image': {
     inputText: 0.50,   // $0.50 per 1M tokens (text/image input)
     outputText: 3.00,   // $3.00 per 1M tokens (text + thinking output)
     outputImage: 60.00, // $60.00 per 1M tokens (image output)
   },
-  'gemini-3-pro-image-preview': {
+  'gemini-3-pro-image': {
     inputText: 2.00,    // $2.00 per 1M tokens (text/image input)
     outputText: 12.00,  // $12.00 per 1M tokens (text + thinking output)
     outputImage: 120.00, // $120.00 per 1M tokens (image output)
@@ -200,13 +194,13 @@ export function toOpenRouterImageSize(size: string): string {
 // Official image output token counts per model and size
 // Source: https://ai.google.dev/gemini-api/docs/pricing
 const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
-  'gemini-3.1-flash-image-preview': {
+  'gemini-3.1-flash-image': {
     '512': 747,   // $0.045/image at $60/1M
     '1K':  1120,  // $0.067/image
     '2K':  1680,  // $0.101/image
     '4K':  2520,  // $0.151/image
   },
-  'gemini-3-pro-image-preview': {
+  'gemini-3-pro-image': {
     '1K':  1120,  // $0.134/image at $120/1M (1K and 2K share same count)
     '2K':  1120,  // $0.134/image (same as 1K per Google's pricing)
     '4K':  2000,  // $0.240/image
@@ -223,8 +217,8 @@ export function estimateImageOutputCost(modelId: string, imageSize: string, batc
     return (flatPrices[imageSize] ?? flatPrices['1K'] ?? 0) * batchSize
   }
   const base = getBaseModelId(modelId)
-  const pricing = MODEL_PRICING[base] ?? MODEL_PRICING['gemini-3.1-flash-image-preview']
-  const modelTokens = IMAGE_OUTPUT_TOKENS[base] ?? IMAGE_OUTPUT_TOKENS['gemini-3.1-flash-image-preview']
+  const pricing = MODEL_PRICING[base] ?? MODEL_PRICING['gemini-3.1-flash-image']
+  const modelTokens = IMAGE_OUTPUT_TOKENS[base] ?? IMAGE_OUTPUT_TOKENS['gemini-3.1-flash-image']
   const tokens = modelTokens[imageSize] ?? modelTokens['1K']
   return (tokens / 1_000_000) * pricing.outputImage * batchSize
 }
