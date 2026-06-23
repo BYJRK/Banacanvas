@@ -1,10 +1,10 @@
 import { ref } from 'vue'
+import { generateText, createGateway } from 'ai'
+import type { ModelMessage } from 'ai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { getBaseModelId, MODEL_PRICING, toOpenRouterImageSize } from '../config/models'
+import { getBaseModelId, MODEL_PRICING } from '../config/models'
 import { useI18n } from './useI18n'
-
-const VERCEL_AI_GATEWAY_URL = 'https://ai-gateway.vercel.sh/v1/chat/completions'
 
 export function useVercelAI() {
   const apiKeyStore = useApiKeyStore()
@@ -20,8 +20,7 @@ export function useVercelAI() {
   }
 
   async function doRequest(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages: any[],
+    messages: ModelMessage[],
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
@@ -36,46 +35,29 @@ export function useVercelAI() {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body: Record<string, any> = {
-        model: config.model,
-        messages,
-        modalities: ['text', 'image'],
-        stream: false,
-      }
+      const gateway = createGateway({ apiKey })
 
-      // Pass Google-specific image config via providerOptions
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Google-specific image config (aspect ratio + resolution)
       const imageConfig: Record<string, string> = {}
       if (config.aspectRatio) imageConfig.aspectRatio = config.aspectRatio
-      if (config.imageSize) imageConfig.imageSize = toOpenRouterImageSize(config.imageSize)
-      if (Object.keys(imageConfig).length > 0) {
-        body.providerOptions = {
-          google: { imageConfig },
-        }
-      }
+      if (config.imageSize) imageConfig.imageSize = config.imageSize
 
-      const response = await fetch(VERCEL_AI_GATEWAY_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
+      const result = await generateText({
+        model: gateway(config.model),
+        messages,
+        providerOptions: {
+          google: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            ...(Object.keys(imageConfig).length > 0 ? { imageConfig } : {}),
+          },
         },
-        body: JSON.stringify(body),
-        signal: externalSignal ?? abortController!.signal,
+        abortSignal: externalSignal ?? abortController!.signal,
       })
 
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => null)
-        const errMsg = errBody?.error?.message ?? `HTTP ${response.status}`
-        throw new Error(errMsg)
-      }
-
-      const result = await response.json()
-      return parseResponse(result, config.model)
+      return parseResult(result, config.model)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('abort')) {
+      if (msg.toLowerCase().includes('abort')) {
         throw new Error(t('generationCancelled'))
       }
       if (managed) error.value = msg
@@ -88,37 +70,24 @@ export function useVercelAI() {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function parseResponse(result: any, modelId: string): GenerationResult {
-    const choice = result.choices?.[0]
-    if (!choice?.message) {
+  function parseResult(
+    result: Awaited<ReturnType<typeof generateText>>,
+    modelId: string,
+  ): GenerationResult {
+    const imageFile = result.files.find((f) => f.mediaType?.startsWith('image/'))
+    if (!imageFile) {
       throw new Error(t('noImageGenerated'))
     }
 
-    const message = choice.message
-    let imageBase64 = ''
-    let imageMimeType = 'image/png'
-
-    // Vercel AI Gateway returns images in message.images array as data URLs
-    if (message.images?.length > 0) {
-      const dataUrl: string = message.images[0].image_url?.url ?? ''
-      const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/)
-      if (match) {
-        imageMimeType = match[1]
-        imageBase64 = match[2]
-      }
-    }
-
-    if (!imageBase64) {
-      throw new Error(t('noImageGenerated'))
-    }
+    const imageBase64 = imageFile.base64
+    const imageMimeType = imageFile.mediaType || 'image/png'
 
     // Build usage info
     let usage: UsageInfo | undefined
     if (result.usage) {
-      const promptTokens = result.usage.prompt_tokens ?? 0
-      const completionTokens = result.usage.completion_tokens ?? 0
-      const totalTokens = result.usage.total_tokens ?? 0
+      const promptTokens = result.usage.inputTokens ?? 0
+      const completionTokens = result.usage.outputTokens ?? 0
+      const totalTokens = result.usage.totalTokens ?? promptTokens + completionTokens
 
       const baseModelId = getBaseModelId(modelId)
       const pricing = MODEL_PRICING[baseModelId]
@@ -140,7 +109,7 @@ export function useVercelAI() {
     return {
       imageBase64,
       imageMimeType,
-      textResponse: message.content || undefined,
+      textResponse: result.text || undefined,
       usage,
     }
   }
@@ -150,7 +119,7 @@ export function useVercelAI() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
-    const messages = [
+    const messages: ModelMessage[] = [
       {
         role: 'user',
         content: prompt,
@@ -165,19 +134,16 @@ export function useVercelAI() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const content: any[] = images.map((img) => ({
-      type: 'image_url',
-      image_url: {
-        url: `data:${img.mimeType};base64,${img.base64}`,
-      },
-    }))
-    content.push({ type: 'text', text: prompt })
-
-    const messages = [
+    const messages: ModelMessage[] = [
       {
         role: 'user',
-        content,
+        content: [
+          ...images.map((img) => ({
+            type: 'image' as const,
+            image: `data:${img.mimeType};base64,${img.base64}`,
+          })),
+          { type: 'text' as const, text: prompt },
+        ],
       },
     ]
     return doRequest(messages, config, externalSignal)
