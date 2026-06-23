@@ -27,8 +27,8 @@ All providers offer the same two underlying Gemini models:
 
 | Model | Internal Name | Resolution | Pricing (per 1M tokens) |
 |---|---|---|---|
-| **Nano Banana 2** | `gemini-3.1-flash-image-preview` | 512 – 4K | $0.50 input · $3.00 text output · $60 image output |
-| **Nano Banana Pro** | `gemini-3-pro-image-preview` | 1K – 4K | $2.00 input · $12.00 text output · $120 image output |
+| **Nano Banana 2** | `gemini-3.1-flash-image` | 512 – 4K | $0.50 input · $3.00 text output · $60 image output |
+| **Nano Banana Pro** | `gemini-3-pro-image` | 1K – 4K | $2.00 input · $12.00 text output · $120 image output |
 
 | Provider | Description |
 |---|---|

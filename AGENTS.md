@@ -27,7 +27,7 @@ All three composables expose identical public interface: `{ loading, error, gene
 
 - **useGemini**: `@google/genai` SDK with streaming (`generateContentStream`). Must iterate all chunks for final `usageMetadata`.
 - **useOpenRouter / useVercelAI**: Standard `fetch` + JSON response (no streaming). useVercelAI wraps config in `providerOptions.google.imageConfig`.
-- **Model ID mapping**: OpenRouter/Vercel use `google/` prefix (`google/gemini-3.1-flash-image-preview`). Use `getBaseModelId()` from `src/config/models.ts` for pricing lookups.
+- **Model ID mapping**: OpenRouter/Vercel use `google/` prefix (`google/gemini-3.1-flash-image`). Use `getBaseModelId()` from `src/config/models.ts` for pricing lookups.
 
 ### Component Communication
 

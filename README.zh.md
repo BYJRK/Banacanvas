@@ -27,8 +27,8 @@
 
 | 模型 | 内部名称 | 分辨率 | 定价（每 1M Token） |
 |---|---|---|---|
-| **Nano Banana 2** | `gemini-3.1-flash-image-preview` | 512 – 4K | $0.50 输入 · $3.00 文本输出 · $60 图像输出 |
-| **Nano Banana Pro** | `gemini-3-pro-image-preview` | 1K – 4K | $2.00 输入 · $12.00 文本输出 · $120 图像输出 |
+| **Nano Banana 2** | `gemini-3.1-flash-image` | 512 – 4K | $0.50 输入 · $3.00 文本输出 · $60 图像输出 |
+| **Nano Banana Pro** | `gemini-3-pro-image` | 1K – 4K | $2.00 输入 · $12.00 文本输出 · $120 图像输出 |
 
 | 提供商 | 说明 |
 |---|---|
