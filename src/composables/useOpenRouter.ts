@@ -1,10 +1,11 @@
 import { ref } from 'vue'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { getBaseModelId, MODEL_PRICING, toOpenRouterImageSize, supportsOutputModalities } from '../config/models'
+import { getBaseModelId, MODEL_PRICING, toOpenRouterImageSize, supportsOutputModalities, usesImagesEndpoint } from '../config/models'
 import { useI18n } from './useI18n'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_IMAGES_URL = 'https://openrouter.ai/api/v1/images'
 
 export function useOpenRouter() {
   const apiKeyStore = useApiKeyStore()
@@ -152,11 +153,107 @@ export function useOpenRouter() {
     }
   }
 
+  // ---- OpenRouter /images endpoint (e.g. GPT Image 2) ----
+
+  async function doImageRequest(
+    prompt: string,
+    config: GenerationConfig,
+    references: InputImage[],
+    externalSignal?: AbortSignal,
+  ): Promise<GenerationResult> {
+    const apiKey = apiKeyStore.getKey('openrouter')
+    if (!apiKey) throw new Error(t('apiKeyNotSet'))
+
+    const managed = !externalSignal
+    if (managed) {
+      loading.value = true
+      error.value = null
+      abortController = new AbortController()
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body: Record<string, any> = {
+        model: config.model,
+        prompt,
+      }
+      if (config.quality) body.quality = config.quality
+      if (references.length > 0) {
+        body.input_references = references.map((img) => ({
+          type: 'image_url',
+          image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+        }))
+      }
+
+      const response = await fetch(OPENROUTER_IMAGES_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: externalSignal ?? abortController!.signal,
+      })
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => null)
+        const errMsg = errBody?.error?.message ?? `HTTP ${response.status}`
+        throw new Error(errMsg)
+      }
+
+      const result = await response.json()
+      return parseImagesResponse(result)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('abort')) {
+        throw new Error(t('generationCancelled'))
+      }
+      if (managed) error.value = msg
+      throw new Error(msg)
+    } finally {
+      if (managed) {
+        loading.value = false
+        abortController = null
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function parseImagesResponse(result: any): GenerationResult {
+    const item = result.data?.[result.data.length - 1]
+    const imageBase64: string = item?.b64_json ?? ''
+    if (!imageBase64) {
+      throw new Error(t('noImageGenerated'))
+    }
+    const imageMimeType: string = item.media_type ?? 'image/png'
+
+    let usage: UsageInfo | undefined
+    if (result.usage) {
+      usage = {
+        promptTokenCount: result.usage.prompt_tokens ?? 0,
+        candidatesTokenCount: result.usage.completion_tokens ?? 0,
+        thoughtsTokenCount: 0,
+        totalTokenCount: result.usage.total_tokens ?? 0,
+        // The /images endpoint reports actual USD cost directly.
+        estimatedCost: result.usage.cost ?? 0,
+      }
+    }
+
+    return {
+      imageBase64,
+      imageMimeType,
+      usage,
+    }
+  }
+
   async function generateImage(
     prompt: string,
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
+    if (usesImagesEndpoint(config.model)) {
+      return doImageRequest(prompt, config, [], externalSignal)
+    }
     const messages = [
       {
         role: 'user',
@@ -172,6 +269,9 @@ export function useOpenRouter() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
+    if (usesImagesEndpoint(config.model)) {
+      return doImageRequest(prompt, config, images, externalSignal)
+    }
     // Build multimodal content array in OpenAI vision format
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const content: any[] = images.map((img) => ({

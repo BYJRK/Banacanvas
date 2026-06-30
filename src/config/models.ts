@@ -4,6 +4,7 @@ import type { ModelOption, Provider } from '../types'
 export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
 export const GEMINI_PRO_IMAGE_MODEL = 'gemini-3-pro-image'
 export const GROK_IMAGE_MODEL = 'x-ai/grok-imagine-image-quality'
+export const GPT_IMAGE_2_MODEL = 'openai/gpt-image-2'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   // Gemini Direct API
@@ -37,6 +38,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     name: 'Grok Imagine Image Quality',
     description: 'Grok Imagine Image Quality is xAI\'s fast, high-fidelity image generation and editing model.',
     provider: 'openrouter'
+  },
+  {
+    id: 'openai/gpt-image-2',
+    name: 'GPT Image 2',
+    description: 'OpenAI\'s latest image model via OpenRouter. Quality presets, no aspect ratio / size controls.',
+    provider: 'openrouter',
   },
   // Vercel AI Gateway
   {
@@ -122,6 +129,27 @@ export function isImageSizeSupported(provider: Provider, size: string): boolean 
   return !getUnsupportedImageSizes(provider).includes(size)
 }
 
+/**
+ * Models served through OpenRouter's dedicated `/api/v1/images` endpoint
+ * instead of chat completions. These use a different request/response shape.
+ */
+export function usesImagesEndpoint(modelId: string): boolean {
+  return modelId === GPT_IMAGE_2_MODEL
+}
+
+/** GPT Image 2 has no aspect ratio / resolution controls — only a quality preset. */
+export function supportsAspectRatio(modelId: string): boolean {
+  return modelId !== GPT_IMAGE_2_MODEL
+}
+
+export function supportsImageSize(modelId: string): boolean {
+  return modelId !== GPT_IMAGE_2_MODEL
+}
+
+export function supportsQuality(modelId: string): boolean {
+  return modelId === GPT_IMAGE_2_MODEL
+}
+
 // Actual output resolutions per aspect ratio and image size
 // Source: https://ai.google.dev/gemini-api/docs/image-generation#aspect_ratios_and_image_size
 const RESOLUTIONS: Record<string, Record<string, string>> = {
@@ -168,6 +196,14 @@ export const THINKING_LEVELS = [
   { value: 'HIGH', label: 'High' },
 ] as const
 
+// GPT Image 2 rendering quality presets (OpenRouter /images `quality` field)
+export const QUALITY_LEVELS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+] as const
+
 // Pricing per million tokens (USD) - standard tier
 // Source: https://ai.google.dev/gemini-api/docs/pricing
 export const MODEL_PRICING: Record<string, {
@@ -204,6 +240,15 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
   },
 }
 
+// GPT Image 2 charges per output token ($30/1M). Rough per-image USD estimates
+// by quality preset for a square image (token counts vary with content/size).
+const GPT_IMAGE_2_QUALITY_COST: Record<string, number> = {
+  low: 0.008,    // ~272 tokens
+  medium: 0.032, // ~1056 tokens
+  high: 0.125,   // ~4160 tokens
+  auto: 0.032,   // treated as medium
+}
+
 /** Map internal imageSize values to OpenRouter image_size values */
 export function toOpenRouterImageSize(size: string): string {
   if (size === '512') return '0.5K'
@@ -230,7 +275,11 @@ const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
  * Estimate image output cost in USD per image (ignores input cost).
  * Based on Gemini output image token pricing.
  */
-export function estimateImageOutputCost(modelId: string, imageSize: string, batchSize: number = 1): number {
+export function estimateImageOutputCost(modelId: string, imageSize: string, batchSize: number = 1, quality?: string): number {
+  if (modelId === GPT_IMAGE_2_MODEL) {
+    const cost = GPT_IMAGE_2_QUALITY_COST[quality ?? 'auto'] ?? GPT_IMAGE_2_QUALITY_COST['auto']
+    return cost * batchSize
+  }
   const flatPrices = FLAT_IMAGE_PRICES[modelId]
   if (flatPrices) {
     return (flatPrices[imageSize] ?? flatPrices['1K'] ?? 0) * batchSize

@@ -7,7 +7,7 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported } from './config/models'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported, supportsQuality } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
@@ -96,6 +96,7 @@ const config = ref<GenerationConfig>({
   model: persistedModelOption.id,
   aspectRatio: persisted.config.aspectRatio ?? '1:1',
   imageSize: persisted.config.imageSize ?? '1K',
+  quality: persisted.config.quality ?? 'auto',
   thinkingLevel: persisted.config.thinkingLevel ?? 'MINIMAL',
   googleSearch: persisted.config.googleSearch ?? false,
   batchSize: persisted.config.batchSize ?? 1,
@@ -111,6 +112,7 @@ function persistParams() {
     config: {
       aspectRatio: config.value.aspectRatio,
       imageSize: config.value.imageSize,
+      quality: config.value.quality,
       thinkingLevel: config.value.thinkingLevel,
       googleSearch: config.value.googleSearch,
       batchSize: config.value.batchSize,
@@ -259,6 +261,11 @@ function onModelChange(model: ModelOption) {
   const validRatios = getAspectRatios(model.id) as readonly string[]
   if (newConfig.aspectRatio && !validRatios.includes(newConfig.aspectRatio)) {
     newConfig.aspectRatio = '1:1'
+  }
+
+  // Ensure a quality preset exists for models that support it (GPT Image 2)
+  if (supportsQuality(model.id) && !newConfig.quality) {
+    newConfig.quality = 'auto'
   }
 
   config.value = newConfig

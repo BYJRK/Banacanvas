@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, QUALITY_LEVELS, estimateImageOutputCost, supportsAspectRatio, supportsImageSize, supportsQuality } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -17,6 +17,9 @@ const { t } = useI18n()
 
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
 const imageSizes = computed(() => getImageSizes(props.modelId))
+const showAspectRatio = computed(() => supportsAspectRatio(props.modelId))
+const showImageSize = computed(() => supportsImageSize(props.modelId))
+const showQuality = computed(() => supportsQuality(props.modelId))
 const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K', props.modelId))
 const unsupportedSizes = computed(() => getUnsupportedImageSizes(props.provider))
 function isSizeDisabled(size: string) {
@@ -42,12 +45,26 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
   config.value = { ...config.value, thinkingLevel: level }
 }
 
+function setQuality(quality: GenerationConfig['quality']) {
+  config.value = { ...config.value, quality }
+}
+
+const QUALITY_LABEL_KEYS = {
+  auto: 'qualityAuto',
+  low: 'qualityLow',
+  medium: 'qualityMedium',
+  high: 'qualityHigh',
+} as const
+function qualityLabel(value: string): string {
+  return t(QUALITY_LABEL_KEYS[value as keyof typeof QUALITY_LABEL_KEYS])
+}
+
 function setBatchSize(size: number) {
   config.value = { ...config.value, batchSize: Math.max(1, Math.min(9, size)) }
 }
 
 const estimatedTotalCost = computed(() =>
-  estimateImageOutputCost(props.modelId, config.value.imageSize ?? '1K', config.value.batchSize ?? 1)
+  estimateImageOutputCost(props.modelId, config.value.imageSize ?? '1K', config.value.batchSize ?? 1, config.value.quality)
 )
 
 function formatCost(cost: number): string {
@@ -64,7 +81,7 @@ function formatCost(cost: number): string {
     </h3>
 
     <!-- Image Size -->
-    <div>
+    <div v-if="showImageSize">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('imageSize') }}
       </label>
@@ -90,7 +107,7 @@ function formatCost(cost: number): string {
     </div>
 
     <!-- Aspect Ratio -->
-    <div>
+    <div v-if="showAspectRatio">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('aspectRatio') }}
       </label>
@@ -112,6 +129,28 @@ function formatCost(cost: number): string {
       <p v-if="resolution" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
         {{ t('outputResolution') }}: {{ resolution }}
       </p>
+    </div>
+
+    <!-- Quality (GPT Image 2) -->
+    <div v-if="showQuality">
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {{ t('quality') }}
+      </label>
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          v-for="level in QUALITY_LEVELS"
+          :key="level.value"
+          @click="setQuality(level.value as GenerationConfig['quality'])"
+          :class="[
+            'rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer',
+            (config.quality ?? 'auto') === level.value
+              ? 'bg-violet-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
+          ]"
+        >
+          {{ qualityLabel(level.value) }}
+        </button>
+      </div>
     </div>
 
     <!-- Thinking Level (Gemini only) -->

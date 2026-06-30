@@ -20,6 +20,7 @@ export interface GenerationConfig {
   model: string
   aspectRatio?: string
   imageSize?: '512' | '1K' | '2K' | '4K'
+  quality?: 'auto' | 'low' | 'medium' | 'high'
   personGeneration?: 'ALLOW_ALL' | 'ALLOW_ADULT' | 'ALLOW_NONE'
   thinkingLevel?: 'MINIMAL' | 'HIGH'
   googleSearch?: boolean
