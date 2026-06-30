@@ -1,5 +1,10 @@
 import type { ModelOption, Provider } from '../types'
 
+// Canonical model IDs — avoid scattering magic strings across capability helpers
+export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
+export const GEMINI_PRO_IMAGE_MODEL = 'gemini-3-pro-image'
+export const GROK_IMAGE_MODEL = 'x-ai/grok-imagine-image-quality'
+
 export const AVAILABLE_MODELS: ModelOption[] = [
   // Gemini Direct API
   {
@@ -92,15 +97,30 @@ const GROK_IMAGE_SIZES = [
 ] as const
 
 export function getAspectRatios(modelId: string) {
-  if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_ASPECT_RATIOS
+  if (modelId === GROK_IMAGE_MODEL) return GROK_ASPECT_RATIOS
   const base = getBaseModelId(modelId)
-  return base === 'gemini-3-pro-image' ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
+  return base === GEMINI_PRO_IMAGE_MODEL ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
 }
 
 export function getImageSizes(modelId: string) {
-  if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_IMAGE_SIZES
+  if (modelId === GROK_IMAGE_MODEL) return GROK_IMAGE_SIZES
   const base = getBaseModelId(modelId)
-  return base === 'gemini-3-pro-image' ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
+  return base === GEMINI_PRO_IMAGE_MODEL ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
+}
+
+/**
+ * Image sizes a provider cannot deliver even when the underlying model lists them.
+ * Single source of truth for the 512/4K availability rules used by the UI and
+ * by model-switch validation.
+ */
+export function getUnsupportedImageSizes(provider: Provider): readonly string[] {
+  if (provider === 'vercel') return ['512', '4K']
+  if (provider === 'openrouter') return ['512']
+  return []
+}
+
+export function isImageSizeSupported(provider: Provider, size: string): boolean {
+  return !getUnsupportedImageSizes(provider).includes(size)
 }
 
 // Actual output resolutions per aspect ratio and image size
@@ -140,7 +160,7 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
 }
 
 export function getResolution(aspectRatio: string, imageSize: string, modelId?: string): string | undefined {
-  if (modelId === 'x-ai/grok-imagine-image-quality') return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
+  if (modelId === GROK_IMAGE_MODEL) return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
   return RESOLUTIONS[aspectRatio]?.[imageSize]
 }
 
@@ -156,12 +176,12 @@ export const MODEL_PRICING: Record<string, {
   outputText: number
   outputImage: number
 }> = {
-  'gemini-3.1-flash-image': {
+  [GEMINI_FLASH_IMAGE_MODEL]: {
     inputText: 0.50,   // $0.50 per 1M tokens (text/image input)
     outputText: 3.00,   // $3.00 per 1M tokens (text + thinking output)
     outputImage: 60.00, // $60.00 per 1M tokens (image output)
   },
-  'gemini-3-pro-image': {
+  [GEMINI_PRO_IMAGE_MODEL]: {
     inputText: 2.00,    // $2.00 per 1M tokens (text/image input)
     outputText: 12.00,  // $12.00 per 1M tokens (text + thinking output)
     outputImage: 120.00, // $120.00 per 1M tokens (image output)
@@ -169,8 +189,8 @@ export const MODEL_PRICING: Record<string, {
 }
 
 /** Models that do not accept OpenRouter's output modalities field */
-const MODELS_WITHOUT_OUTPUT_MODALITIES = new Set([
-  'x-ai/grok-imagine-image-quality',
+const MODELS_WITHOUT_OUTPUT_MODALITIES = new Set<string>([
+  GROK_IMAGE_MODEL,
 ])
 
 export function supportsOutputModalities(modelId: string): boolean {
@@ -179,7 +199,7 @@ export function supportsOutputModalities(modelId: string): boolean {
 
 /** Flat per-image pricing (USD) for models not using token-based pricing */
 const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
-  'x-ai/grok-imagine-image-quality': {
+  [GROK_IMAGE_MODEL]: {
     '1K': 0.05, // $0.05/image
     '2K': 0.07, // $0.07/image
   },
@@ -194,13 +214,13 @@ export function toOpenRouterImageSize(size: string): string {
 // Official image output token counts per model and size
 // Source: https://ai.google.dev/gemini-api/docs/pricing
 const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
-  'gemini-3.1-flash-image': {
+  [GEMINI_FLASH_IMAGE_MODEL]: {
     '512': 747,   // $0.045/image at $60/1M
     '1K':  1120,  // $0.067/image
     '2K':  1680,  // $0.101/image
     '4K':  2520,  // $0.151/image
   },
-  'gemini-3-pro-image': {
+  [GEMINI_PRO_IMAGE_MODEL]: {
     '1K':  1120,  // $0.134/image at $120/1M (1K and 2K share same count)
     '2K':  1120,  // $0.134/image (same as 1K per Google's pricing)
     '4K':  2000,  // $0.240/image
@@ -217,8 +237,8 @@ export function estimateImageOutputCost(modelId: string, imageSize: string, batc
     return (flatPrices[imageSize] ?? flatPrices['1K'] ?? 0) * batchSize
   }
   const base = getBaseModelId(modelId)
-  const pricing = MODEL_PRICING[base] ?? MODEL_PRICING['gemini-3.1-flash-image']
-  const modelTokens = IMAGE_OUTPUT_TOKENS[base] ?? IMAGE_OUTPUT_TOKENS['gemini-3.1-flash-image']
+  const pricing = MODEL_PRICING[base] ?? MODEL_PRICING[GEMINI_FLASH_IMAGE_MODEL]
+  const modelTokens = IMAGE_OUTPUT_TOKENS[base] ?? IMAGE_OUTPUT_TOKENS[GEMINI_FLASH_IMAGE_MODEL]
   const tokens = modelTokens[imageSize] ?? modelTokens['1K']
   return (tokens / 1_000_000) * pricing.outputImage * batchSize
 }

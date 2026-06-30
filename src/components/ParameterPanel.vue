@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, THINKING_LEVELS, estimateImageOutputCost } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -18,16 +18,21 @@ const { t } = useI18n()
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
 const imageSizes = computed(() => getImageSizes(props.modelId))
 const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K', props.modelId))
-const is512Disabled = computed(() => props.provider === 'openrouter' || props.provider === 'vercel')
-const is4KDisabled = computed(() => props.provider === 'vercel')
+const unsupportedSizes = computed(() => getUnsupportedImageSizes(props.provider))
+function isSizeDisabled(size: string) {
+  return unsupportedSizes.value.includes(size)
+}
+function sizeDisabledTitle(size: string) {
+  if (!isSizeDisabled(size)) return undefined
+  return size === '512' ? t('imageSizeNotSupported') : t('image4KNotSupported')
+}
 
 function setAspectRatio(ratio: string) {
   config.value = { ...config.value, aspectRatio: ratio }
 }
 
 function setImageSize(size: GenerationConfig['imageSize']) {
-  if (is512Disabled.value && size === '512') return
-  if (is4KDisabled.value && size === '4K') return
+  if (size && isSizeDisabled(size)) return
   // If current size is not available for this model, reset
   const validValues = imageSizes.value.map((s) => s.value)
   const newSize = validValues.includes(size as any) ? size : (validValues[0] as GenerationConfig['imageSize'])
@@ -69,11 +74,11 @@ function formatCost(cost: number): string {
           v-for="size in imageSizes"
           :key="size.value"
           @click="setImageSize(size.value as GenerationConfig['imageSize'])"
-          :disabled="(is512Disabled && size.value === '512') || (is4KDisabled && size.value === '4K')"
-          :title="(is512Disabled && size.value === '512') ? t('imageSizeNotSupported') : (is4KDisabled && size.value === '4K') ? t('image4KNotSupported') : undefined"
+          :disabled="isSizeDisabled(size.value)"
+          :title="sizeDisabledTitle(size.value)"
           :class="[
             'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-            (is512Disabled && size.value === '512') || (is4KDisabled && size.value === '4K')
+            isSizeDisabled(size.value)
               ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
               : config.imageSize === size.value
                 ? 'bg-violet-600 text-white cursor-pointer'

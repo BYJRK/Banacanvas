@@ -7,7 +7,7 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes } from './config/models'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
@@ -243,14 +243,16 @@ function onModelChange(model: ModelOption) {
   selectedModel.value = model
   const newConfig = { ...config.value, model: model.id, provider: model.provider }
 
-  // Reset imageSize if not supported by new model
-  const validSizes = getImageSizes(model.id).map((s) => s.value)
+  // Reset imageSize if not in the new model's size list
+  const sizes = getImageSizes(model.id)
+  const validSizes = sizes.map((s) => s.value)
   if (newConfig.imageSize && !validSizes.includes(newConfig.imageSize as any)) {
     newConfig.imageSize = validSizes[0] as GenerationConfig['imageSize']
   }
-  // Reset 4K to 2K for Vercel (not supported by Vercel AI Gateway)
-  if (model.provider === 'vercel' && newConfig.imageSize === '4K') {
-    newConfig.imageSize = '2K'
+  // Reset sizes the provider can't deliver (512 on openrouter/vercel, 4K on vercel)
+  if (newConfig.imageSize && !isImageSizeSupported(model.provider, newConfig.imageSize)) {
+    const supported = sizes.find((s) => isImageSizeSupported(model.provider, s.value))
+    newConfig.imageSize = (supported?.value ?? '1K') as GenerationConfig['imageSize']
   }
 
   // Reset aspectRatio if not supported by new model
