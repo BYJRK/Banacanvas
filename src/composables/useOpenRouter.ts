@@ -100,7 +100,12 @@ export function useOpenRouter() {
     let imageMimeType = 'image/png'
 
     if (message.images?.length > 0) {
-      const dataUrl: string = message.images[0].image_url?.url ?? ''
+      // Gemini 3 image models "think" before rendering and may emit interim
+      // lower-resolution images; the last image is always the final, full-res
+      // render. Pick the last entry instead of the first.
+      // Docs: https://ai.google.dev/gemini-api/docs/image-generation (Thinking Process)
+      const lastImage = message.images[message.images.length - 1]
+      const dataUrl: string = lastImage.image_url?.url ?? ''
       // Parse data URL: "data:image/png;base64,iVBOR..."
       const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/)
       if (match) {

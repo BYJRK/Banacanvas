@@ -114,7 +114,6 @@ export function getImageSizes(modelId: string) {
  * by model-switch validation.
  */
 export function getUnsupportedImageSizes(provider: Provider): readonly string[] {
-  if (provider === 'vercel') return ['512', '4K']
   if (provider === 'openrouter') return ['512']
   return []
 }

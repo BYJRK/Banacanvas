@@ -74,7 +74,12 @@ export function useVercelAI() {
     result: Awaited<ReturnType<typeof generateText>>,
     modelId: string,
   ): GenerationResult {
-    const imageFile = result.files.find((f) => f.mediaType?.startsWith('image/'))
+    // Gemini 3 image models "think" before rendering and emit up to two interim
+    // lower-resolution images during that process. The last image returned is
+    // always the final, full-resolution render, so pick it instead of the first.
+    // Docs: https://ai.google.dev/gemini-api/docs/image-generation (Thinking Process)
+    const imageFiles = result.files.filter((f) => f.mediaType?.startsWith('image/'))
+    const imageFile = imageFiles[imageFiles.length - 1]
     if (!imageFile) {
       throw new Error(t('noImageGenerated'))
     }

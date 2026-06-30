@@ -249,7 +249,7 @@ function onModelChange(model: ModelOption) {
   if (newConfig.imageSize && !validSizes.includes(newConfig.imageSize as any)) {
     newConfig.imageSize = validSizes[0] as GenerationConfig['imageSize']
   }
-  // Reset sizes the provider can't deliver (512 on openrouter/vercel, 4K on vercel)
+  // Reset sizes the provider can't deliver (512 on openrouter)
   if (newConfig.imageSize && !isImageSizeSupported(model.provider, newConfig.imageSize)) {
     const supported = sizes.find((s) => isImageSizeSupported(model.provider, s.value))
     newConfig.imageSize = (supported?.value ?? '1K') as GenerationConfig['imageSize']

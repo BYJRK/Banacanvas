@@ -23,8 +23,7 @@ function isSizeDisabled(size: string) {
   return unsupportedSizes.value.includes(size)
 }
 function sizeDisabledTitle(size: string) {
-  if (!isSizeDisabled(size)) return undefined
-  return size === '512' ? t('imageSizeNotSupported') : t('image4KNotSupported')
+  return isSizeDisabled(size) ? t('imageSizeNotSupported') : undefined
 }
 
 function setAspectRatio(ratio: string) {
