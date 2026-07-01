@@ -7,7 +7,7 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported } from './config/models'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported, supportsGoogleSearch } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
@@ -259,6 +259,11 @@ function onModelChange(model: ModelOption) {
   const validRatios = getAspectRatios(model.id) as readonly string[]
   if (newConfig.aspectRatio && !validRatios.includes(newConfig.aspectRatio)) {
     newConfig.aspectRatio = '1:1'
+  }
+
+  // Disable Google Search if the new model doesn't support it
+  if (newConfig.googleSearch && !supportsGoogleSearch(model.id)) {
+    newConfig.googleSearch = false
   }
 
   config.value = newConfig

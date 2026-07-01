@@ -2,6 +2,7 @@ import type { ModelOption, Provider } from '../types'
 
 // Canonical model IDs — avoid scattering magic strings across capability helpers
 export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
+export const GEMINI_FLASH_LITE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image'
 export const GEMINI_PRO_IMAGE_MODEL = 'gemini-3-pro-image'
 export const GROK_IMAGE_MODEL = 'x-ai/grok-imagine-image-quality'
 
@@ -19,6 +20,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Professional quality. Advanced reasoning & text rendering.',
     provider: 'gemini',
   },
+  {
+    id: 'gemini-3.1-flash-lite-image',
+    name: 'Nano Banana 2 Lite',
+    description: 'Fastest & cheapest. Sub-2s latency, 1K only, no Google Search.',
+    provider: 'gemini',
+  },
   // OpenRouter
   {
     id: 'google/gemini-3.1-flash-image',
@@ -30,6 +37,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: 'google/gemini-3-pro-image',
     name: 'Nano Banana Pro',
     description: 'Gemini Pro via OpenRouter. Professional quality.',
+    provider: 'openrouter',
+  },
+  {
+    id: 'google/gemini-3.1-flash-lite-image',
+    name: 'Nano Banana 2 Lite',
+    description: 'Gemini Flash Lite via OpenRouter. Fastest & cheapest, 1K only.',
     provider: 'openrouter',
   },
   {
@@ -49,6 +62,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: 'google/gemini-3-pro-image',
     name: 'Nano Banana Pro',
     description: 'Gemini Pro via Vercel AI Gateway. Professional quality.',
+    provider: 'vercel',
+  },
+  {
+    id: 'google/gemini-3.1-flash-lite-image',
+    name: 'Nano Banana 2 Lite',
+    description: 'Gemini Flash Lite via Vercel AI Gateway. Fastest & cheapest, 1K only.',
     provider: 'vercel',
   },
 ]
@@ -73,6 +92,9 @@ const PRO_ASPECT_RATIOS = [
   '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9',
 ] as const
 
+// Gemini 3.1 Flash Lite Image supports the same 10-ratio set as Pro (no ultra-wide 1:4/1:8/4:1/8:1)
+const LITE_ASPECT_RATIOS = PRO_ASPECT_RATIOS
+
 // Image sizes supported per model
 const FLASH_IMAGE_SIZES = [
   { value: '512', label: '512' },
@@ -87,6 +109,11 @@ const PRO_IMAGE_SIZES = [
   { value: '4K', label: '4K' },
 ] as const
 
+// Gemini 3.1 Flash Lite Image only supports 1K output
+const LITE_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+] as const
+
 const GROK_ASPECT_RATIOS = [
   '1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2', '9:19.5', '19.5:9', '9:20', '20:9', '1:2', '2:1',
 ] as const
@@ -99,13 +126,26 @@ const GROK_IMAGE_SIZES = [
 export function getAspectRatios(modelId: string) {
   if (modelId === GROK_IMAGE_MODEL) return GROK_ASPECT_RATIOS
   const base = getBaseModelId(modelId)
-  return base === GEMINI_PRO_IMAGE_MODEL ? PRO_ASPECT_RATIOS : FLASH_ASPECT_RATIOS
+  if (base === GEMINI_PRO_IMAGE_MODEL) return PRO_ASPECT_RATIOS
+  if (base === GEMINI_FLASH_LITE_IMAGE_MODEL) return LITE_ASPECT_RATIOS
+  return FLASH_ASPECT_RATIOS
 }
 
 export function getImageSizes(modelId: string) {
   if (modelId === GROK_IMAGE_MODEL) return GROK_IMAGE_SIZES
   const base = getBaseModelId(modelId)
-  return base === GEMINI_PRO_IMAGE_MODEL ? PRO_IMAGE_SIZES : FLASH_IMAGE_SIZES
+  if (base === GEMINI_PRO_IMAGE_MODEL) return PRO_IMAGE_SIZES
+  if (base === GEMINI_FLASH_LITE_IMAGE_MODEL) return LITE_IMAGE_SIZES
+  return FLASH_IMAGE_SIZES
+}
+
+/** Models that do not support Grounding with Google Search for image generation */
+const MODELS_WITHOUT_GOOGLE_SEARCH = new Set<string>([
+  GEMINI_FLASH_LITE_IMAGE_MODEL,
+])
+
+export function supportsGoogleSearch(modelId: string): boolean {
+  return !MODELS_WITHOUT_GOOGLE_SEARCH.has(getBaseModelId(modelId))
 }
 
 /**
@@ -185,6 +225,11 @@ export const MODEL_PRICING: Record<string, {
     outputText: 12.00,  // $12.00 per 1M tokens (text + thinking output)
     outputImage: 120.00, // $120.00 per 1M tokens (image output)
   },
+  [GEMINI_FLASH_LITE_IMAGE_MODEL]: {
+    inputText: 0.25,   // $0.25 per 1M tokens (text/image/video input)
+    outputText: 1.50,   // $1.50 per 1M tokens (text + thinking output)
+    outputImage: 30.00, // $30.00 per 1M tokens (image output)
+  },
 }
 
 /** Models that do not accept OpenRouter's output modalities field */
@@ -223,6 +268,9 @@ const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
     '1K':  1120,  // $0.134/image at $120/1M (1K and 2K share same count)
     '2K':  1120,  // $0.134/image (same as 1K per Google's pricing)
     '4K':  2000,  // $0.240/image
+  },
+  [GEMINI_FLASH_LITE_IMAGE_MODEL]: {
+    '1K':  1120,  // $0.0336/image at $30/1M
   },
 }
 

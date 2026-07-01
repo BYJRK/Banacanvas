@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -136,8 +136,8 @@ function formatCost(cost: number): string {
       </div>
     </div>
 
-    <!-- Google Search (Gemini only) -->
-    <div v-if="props.provider === 'gemini'" class="flex items-center justify-between">
+    <!-- Google Search (Gemini only, not supported by Flash Lite Image) -->
+    <div v-if="props.provider === 'gemini' && supportsGoogleSearch(props.modelId)" class="flex items-center justify-between">
       <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
         {{ t('googleSearch') }}
       </label>
