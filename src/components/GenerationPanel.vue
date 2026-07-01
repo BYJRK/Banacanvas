@@ -16,12 +16,16 @@ const MAX_IMAGES = 14
 const { t } = useI18n()
 
 const modelDescKeys: Record<string, MessageKey> = {
-  'gemini:gemini-3.1-flash-image-preview': 'modelNanoBanana2Desc',
-  'gemini:gemini-3-pro-image-preview': 'modelNanoBananaProDesc',
-  'openrouter:google/gemini-3.1-flash-image-preview': 'modelORNanoBanana2Desc',
-  'openrouter:google/gemini-3-pro-image-preview': 'modelORNanoBananaProDesc',
-  'vercel:google/gemini-3.1-flash-image-preview': 'modelVercelNanoBanana2Desc',
+  'gemini:gemini-3.1-flash-image': 'modelNanoBanana2Desc',
+  'gemini:gemini-3-pro-image': 'modelNanoBananaProDesc',
+  'gemini:gemini-3.1-flash-lite-image': 'modelNanoBanana2LiteDesc',
+  'openrouter:google/gemini-3.1-flash-image': 'modelORNanoBanana2Desc',
+  'openrouter:google/gemini-3-pro-image': 'modelORNanoBananaProDesc',
+  'openrouter:google/gemini-3.1-flash-lite-image': 'modelORNanoBanana2LiteDesc',
+  'openrouter:x-ai/grok-imagine-image-quality': 'modelGrokImagineDesc',
+  'vercel:google/gemini-3.1-flash-image': 'modelVercelNanoBanana2Desc',
   'vercel:google/gemini-3-pro-image': 'modelVercelNanoBananaProDesc',
+  'vercel:google/gemini-3.1-flash-lite-image': 'modelVercelNanoBanana2LiteDesc',
 }
 
 const providerOptions: { value: Provider; labelKey: MessageKey }[] = [

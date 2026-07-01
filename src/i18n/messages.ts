@@ -137,6 +137,10 @@ const messages = {
     modelORNanoBananaProDesc: 'Gemini Pro via OpenRouter. Professional quality.',
     modelVercelNanoBanana2Desc: 'Gemini Flash via Vercel AI Gateway. Fast image generation.',
     modelVercelNanoBananaProDesc: 'Gemini Pro via Vercel AI Gateway. Professional quality.',
+    modelNanoBanana2LiteDesc: 'Fastest & cheapest. As fast as 4s per image, 1K only, no Google Search.',
+    modelORNanoBanana2LiteDesc: 'Gemini Flash Lite via OpenRouter. As fast as 4s per image, 1K only.',
+    modelVercelNanoBanana2LiteDesc: 'Gemini Flash Lite via Vercel AI Gateway. As fast as 4s per image, 1K only.',
+    modelGrokImagineDesc: 'Grok Imagine Image Quality is xAI\'s fast, high-fidelity image generation and editing model.',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: 'Aspect Ratio Suggestion',
@@ -289,6 +293,10 @@ const messages = {
     modelORNanoBananaProDesc: '通过 OpenRouter 使用 Gemini Pro。专业品质。',
     modelVercelNanoBanana2Desc: '通过 Vercel AI Gateway 使用 Gemini Flash。快速图像生成。',
     modelVercelNanoBananaProDesc: '通过 Vercel AI Gateway 使用 Gemini Pro。专业品质。',
+    modelNanoBanana2LiteDesc: '最快最便宜。最快 4 秒出图，仅支持 1K，不支持 Google 搜索。',
+    modelORNanoBanana2LiteDesc: '通过 OpenRouter 使用 Gemini Flash Lite。最快 4 秒出图，仅支持 1K。',
+    modelVercelNanoBanana2LiteDesc: '通过 Vercel AI Gateway 使用 Gemini Flash Lite。最快 4 秒出图，仅支持 1K。',
+    modelGrokImagineDesc: 'Grok Imagine Image Quality 是 xAI 出品的快速、高保真图像生成与编辑模型。',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: '长宽比建议',

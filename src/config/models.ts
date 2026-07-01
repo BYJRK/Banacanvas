@@ -23,7 +23,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   {
     id: 'gemini-3.1-flash-lite-image',
     name: 'Nano Banana 2 Lite',
-    description: 'Fastest & cheapest. Sub-2s latency, 1K only, no Google Search.',
+    description: 'Fastest & cheapest. As fast as 4s per image, 1K only, no Google Search.',
     provider: 'gemini',
   },
   // OpenRouter
@@ -42,7 +42,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   {
     id: 'google/gemini-3.1-flash-lite-image',
     name: 'Nano Banana 2 Lite',
-    description: 'Gemini Flash Lite via OpenRouter. Fastest & cheapest, 1K only.',
+    description: 'Gemini Flash Lite via OpenRouter. As fast as 4s per image, 1K only.',
     provider: 'openrouter',
   },
   {
@@ -67,7 +67,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   {
     id: 'google/gemini-3.1-flash-lite-image',
     name: 'Nano Banana 2 Lite',
-    description: 'Gemini Flash Lite via Vercel AI Gateway. Fastest & cheapest, 1K only.',
+    description: 'Gemini Flash Lite via Vercel AI Gateway. As fast as 4s per image, 1K only.',
     provider: 'vercel',
   },
 ]
