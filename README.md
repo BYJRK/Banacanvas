@@ -23,12 +23,15 @@ A modern web UI for AI image generation powered by Google Gemini Image (aka. Nan
 
 ## Supported Providers & Models
 
-All providers offer the same two underlying Gemini models:
+All providers offer the same three underlying Gemini models:
 
 | Model | Internal Name | Resolution | Pricing (per 1M tokens) |
 |---|---|---|---|
 | **Nano Banana 2** | `gemini-3.1-flash-image` | 512 – 4K | $0.50 input · $3.00 text output · $60 image output |
 | **Nano Banana Pro** | `gemini-3-pro-image` | 1K – 4K | $2.00 input · $12.00 text output · $120 image output |
+| **Nano Banana 2 Lite** | `gemini-3.1-flash-lite-image` | 1K only | $0.25 input · $1.50 text output · $30 image output |
+
+Nano Banana 2 Lite generates images in as fast as 4 seconds (per Nano Banana's official announcement), making it the fastest and cheapest option — at the cost of a fixed 1K output and no Google Search grounding.
 
 | Provider | Description |
 |---|---|
@@ -88,8 +91,8 @@ Bring your own API key. Click the **⚙** icon in the header to enter keys for t
 
 | Option | Values | Notes |
 |---|---|---|
-| Aspect Ratio | 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, ... | Flash supports additional ratios (1:4, 1:8, 4:1, 8:1) |
-| Image Size | 512, 1K, 2K, 4K | Pro starts at 1K |
+| Aspect Ratio | 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, ... | Flash supports additional ratios (1:4, 1:8, 4:1, 8:1); Lite is limited to the 10 standard ratios |
+| Image Size | 512, 1K, 2K, 4K | Pro starts at 1K; Lite supports 1K only |
 | Thinking Level | Minimal, High | Gemini provider only; affects reasoning depth & cost |
 | Google Search | On / Off | Gemini provider only; enables web-grounded generation |
 | Person Generation | Allow All / Adults Only / None | Gemini provider only |
