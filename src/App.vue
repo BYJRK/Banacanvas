@@ -122,6 +122,27 @@ watch([selectedProvider, selectedModel, config, downloadFormat], persistParams, 
 
 // Input images (for image-to-image, max 14)
 const inputImages = ref<InputImage[]>([])
+const desktopGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
+const mobileGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
+
+function isEditableTarget(target: EventTarget | null) {
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || (target instanceof HTMLElement && target.isContentEditable)
+}
+
+function handlePaste(event: ClipboardEvent) {
+  if (isEditableTarget(event.target)) return
+
+  const files = event.clipboardData?.files
+  if (!files?.length || !Array.from(files).some((file) => file.type.startsWith('image/'))) return
+
+  event.preventDefault()
+  const panel = window.matchMedia('(min-width: 768px)').matches
+    ? desktopGenerationPanel.value
+    : mobileGenerationPanel.value
+  panel?.addClipboardFiles(files)
+}
 
 // Result
 const resultImage = ref<string | undefined>()
@@ -205,6 +226,7 @@ function onResizeTouchStart(e: TouchEvent) {
 }
 
 onBeforeUnmount(() => {
+  document.removeEventListener('paste', handlePaste)
   resizeCleanup?.()
   cancelGeneration()
 })
@@ -232,6 +254,7 @@ function sendNotification(success: boolean) {
 
 // On mount: show API key dialog if no key set for any provider
 onMounted(() => {
+  document.addEventListener('paste', handlePaste)
   historyStore.init()
   if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey && !apiKeyStore.hasVercelKey) {
     showApiKeyDialog.value = true
@@ -559,6 +582,7 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
       <!-- Left: Controls -->
       <aside class="w-80 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-4 flex flex-col gap-6 hidden md:flex">
         <GenerationPanel
+          ref="desktopGenerationPanel"
           v-model:prompt="prompt"
           v-model:model="selectedModel"
           v-model:provider="selectedProvider"
@@ -569,6 +593,7 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
           @update:model="onModelChange"
           @provider-change="onProviderChange"
           @first-image-added="handleFirstImageAdded"
+          @toast="showToast"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
         <ParameterPanel v-model="config" v-model:download-format="downloadFormat" :model-id="config.model" :provider="selectedProvider" :notify-on-end="notifyOnEnd" :suggest-aspect-ratio="suggestAspectRatio" @notify-change="notifyOnEnd = $event" @suggest-aspect-ratio-change="suggestAspectRatio = $event" />
@@ -579,6 +604,7 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
         <!-- Mobile controls (collapsed) -->
         <div class="md:hidden mb-4">
           <GenerationPanel
+            ref="mobileGenerationPanel"
             v-model:prompt="prompt"
             v-model:model="selectedModel"
             v-model:provider="selectedProvider"
@@ -589,6 +615,7 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
             @update:model="onModelChange"
             @provider-change="onProviderChange"
             @first-image-added="handleFirstImageAdded"
+            @toast="showToast"
           />
         </div>
 

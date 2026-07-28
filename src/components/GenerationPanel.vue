@@ -44,6 +44,7 @@ const emit = defineEmits<{
   (e: 'cancel'): void
   (e: 'providerChange', provider: Provider): void
   (e: 'firstImageAdded', width: number, height: number): void
+  (e: 'toast', message: string, type: 'error' | 'info'): void
 }>()
 
 defineProps<{
@@ -66,6 +67,12 @@ const dropIdx = ref<number | null>(null)
 
 const canGenerate = computed(() => prompt.value.trim().length > 0)
 const canAddMore = computed(() => inputImages.value.length < MAX_IMAGES)
+const canReadClipboard = computed(() => typeof navigator !== 'undefined' && typeof navigator.clipboard?.read === 'function')
+const clipboardButtonTitle = computed(() => {
+  if (!canAddMore.value) return t('referenceImagesLimitReached')
+  if (!canReadClipboard.value) return t('clipboardUnavailable')
+  return t('importFromClipboard')
+})
 
 function handleDrop(e: DragEvent) {
   dragOver.value = false
@@ -81,27 +88,34 @@ function handleFileSelect(e: Event) {
   }
 }
 
-function addFiles(files: FileList) {
-  const remaining = MAX_IMAGES - inputImages.value.length
-  const toAdd = Array.from(files)
-    .filter((f) => f.type.startsWith('image/'))
-    .slice(0, remaining)
+let imageImportQueue = Promise.resolve()
 
-  const isFirstImage = inputImages.value.length === 0
-
-  for (let i = 0; i < toAdd.length; i++) {
-    const file = toAdd[i]
-    const shouldDetectDimensions = isFirstImage && i === 0
+function readFileAsDataUrl(file: File) {
+  return new Promise<string | null>((resolve) => {
     const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(file)
+  })
+}
+
+function addFiles(files: Iterable<File>) {
+  const candidates = Array.from(files).filter((file) => file.type.startsWith('image/'))
+  imageImportQueue = imageImportQueue.then(async () => {
+    const toAdd = candidates.slice(0, MAX_IMAGES - inputImages.value.length)
+    const detectFirstImage = inputImages.value.length === 0
+
+    for (const [index, file] of toAdd.entries()) {
+      const result = await readFileAsDataUrl(file)
+      if (!result || inputImages.value.length >= MAX_IMAGES) continue
+
       const [header, data] = result.split(',')
       const mimeType = header.match(/data:(.*?);/)?.[1] ?? 'image/png'
       inputImages.value = [
         ...inputImages.value,
         { id: crypto.randomUUID(), base64: data, mimeType },
       ]
-      if (shouldDetectDimensions) {
+      if (detectFirstImage && index === 0) {
         const img = new Image()
         img.onload = () => {
           emit('firstImageAdded', img.naturalWidth, img.naturalHeight)
@@ -109,9 +123,37 @@ function addFiles(files: FileList) {
         img.src = result
       }
     }
-    reader.readAsDataURL(file)
+  })
+}
+
+async function importFromClipboard() {
+  if (!canAddMore.value || !canReadClipboard.value) return
+
+  try {
+    const items = await navigator.clipboard.read()
+    const files: File[] = []
+    for (const item of items) {
+      for (const type of item.types) {
+        if (!type.startsWith('image/')) continue
+        const blob = await item.getType(type)
+        files.push(new File([blob], 'clipboard-image', { type }))
+      }
+    }
+    if (files.length === 0) {
+      emit('toast', t('clipboardNoImage'), 'info')
+      return
+    }
+    addFiles(files)
+  } catch (e: unknown) {
+    emit('toast', t('clipboardReadFailed'), 'error')
   }
 }
+
+function addClipboardFiles(files: FileList) {
+  addFiles(files)
+}
+
+defineExpose({ addClipboardFiles })
 
 function removeImage(id: string) {
   inputImages.value = inputImages.value.filter((img) => img.id !== id)
@@ -276,16 +318,30 @@ function onThumbDragEnd() {
           {{ t('referenceImages') }}
           <span class="font-normal text-gray-400">({{ inputImages.length }}/{{ MAX_IMAGES }})</span>
         </label>
-        <button
-          v-if="inputImages.length > 0"
-          @click="clearAllImages"
-          class="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
-          :title="t('clearAll')"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            :disabled="!canAddMore || !canReadClipboard"
+            :title="clipboardButtonTitle"
+            :aria-label="t('importFromClipboard')"
+            class="rounded p-0.5 text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 disabled:text-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
+            @click="importFromClipboard"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5a2 2 0 002 2h2a2 2 0 002-2m-1 8h6m-3-3v6" />
+            </svg>
+          </button>
+          <button
+            v-if="inputImages.length > 0"
+            @click="clearAllImages"
+            class="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+            :title="t('clearAll')"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Thumbnail grid with drag reorder -->
