@@ -413,8 +413,8 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
       <span v-if="usage.elapsedMs != null" :title="t('elapsed')">
         ⏱ {{ usage.elapsedMs >= 1000 ? (usage.elapsedMs / 1000).toFixed(1) + 's' : usage.elapsedMs + 'ms' }}
       </span>
-      <span class="ml-auto font-medium text-violet-600 dark:text-violet-400" :title="t('estimatedCost')">
-        ~${{ usage.estimatedCost < 0.01 ? usage.estimatedCost.toFixed(4) : usage.estimatedCost.toFixed(3) }}
+      <span class="ml-auto font-medium text-violet-600 dark:text-violet-400" :title="t(usage.costIsExact ? 'actualCost' : 'estimatedCost')">
+        {{ usage.costIsExact ? '' : '~' }}${{ usage.estimatedCost < 0.01 ? usage.estimatedCost.toFixed(4) : usage.estimatedCost.toFixed(3) }}
       </span>
     </div>
   </div>

@@ -44,6 +44,8 @@ export interface UsageInfo {
   thoughtsTokenCount: number
   totalTokenCount: number
   estimatedCost: number
+  /** True when the provider returned the completed job's exact billed cost. */
+  costIsExact?: boolean
   elapsedMs?: number
 }
 

@@ -21,7 +21,7 @@ const messages = {
     clipboardUnavailable: 'Clipboard image import is not supported in this browser',
     clipboardNoImage: 'No image found in the clipboard',
     clipboardReadFailed: 'Unable to read an image from the clipboard. Check browser permissions and try again.',
-    referenceImagesLimitReached: 'Maximum of 14 reference images reached',
+    referenceImagesLimitReached: 'Maximum of {count} reference images reached',
     dropImages: 'Drop images here or click to upload',
     addMoreImages: 'Add more images',
     generateImage: 'Generate Image',
@@ -64,6 +64,7 @@ const messages = {
     thinkingTokens: 'Thinking tokens',
     elapsed: 'Elapsed time',
     estimatedCost: 'Estimated cost (USD)',
+    actualCost: 'Actual cost (USD)',
 
     // HistoryPanel
     noHistory: 'No history yet',
@@ -126,6 +127,7 @@ const messages = {
     apiKeyNotSet: 'API Key not set',
     generationCancelled: 'Generation cancelled',
     noImageGenerated: 'No image was generated. Try a different prompt.',
+    sourcefulRequestTooLarge: 'Riverflow accepts requests up to 4.5 MB. Remove or reduce reference images and try again.',
 
     // Providers
     providerGemini: 'Google Gemini',
@@ -146,6 +148,8 @@ const messages = {
     modelORNanoBanana2LiteDesc: 'Gemini Flash Lite via OpenRouter. As fast as 4s per image, 1K only.',
     modelVercelNanoBanana2LiteDesc: 'Gemini Flash Lite via Vercel AI Gateway. As fast as 4s per image, 1K only.',
     modelGrokImagineDesc: 'Grok Imagine Image Quality is xAI\'s fast, high-fidelity image generation and editing model.',
+    modelRiverflowV25ProDesc: 'Sourceful via OpenRouter. High-control generation and editing, 1K–4K.',
+    modelRiverflowV25FastDesc: 'Sourceful via OpenRouter. Fast generation and editing, 1K–2K.',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: 'Aspect Ratio Suggestion',
@@ -182,7 +186,7 @@ const messages = {
     clipboardUnavailable: '当前浏览器不支持从剪贴板导入图片',
     clipboardNoImage: '剪贴板中未找到图片',
     clipboardReadFailed: '无法读取剪贴板图片，请检查浏览器权限后重试。',
-    referenceImagesLimitReached: '已达到 14 张参考图片上限',
+    referenceImagesLimitReached: '已达到 {count} 张参考图片上限',
     dropImages: '拖拽图片到此处或点击上传',
     addMoreImages: '添加更多图片',
     generateImage: '生成图片',
@@ -225,6 +229,7 @@ const messages = {
     thinkingTokens: '思考 token',
     elapsed: '耗时',
     estimatedCost: '预估费用（美元）',
+    actualCost: '实际费用（美元）',
 
     // HistoryPanel
     noHistory: '暂无历史记录',
@@ -287,6 +292,7 @@ const messages = {
     apiKeyNotSet: '未设置 API 密钥',
     generationCancelled: '生成已取消',
     noImageGenerated: '未生成图片，请尝试不同的提示词。',
+    sourcefulRequestTooLarge: 'Riverflow 的请求上限为 4.5 MB。请移除或缩小参考图片后重试。',
 
     // Providers
     providerGemini: 'Google Gemini',
@@ -307,6 +313,8 @@ const messages = {
     modelORNanoBanana2LiteDesc: '通过 OpenRouter 使用 Gemini Flash Lite。最快 4 秒出图，仅支持 1K。',
     modelVercelNanoBanana2LiteDesc: '通过 Vercel AI Gateway 使用 Gemini Flash Lite。最快 4 秒出图，仅支持 1K。',
     modelGrokImagineDesc: 'Grok Imagine Image Quality 是 xAI 出品的快速、高保真图像生成与编辑模型。',
+    modelRiverflowV25ProDesc: '通过 OpenRouter 使用 Sourceful。高控制力生成与编辑，支持 1K–4K。',
+    modelRiverflowV25FastDesc: '通过 OpenRouter 使用 Sourceful。快速生成与编辑，支持 1K–2K。',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: '长宽比建议',

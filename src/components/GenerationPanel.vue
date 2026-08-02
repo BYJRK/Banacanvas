@@ -6,12 +6,10 @@ import {
   ListboxOptions,
   ListboxOption,
 } from '@headlessui/vue'
-import { getModelsForProvider } from '../config/models'
+import { getMaxInputImages, getModelsForProvider } from '../config/models'
 import type { ModelOption, InputImage, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 import type { MessageKey } from '../i18n/messages'
-
-const MAX_IMAGES = 14
 
 const { t } = useI18n()
 
@@ -23,6 +21,8 @@ const modelDescKeys: Record<string, MessageKey> = {
   'openrouter:google/gemini-3-pro-image': 'modelORNanoBananaProDesc',
   'openrouter:google/gemini-3.1-flash-lite-image': 'modelORNanoBanana2LiteDesc',
   'openrouter:x-ai/grok-imagine-image-quality': 'modelGrokImagineDesc',
+  'openrouter:sourceful/riverflow-v2.5-pro': 'modelRiverflowV25ProDesc',
+  'openrouter:sourceful/riverflow-v2.5-fast': 'modelRiverflowV25FastDesc',
   'vercel:google/gemini-3.1-flash-image': 'modelVercelNanoBanana2Desc',
   'vercel:google/gemini-3-pro-image': 'modelVercelNanoBananaProDesc',
   'vercel:google/gemini-3.1-flash-lite-image': 'modelVercelNanoBanana2LiteDesc',
@@ -66,10 +66,11 @@ const dragIdx = ref<number | null>(null)
 const dropIdx = ref<number | null>(null)
 
 const canGenerate = computed(() => prompt.value.trim().length > 0)
-const canAddMore = computed(() => inputImages.value.length < MAX_IMAGES)
+const maxImages = computed(() => getMaxInputImages(selectedModel.value.id))
+const canAddMore = computed(() => inputImages.value.length < maxImages.value)
 const canReadClipboard = computed(() => typeof navigator !== 'undefined' && typeof navigator.clipboard?.read === 'function')
 const clipboardButtonTitle = computed(() => {
-  if (!canAddMore.value) return t('referenceImagesLimitReached')
+  if (!canAddMore.value) return t('referenceImagesLimitReached').replace('{count}', String(maxImages.value))
   if (!canReadClipboard.value) return t('clipboardUnavailable')
   return t('importFromClipboard')
 })
@@ -102,12 +103,12 @@ function readFileAsDataUrl(file: File) {
 function addFiles(files: Iterable<File>) {
   const candidates = Array.from(files).filter((file) => file.type.startsWith('image/'))
   imageImportQueue = imageImportQueue.then(async () => {
-    const toAdd = candidates.slice(0, MAX_IMAGES - inputImages.value.length)
+    const toAdd = candidates.slice(0, maxImages.value - inputImages.value.length)
     const detectFirstImage = inputImages.value.length === 0
 
     for (const [index, file] of toAdd.entries()) {
       const result = await readFileAsDataUrl(file)
-      if (!result || inputImages.value.length >= MAX_IMAGES) continue
+      if (!result || inputImages.value.length >= maxImages.value) continue
 
       const [header, data] = result.split(',')
       const mimeType = header.match(/data:(.*?);/)?.[1] ?? 'image/png'
@@ -316,7 +317,7 @@ function onThumbDragEnd() {
       <div class="flex items-center justify-between mb-1">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('referenceImages') }}
-          <span class="font-normal text-gray-400">({{ inputImages.length }}/{{ MAX_IMAGES }})</span>
+          <span class="font-normal text-gray-400">({{ inputImages.length }}/{{ maxImages }})</span>
         </label>
         <div class="flex items-center gap-2">
           <button

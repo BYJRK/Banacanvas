@@ -5,6 +5,8 @@ export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
 export const GEMINI_FLASH_LITE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image'
 export const GEMINI_PRO_IMAGE_MODEL = 'gemini-3-pro-image'
 export const GROK_IMAGE_MODEL = 'x-ai/grok-imagine-image-quality'
+export const RIVERFLOW_V2_5_PRO_MODEL = 'sourceful/riverflow-v2.5-pro'
+export const RIVERFLOW_V2_5_FAST_MODEL = 'sourceful/riverflow-v2.5-fast'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   // Gemini Direct API
@@ -50,6 +52,18 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     name: 'Grok Imagine Image Quality',
     description: 'Grok Imagine Image Quality is xAI\'s fast, high-fidelity image generation and editing model.',
     provider: 'openrouter'
+  },
+  {
+    id: RIVERFLOW_V2_5_PRO_MODEL,
+    name: 'Riverflow V2.5 Pro',
+    description: 'Sourceful via OpenRouter. High-control image generation and editing, 1K–4K.',
+    provider: 'openrouter',
+  },
+  {
+    id: RIVERFLOW_V2_5_FAST_MODEL,
+    name: 'Riverflow V2.5 Fast',
+    description: 'Sourceful via OpenRouter. Fast image generation and editing, 1K–2K.',
+    provider: 'openrouter',
   },
   // Vercel AI Gateway
   {
@@ -123,8 +137,26 @@ const GROK_IMAGE_SIZES = [
   { value: '2K', label: '2K' },
 ] as const
 
+// Sourceful Riverflow V2.5 supports this shared ratio set plus `auto`.
+// The UI intentionally omits `auto`, which would otherwise override the user's chosen ratio.
+const RIVERFLOW_ASPECT_RATIOS = [
+  '1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '21:9',
+] as const
+
+const RIVERFLOW_PRO_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+  { value: '2K', label: '2K' },
+  { value: '4K', label: '4K' },
+] as const
+
+const RIVERFLOW_FAST_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+  { value: '2K', label: '2K' },
+] as const
+
 export function getAspectRatios(modelId: string) {
   if (modelId === GROK_IMAGE_MODEL) return GROK_ASPECT_RATIOS
+  if (modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL) return RIVERFLOW_ASPECT_RATIOS
   const base = getBaseModelId(modelId)
   if (base === GEMINI_PRO_IMAGE_MODEL) return PRO_ASPECT_RATIOS
   if (base === GEMINI_FLASH_LITE_IMAGE_MODEL) return LITE_ASPECT_RATIOS
@@ -133,6 +165,8 @@ export function getAspectRatios(modelId: string) {
 
 export function getImageSizes(modelId: string) {
   if (modelId === GROK_IMAGE_MODEL) return GROK_IMAGE_SIZES
+  if (modelId === RIVERFLOW_V2_5_PRO_MODEL) return RIVERFLOW_PRO_IMAGE_SIZES
+  if (modelId === RIVERFLOW_V2_5_FAST_MODEL) return RIVERFLOW_FAST_IMAGE_SIZES
   const base = getBaseModelId(modelId)
   if (base === GEMINI_PRO_IMAGE_MODEL) return PRO_IMAGE_SIZES
   if (base === GEMINI_FLASH_LITE_IMAGE_MODEL) return LITE_IMAGE_SIZES
@@ -200,7 +234,21 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
 
 export function getResolution(aspectRatio: string, imageSize: string, modelId?: string): string | undefined {
   if (modelId === GROK_IMAGE_MODEL) return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
+  // Riverflow exposes normalized 1K/2K/4K tiers, not a fixed pixel matrix.
+  if (modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL) return undefined
   return RESOLUTIONS[aspectRatio]?.[imageSize]
+}
+
+/** Maximum reference images accepted by the selected model. */
+export function getMaxInputImages(modelId: string): number {
+  if (modelId === RIVERFLOW_V2_5_PRO_MODEL) return 10
+  if (modelId === RIVERFLOW_V2_5_FAST_MODEL) return 4
+  return 14
+}
+
+/** Riverflow uses OpenRouter's dedicated Image API rather than chat completions. */
+export function usesOpenRouterImageApi(modelId: string): boolean {
+  return modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
 }
 
 export const THINKING_LEVELS = [
@@ -246,6 +294,17 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
   [GROK_IMAGE_MODEL]: {
     '1K': 0.05, // $0.05/image
     '2K': 0.07, // $0.07/image
+  },
+  // OpenRouter's current per-endpoint baseline output pricing. Riverflow's final
+  // billed amount is returned by the Image API because processing can vary by job.
+  [RIVERFLOW_V2_5_PRO_MODEL]: {
+    '1K': 0.13,
+    '2K': 0.15,
+    '4K': 0.17,
+  },
+  [RIVERFLOW_V2_5_FAST_MODEL]: {
+    '1K': 0.019,
+    '2K': 0.021,
   },
 }
 

@@ -1,10 +1,20 @@
 import { ref } from 'vue'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { getBaseModelId, MODEL_PRICING, toOpenRouterImageSize, supportsOutputModalities } from '../config/models'
+import {
+  estimateImageOutputCost,
+  getBaseModelId,
+  getMaxInputImages,
+  MODEL_PRICING,
+  toOpenRouterImageSize,
+  supportsOutputModalities,
+  usesOpenRouterImageApi,
+} from '../config/models'
 import { useI18n } from './useI18n'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_IMAGES_API_URL = 'https://openrouter.ai/api/v1/images'
+const SOURCEFUL_MAX_REQUEST_BYTES = 4.5 * 1024 * 1024
 
 export function useOpenRouter() {
   const apiKeyStore = useApiKeyStore()
@@ -88,6 +98,79 @@ export function useOpenRouter() {
     }
   }
 
+  async function doImageRequest(
+    prompt: string,
+    images: InputImage[],
+    config: GenerationConfig,
+    externalSignal?: AbortSignal,
+  ): Promise<GenerationResult> {
+    const apiKey = apiKeyStore.getKey('openrouter')
+    if (!apiKey) throw new Error(t('apiKeyNotSet'))
+
+    const managed = !externalSignal
+    if (managed) {
+      loading.value = true
+      error.value = null
+      abortController = new AbortController()
+    }
+
+    try {
+      const maxImages = getMaxInputImages(config.model)
+      if (images.length > maxImages) {
+        throw new Error(t('referenceImagesLimitReached').replace('{count}', String(maxImages)))
+      }
+
+      const body: Record<string, unknown> = {
+        model: config.model,
+        prompt,
+        resolution: config.imageSize ?? '1K',
+        aspect_ratio: config.aspectRatio ?? '1:1',
+      }
+      if (images.length > 0) {
+        body.input_references = images.map((image) => ({
+          type: 'image_url',
+          image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+        }))
+      }
+
+      const requestBody = JSON.stringify(body)
+      // Sourceful accepts at most a 4.5 MB request, including base64 reference images.
+      if (new Blob([requestBody]).size > SOURCEFUL_MAX_REQUEST_BYTES) {
+        throw new Error(t('sourcefulRequestTooLarge'))
+      }
+
+      const response = await fetch(OPENROUTER_IMAGES_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+        signal: externalSignal ?? abortController!.signal,
+      })
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => null)
+        const errMsg = errBody?.error?.message ?? `HTTP ${response.status}`
+        throw new Error(errMsg)
+      }
+
+      return parseImageApiResponse(await response.json(), config)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('abort')) {
+        throw new Error(t('generationCancelled'))
+      }
+      if (managed) error.value = msg
+      throw new Error(msg)
+    } finally {
+      if (managed) {
+        loading.value = false
+        abortController = null
+      }
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function parseResponse(result: any, modelId: string): GenerationResult {
     const choice = result.choices?.[0]
@@ -152,11 +235,44 @@ export function useOpenRouter() {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function parseImageApiResponse(result: any, config: GenerationConfig): GenerationResult {
+    const image = result.data?.[0]
+    if (!image?.b64_json) {
+      throw new Error(t('noImageGenerated'))
+    }
+
+    const responseCost = Number(result.usage?.cost)
+    const hasExactCost = Number.isFinite(responseCost)
+    const promptTokens = result.usage?.prompt_tokens ?? 0
+    const completionTokens = result.usage?.completion_tokens ?? 0
+    const totalTokens = result.usage?.total_tokens ?? promptTokens + completionTokens
+
+    return {
+      imageBase64: image.b64_json,
+      imageMimeType: image.media_type ?? 'image/png',
+      usage: {
+        promptTokenCount: promptTokens,
+        candidatesTokenCount: completionTokens,
+        thoughtsTokenCount: 0,
+        totalTokenCount: totalTokens,
+        estimatedCost: hasExactCost
+          ? responseCost
+          : estimateImageOutputCost(config.model, config.imageSize ?? '1K'),
+        costIsExact: hasExactCost,
+      },
+    }
+  }
+
   async function generateImage(
     prompt: string,
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
+    if (usesOpenRouterImageApi(config.model)) {
+      return doImageRequest(prompt, [], config, externalSignal)
+    }
+
     const messages = [
       {
         role: 'user',
@@ -172,6 +288,10 @@ export function useOpenRouter() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
+    if (usesOpenRouterImageApi(config.model)) {
+      return doImageRequest(prompt, images, config, externalSignal)
+    }
+
     // Build multimodal content array in OpenAI vision format
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const content: any[] = images.map((img) => ({
