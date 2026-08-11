@@ -9,21 +9,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@google/genai": "^1.48.0",
+    "@google/genai": "^2.16.0",
     "@headlessui/vue": "^1.7.23",
-    "@tailwindcss/vite": "^4.2.2",
-    "ai": "^6.0.208",
+    "@tailwindcss/vite": "^4.3.3",
+    "ai": "^7.0.59",
     "jszip": "^3.10.1",
-    "pinia": "^3.0.4",
-    "tailwindcss": "^4.2.2",
-    "vue": "^3.5.32"
+    "pinia": "^4.0.2",
+    "tailwindcss": "^4.3.3",
+    "vue": "^3.5.41"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
-    "@vitejs/plugin-vue": "^6.0.5",
+    "@types/node": "^26.2.0",
+    "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
-    "typescript": "~6.0.2",
-    "vite": "^8.0.4",
-    "vue-tsc": "^3.2.6"
+    "typescript": "~6.0.3",
+    "vite": "^8.2.1",
+    "vue-tsc": "^3.3.9"
   }
 }
