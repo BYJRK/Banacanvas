@@ -264,7 +264,7 @@ export function useOpenRouter() {
         totalTokenCount: totalTokens,
         estimatedCost: hasExactCost
           ? responseCost
-          : estimateImageOutputCost(config.model, config.imageSize ?? '1K'),
+          : estimateImageOutputCost(config.model, config.imageSize ?? '1K', 1, config.imageQuality ?? 'medium'),
         costIsExact: hasExactCost,
       },
     }

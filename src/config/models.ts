@@ -315,12 +315,6 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
     '1K': 0.05, // $0.05/image
     '2K': 0.07, // $0.07/image
   },
-  // The Image API returns the exact billed amount in usage.cost. This value is
-  // only a pre-generation fallback based on OpenRouter's official 2K example.
-  [GROK_IMAGE_2_MODEL]: {
-    '1K': 0.04,
-    '2K': 0.04,
-  },
   // OpenRouter's current per-endpoint baseline output pricing. Riverflow's final
   // billed amount is returned by the Image API because processing can vary by job.
   [RIVERFLOW_V2_5_PRO_MODEL]: {
@@ -363,7 +357,22 @@ const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
  * Estimate image output cost in USD per image (ignores input cost).
  * Based on Gemini output image token pricing.
  */
-export function estimateImageOutputCost(modelId: string, imageSize: string, batchSize: number = 1): number {
+export function estimateImageOutputCost(
+  modelId: string,
+  imageSize: string,
+  batchSize: number = 1,
+  imageQuality: 'low' | 'medium' = 'medium',
+): number {
+  // OpenRouter endpoint pricing variants: low_1k $0.04, low_2k $0.06,
+  // medium_1k $0.06, medium_2k $0.08. Input references cost $0.01 each
+  // and are intentionally excluded because this helper estimates output only.
+  if (modelId === GROK_IMAGE_2_MODEL) {
+    const prices = imageQuality === 'low'
+      ? { '1K': 0.04, '2K': 0.06 }
+      : { '1K': 0.06, '2K': 0.08 }
+    return (prices[imageSize as keyof typeof prices] ?? prices['1K']) * batchSize
+  }
+
   const flatPrices = FLAT_IMAGE_PRICES[modelId]
   if (flatPrices) {
     return (flatPrices[imageSize] ?? flatPrices['1K'] ?? 0) * batchSize

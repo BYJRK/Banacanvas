@@ -51,7 +51,12 @@ function setBatchSize(size: number) {
 }
 
 const estimatedTotalCost = computed(() =>
-  estimateImageOutputCost(props.modelId, config.value.imageSize ?? '1K', config.value.batchSize ?? 1)
+  estimateImageOutputCost(
+    props.modelId,
+    config.value.imageSize ?? '1K',
+    config.value.batchSize ?? 1,
+    config.value.imageQuality ?? 'medium',
+  )
 )
 
 function formatCost(cost: number): string {
