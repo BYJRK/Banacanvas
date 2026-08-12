@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch, supportsImageQuality } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -40,6 +40,10 @@ function setImageSize(size: GenerationConfig['imageSize']) {
 
 function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
   config.value = { ...config.value, thinkingLevel: level }
+}
+
+function setImageQuality(quality: GenerationConfig['imageQuality']) {
+  config.value = { ...config.value, imageQuality: quality }
 }
 
 function setBatchSize(size: number) {
@@ -106,12 +110,34 @@ function formatCost(cost: number): string {
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
           ]"
         >
-          {{ ratio }}
+          {{ ratio === 'auto' ? t('aspectRatioAuto') : ratio }}
         </button>
       </div>
       <p v-if="resolution" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
         {{ t('outputResolution') }}: {{ resolution }}
       </p>
+    </div>
+
+    <!-- Rendering Quality (Grok Imagine Image 2.0 only) -->
+    <div v-if="supportsImageQuality(props.modelId)">
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {{ t('imageQuality') }}
+      </label>
+      <div class="flex gap-1.5">
+        <button
+          v-for="quality in (['low', 'medium'] as const)"
+          :key="quality"
+          @click="setImageQuality(quality)"
+          :class="[
+            'rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer',
+            (config.imageQuality ?? 'medium') === quality
+              ? 'bg-violet-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
+          ]"
+        >
+          {{ quality === 'low' ? t('qualityLow') : t('qualityMedium') }}
+        </button>
+      </div>
     </div>
 
     <!-- Thinking Level (Gemini only) -->

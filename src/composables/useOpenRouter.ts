@@ -5,9 +5,11 @@ import {
   estimateImageOutputCost,
   getBaseModelId,
   getMaxInputImages,
+  isRiverflowModel,
   MODEL_PRICING,
   toOpenRouterImageSize,
   supportsOutputModalities,
+  supportsImageQuality,
   usesOpenRouterImageApi,
 } from '../config/models'
 import { useI18n } from './useI18n'
@@ -126,6 +128,10 @@ export function useOpenRouter() {
         resolution: config.imageSize ?? '1K',
         aspect_ratio: config.aspectRatio ?? '1:1',
       }
+      if (supportsImageQuality(config.model)) {
+        body.n = 1
+        body.quality = config.imageQuality ?? 'medium'
+      }
       if (images.length > 0) {
         body.input_references = images.map((image) => ({
           type: 'image_url',
@@ -135,7 +141,7 @@ export function useOpenRouter() {
 
       const requestBody = JSON.stringify(body)
       // Sourceful accepts at most a 4.5 MB request, including base64 reference images.
-      if (new Blob([requestBody]).size > SOURCEFUL_MAX_REQUEST_BYTES) {
+      if (isRiverflowModel(config.model) && new Blob([requestBody]).size > SOURCEFUL_MAX_REQUEST_BYTES) {
         throw new Error(t('sourcefulRequestTooLarge'))
       }
 

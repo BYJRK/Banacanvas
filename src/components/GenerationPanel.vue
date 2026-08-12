@@ -21,6 +21,7 @@ const modelDescKeys: Record<string, MessageKey> = {
   'openrouter:google/gemini-3-pro-image': 'modelORNanoBananaProDesc',
   'openrouter:google/gemini-3.1-flash-lite-image': 'modelORNanoBanana2LiteDesc',
   'openrouter:x-ai/grok-imagine-image-quality': 'modelGrokImagineDesc',
+  'openrouter:x-ai/grok-imagine-image-2.0': 'modelGrokImagine2Desc',
   'openrouter:sourceful/riverflow-v2.5-pro': 'modelRiverflowV25ProDesc',
   'openrouter:sourceful/riverflow-v2.5-fast': 'modelRiverflowV25FastDesc',
   'vercel:google/gemini-3.1-flash-image': 'modelVercelNanoBanana2Desc',

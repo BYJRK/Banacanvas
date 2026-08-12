@@ -5,6 +5,7 @@ export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
 export const GEMINI_FLASH_LITE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image'
 export const GEMINI_PRO_IMAGE_MODEL = 'gemini-3-pro-image'
 export const GROK_IMAGE_MODEL = 'x-ai/grok-imagine-image-quality'
+export const GROK_IMAGE_2_MODEL = 'x-ai/grok-imagine-image-2.0'
 export const RIVERFLOW_V2_5_PRO_MODEL = 'sourceful/riverflow-v2.5-pro'
 export const RIVERFLOW_V2_5_FAST_MODEL = 'sourceful/riverflow-v2.5-fast'
 
@@ -52,6 +53,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     name: 'Grok Imagine Image Quality',
     description: 'Grok Imagine Image Quality is xAI\'s fast, high-fidelity image generation and editing model.',
     provider: 'openrouter'
+  },
+  {
+    id: GROK_IMAGE_2_MODEL,
+    name: 'Grok Imagine Image 2.0',
+    description: 'xAI\'s latest image generation and editing model via OpenRouter, with 1K–2K output and quality control.',
+    provider: 'openrouter',
   },
   {
     id: RIVERFLOW_V2_5_PRO_MODEL,
@@ -132,6 +139,8 @@ const GROK_ASPECT_RATIOS = [
   '1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2', '9:19.5', '19.5:9', '9:20', '20:9', '1:2', '2:1',
 ] as const
 
+const GROK_2_ASPECT_RATIOS = [...GROK_ASPECT_RATIOS, 'auto'] as const
+
 const GROK_IMAGE_SIZES = [
   { value: '1K', label: '1K' },
   { value: '2K', label: '2K' },
@@ -155,6 +164,7 @@ const RIVERFLOW_FAST_IMAGE_SIZES = [
 ] as const
 
 export function getAspectRatios(modelId: string) {
+  if (modelId === GROK_IMAGE_2_MODEL) return GROK_2_ASPECT_RATIOS
   if (modelId === GROK_IMAGE_MODEL) return GROK_ASPECT_RATIOS
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL) return RIVERFLOW_ASPECT_RATIOS
   const base = getBaseModelId(modelId)
@@ -164,7 +174,7 @@ export function getAspectRatios(modelId: string) {
 }
 
 export function getImageSizes(modelId: string) {
-  if (modelId === GROK_IMAGE_MODEL) return GROK_IMAGE_SIZES
+  if (modelId === GROK_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL) return GROK_IMAGE_SIZES
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL) return RIVERFLOW_PRO_IMAGE_SIZES
   if (modelId === RIVERFLOW_V2_5_FAST_MODEL) return RIVERFLOW_FAST_IMAGE_SIZES
   const base = getBaseModelId(modelId)
@@ -234,6 +244,7 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
 
 export function getResolution(aspectRatio: string, imageSize: string, modelId?: string): string | undefined {
   if (modelId === GROK_IMAGE_MODEL) return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
+  if (modelId === GROK_IMAGE_2_MODEL) return undefined
   // Riverflow exposes normalized 1K/2K/4K tiers, not a fixed pixel matrix.
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL) return undefined
   return RESOLUTIONS[aspectRatio]?.[imageSize]
@@ -241,13 +252,22 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 
 /** Maximum reference images accepted by the selected model. */
 export function getMaxInputImages(modelId: string): number {
+  if (modelId === GROK_IMAGE_2_MODEL) return 3
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL) return 10
   if (modelId === RIVERFLOW_V2_5_FAST_MODEL) return 4
   return 14
 }
 
-/** Riverflow uses OpenRouter's dedicated Image API rather than chat completions. */
+/** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
+  return modelId === GROK_IMAGE_2_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
+}
+
+export function supportsImageQuality(modelId: string): boolean {
+  return modelId === GROK_IMAGE_2_MODEL
+}
+
+export function isRiverflowModel(modelId: string): boolean {
   return modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
 }
 
@@ -294,6 +314,12 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
   [GROK_IMAGE_MODEL]: {
     '1K': 0.05, // $0.05/image
     '2K': 0.07, // $0.07/image
+  },
+  // The Image API returns the exact billed amount in usage.cost. This value is
+  // only a pre-generation fallback based on OpenRouter's official 2K example.
+  [GROK_IMAGE_2_MODEL]: {
+    '1K': 0.04,
+    '2K': 0.04,
   },
   // OpenRouter's current per-endpoint baseline output pricing. Riverflow's final
   // billed amount is returned by the Image API because processing can vary by job.

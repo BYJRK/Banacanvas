@@ -53,6 +53,7 @@ function handleFirstImageAdded(width: number, height: number) {
   let minDiff = Infinity
   for (const r of ratios) {
     const [w, h] = r.split(':').map(Number)
+    if (!Number.isFinite(w) || !Number.isFinite(h) || h === 0) continue
     const diff = Math.abs(imgRatio - w / h)
     if (diff < minDiff) {
       minDiff = diff
@@ -96,6 +97,7 @@ const config = ref<GenerationConfig>({
   model: persistedModelOption.id,
   aspectRatio: persisted.config.aspectRatio ?? '1:1',
   imageSize: persisted.config.imageSize ?? '1K',
+  imageQuality: persisted.config.imageQuality ?? 'medium',
   thinkingLevel: persisted.config.thinkingLevel ?? 'MINIMAL',
   googleSearch: persisted.config.googleSearch ?? false,
   batchSize: persisted.config.batchSize ?? 1,
@@ -111,6 +113,7 @@ function persistParams() {
     config: {
       aspectRatio: config.value.aspectRatio,
       imageSize: config.value.imageSize,
+      imageQuality: config.value.imageQuality,
       thinkingLevel: config.value.thinkingLevel,
       googleSearch: config.value.googleSearch,
       batchSize: config.value.batchSize,

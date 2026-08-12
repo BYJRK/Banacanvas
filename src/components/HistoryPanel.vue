@@ -122,6 +122,7 @@ function canGroup(a: HistoryEntry, b: HistoryEntry): boolean {
   if ((a.config.provider ?? 'gemini') !== (b.config.provider ?? 'gemini')) return false
   if ((a.config.aspectRatio ?? '') !== (b.config.aspectRatio ?? '')) return false
   if ((a.config.imageSize ?? '') !== (b.config.imageSize ?? '')) return false
+  if ((a.config.imageQuality ?? '') !== (b.config.imageQuality ?? '')) return false
   if ((a.inputImageBase64 ?? '') !== (b.inputImageBase64 ?? '')) return false
   if (Math.abs(a.timestamp - b.timestamp) > BATCH_WINDOW_MS) return false
   return true
@@ -492,6 +493,7 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
             <span class="text-[10px] text-gray-400 dark:text-gray-600">{{ formatTime(group.representative.timestamp) }}</span>
             <span v-if="group.representative.config.aspectRatio" class="text-[10px] text-gray-400 dark:text-gray-600">{{ group.representative.config.aspectRatio }}</span>
             <span v-if="group.representative.config.imageSize" class="text-[10px] text-gray-400 dark:text-gray-600">{{ group.representative.config.imageSize }}</span>
+            <span v-if="group.representative.config.imageQuality" class="text-[10px] text-gray-400 dark:text-gray-600">{{ group.representative.config.imageQuality }}</span>
             <span class="text-[10px] text-violet-400 dark:text-violet-500">{{ modelName(group.representative) }}</span>
           </div>
         </div>
