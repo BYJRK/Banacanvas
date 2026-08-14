@@ -4,12 +4,14 @@ import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '
 import {
   estimateImageOutputCost,
   getBaseModelId,
+  getImageSizes,
   getMaxInputImages,
   isRiverflowModel,
   MODEL_PRICING,
   toOpenRouterImageSize,
   supportsOutputModalities,
   supportsImageQuality,
+  supportsSeedParameter,
   usesOpenRouterImageApi,
 } from '../config/models'
 import { useI18n } from './useI18n'
@@ -125,12 +127,16 @@ export function useOpenRouter() {
       const body: Record<string, unknown> = {
         model: config.model,
         prompt,
-        resolution: config.imageSize ?? '1K',
+        resolution: config.imageSize ?? getImageSizes(config.model)[0].value,
         aspect_ratio: config.aspectRatio ?? '1:1',
       }
       if (supportsImageQuality(config.model)) {
         body.n = 1
         body.quality = config.imageQuality ?? 'medium'
+      }
+      if (supportsSeedParameter(config.model)) {
+        body.n = 1
+        if (Number.isSafeInteger(config.seed)) body.seed = config.seed
       }
       if (images.length > 0) {
         body.input_references = images.map((image) => ({

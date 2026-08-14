@@ -7,6 +7,7 @@ export const GEMINI_PRO_IMAGE_MODEL = 'gemini-3-pro-image'
 export const GROK_IMAGE_MODEL = 'x-ai/grok-imagine-image-quality'
 export const GROK_IMAGE_2_MODEL = 'x-ai/grok-imagine-image-2.0'
 export const SEEDREAM_5_0_PRO_MODEL = 'bytedance-seed/seedream-5-0-pro'
+export const SEEDREAM_5_0_LITE_MODEL = 'bytedance-seed/seedream-5-0-lite'
 export const RIVERFLOW_V2_5_PRO_MODEL = 'sourceful/riverflow-v2.5-pro'
 export const RIVERFLOW_V2_5_FAST_MODEL = 'sourceful/riverflow-v2.5-fast'
 
@@ -65,6 +66,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: SEEDREAM_5_0_PRO_MODEL,
     name: 'Seedream 5.0 Pro',
     description: 'ByteDance Seedream 5.0 Pro via OpenRouter. High-fidelity text and image-to-image generation with 1K–2K output.',
+    provider: 'openrouter',
+  },
+  {
+    id: SEEDREAM_5_0_LITE_MODEL,
+    name: 'Seedream 5.0 Lite',
+    description: 'ByteDance Seedream 5.0 Lite via OpenRouter. Fast image generation and editing with 2K–4K output and optional seed control.',
     provider: 'openrouter',
   },
   {
@@ -162,6 +169,11 @@ const SEEDREAM_IMAGE_SIZES = [
   { value: '2K', label: '2K' },
 ] as const
 
+const SEEDREAM_LITE_IMAGE_SIZES = [
+  { value: '2K', label: '2K' },
+  { value: '4K', label: '4K' },
+] as const
+
 // Sourceful Riverflow V2.5 supports this shared ratio set plus `auto`.
 // The UI intentionally omits `auto`, which would otherwise override the user's chosen ratio.
 const RIVERFLOW_ASPECT_RATIOS = [
@@ -181,7 +193,7 @@ const RIVERFLOW_FAST_IMAGE_SIZES = [
 
 export function getAspectRatios(modelId: string) {
   if (modelId === GROK_IMAGE_2_MODEL) return GROK_2_ASPECT_RATIOS
-  if (modelId === SEEDREAM_5_0_PRO_MODEL) return SEEDREAM_ASPECT_RATIOS
+  if (modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL) return SEEDREAM_ASPECT_RATIOS
   if (modelId === GROK_IMAGE_MODEL) return GROK_ASPECT_RATIOS
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL) return RIVERFLOW_ASPECT_RATIOS
   const base = getBaseModelId(modelId)
@@ -193,6 +205,7 @@ export function getAspectRatios(modelId: string) {
 export function getImageSizes(modelId: string) {
   if (modelId === GROK_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL) return GROK_IMAGE_SIZES
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return SEEDREAM_IMAGE_SIZES
+  if (modelId === SEEDREAM_5_0_LITE_MODEL) return SEEDREAM_LITE_IMAGE_SIZES
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL) return RIVERFLOW_PRO_IMAGE_SIZES
   if (modelId === RIVERFLOW_V2_5_FAST_MODEL) return RIVERFLOW_FAST_IMAGE_SIZES
   const base = getBaseModelId(modelId)
@@ -262,7 +275,7 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
 
 export function getResolution(aspectRatio: string, imageSize: string, modelId?: string): string | undefined {
   if (modelId === GROK_IMAGE_MODEL) return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
-  if (modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL) return undefined
+  if (modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL) return undefined
   // Riverflow exposes normalized 1K/2K/4K tiers, not a fixed pixel matrix.
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL) return undefined
   return RESOLUTIONS[aspectRatio]?.[imageSize]
@@ -272,6 +285,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 export function getMaxInputImages(modelId: string): number {
   if (modelId === GROK_IMAGE_2_MODEL) return 3
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return 14
+  if (modelId === SEEDREAM_5_0_LITE_MODEL) return 14
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL) return 10
   if (modelId === RIVERFLOW_V2_5_FAST_MODEL) return 4
   return 14
@@ -279,11 +293,15 @@ export function getMaxInputImages(modelId: string): number {
 
 /** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
-  return modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
+  return modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
 }
 
 export function supportsImageQuality(modelId: string): boolean {
   return modelId === GROK_IMAGE_2_MODEL
+}
+
+export function supportsSeedParameter(modelId: string): boolean {
+  return modelId === SEEDREAM_5_0_LITE_MODEL
 }
 
 export function isRiverflowModel(modelId: string): boolean {
@@ -333,6 +351,10 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
   [GROK_IMAGE_MODEL]: {
     '1K': 0.05, // $0.05/image
     '2K': 0.07, // $0.07/image
+  },
+  [SEEDREAM_5_0_LITE_MODEL]: {
+    '2K': 0.035,
+    '4K': 0.035,
   },
   // OpenRouter's current per-endpoint baseline output pricing. Riverflow's final
   // billed amount is returned by the Image API because processing can vary by job.
@@ -394,7 +416,7 @@ export function estimateImageOutputCost(
 
   const flatPrices = FLAT_IMAGE_PRICES[modelId]
   if (flatPrices) {
-    return (flatPrices[imageSize] ?? flatPrices['1K'] ?? 0) * batchSize
+    return (flatPrices[imageSize] ?? flatPrices['1K'] ?? Object.values(flatPrices)[0] ?? 0) * batchSize
   }
   const base = getBaseModelId(modelId)
   const pricing = MODEL_PRICING[base] ?? MODEL_PRICING[GEMINI_FLASH_IMAGE_MODEL]

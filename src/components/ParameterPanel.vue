@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch, supportsImageQuality } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch, supportsImageQuality, supportsSeedParameter } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -44,6 +44,18 @@ function setThinkingLevel(level: GenerationConfig['thinkingLevel']) {
 
 function setImageQuality(quality: GenerationConfig['imageQuality']) {
   config.value = { ...config.value, imageQuality: quality }
+}
+
+function setSeed(event: Event) {
+  const value = (event.target as HTMLInputElement).value.trim()
+  if (value === '') {
+    const { seed: _seed, ...rest } = config.value
+    config.value = rest
+    return
+  }
+
+  const seed = Number(value)
+  if (Number.isSafeInteger(seed)) config.value = { ...config.value, seed }
 }
 
 function setBatchSize(size: number) {
@@ -143,6 +155,25 @@ function formatCost(cost: number): string {
           {{ quality === 'low' ? t('qualityLow') : t('qualityMedium') }}
         </button>
       </div>
+    </div>
+
+    <!-- Seed (Seedream 5.0 Lite only) -->
+    <div v-if="supportsSeedParameter(props.modelId)">
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="generation-seed">
+        {{ t('seed') }}
+      </label>
+      <input
+        id="generation-seed"
+        type="number"
+        step="1"
+        :value="config.seed"
+        :placeholder="t('seedRandom')"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        @change="setSeed"
+      />
+      <p class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+        {{ t('seedHint') }}
+      </p>
     </div>
 
     <!-- Thinking Level (Gemini only) -->

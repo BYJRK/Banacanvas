@@ -7,7 +7,7 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported, supportsGoogleSearch } from './config/models'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
@@ -98,6 +98,7 @@ const config = ref<GenerationConfig>({
   aspectRatio: persisted.config.aspectRatio ?? '1:1',
   imageSize: persisted.config.imageSize ?? '1K',
   imageQuality: persisted.config.imageQuality ?? 'medium',
+  seed: persisted.config.seed,
   thinkingLevel: persisted.config.thinkingLevel ?? 'MINIMAL',
   googleSearch: persisted.config.googleSearch ?? false,
   batchSize: persisted.config.batchSize ?? 1,
@@ -114,6 +115,7 @@ function persistParams() {
       aspectRatio: config.value.aspectRatio,
       imageSize: config.value.imageSize,
       imageQuality: config.value.imageQuality,
+      seed: config.value.seed,
       thinkingLevel: config.value.thinkingLevel,
       googleSearch: config.value.googleSearch,
       batchSize: config.value.batchSize,
@@ -290,6 +292,10 @@ function onModelChange(model: ModelOption) {
   // Disable Google Search if the new model doesn't support it
   if (newConfig.googleSearch && !supportsGoogleSearch(model.id)) {
     newConfig.googleSearch = false
+  }
+
+  if (!supportsSeedParameter(model.id)) {
+    delete newConfig.seed
   }
 
   config.value = newConfig

@@ -21,6 +21,7 @@ export interface GenerationConfig {
   aspectRatio?: string
   imageSize?: '512' | '1K' | '2K' | '4K'
   imageQuality?: 'low' | 'medium'
+  seed?: number
   personGeneration?: 'ALLOW_ALL' | 'ALLOW_ADULT' | 'ALLOW_NONE'
   thinkingLevel?: 'MINIMAL' | 'HIGH'
   googleSearch?: boolean
