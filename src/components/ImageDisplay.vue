@@ -13,10 +13,13 @@ const props = defineProps<{
   downloadFormat?: DownloadFormat
   batchResults?: BatchResultItem[]
   batchProgress?: { current: number; total: number } | null
+  canAddReference: boolean
+  referenceLimit: number
 }>()
 
 const emit = defineEmits<{
   (e: 'clear'): void
+  (e: 'addReference', base64: string, mimeType: string): void
 }>()
 
 const showFullscreen = ref(false)
@@ -343,7 +346,20 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
             decoding="async"
             @click="openFullscreen(item.imageBase64, item.imageMimeType, index)"
           />
-          <div class="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="absolute top-1 right-1 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
+            <button
+              @click="emit('addReference', item.imageBase64!, item.imageMimeType!)"
+              :disabled="!canAddReference"
+              class="rounded-md bg-black/60 backdrop-blur-sm p-1.5 text-white hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              :title="canAddReference ? t('addToReferences') : t('referenceImagesLimitReached').replace('{count}', String(referenceLimit))"
+              :aria-label="t('addToReferences')"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="4" width="11" height="16" rx="2" stroke-width="1.75" />
+                <circle cx="5.5" cy="8" r="1" fill="currentColor" stroke="none" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="m4 17 2.5-3 2 2 2.5-3M22 12h-7m0 0 3-3m-3 3 3 3" />
+              </svg>
+            </button>
             <button
               @click="downloadImage(item.imageBase64!, item.imageMimeType!)"
               class="rounded-md bg-black/60 backdrop-blur-sm p-1.5 text-white hover:bg-black/80 transition-colors cursor-pointer"
@@ -452,7 +468,21 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
         @click="openFullscreen(imageBase64, imageMimeType)"
       />
       <!-- Overlay controls -->
-      <div class="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div class="absolute top-2 right-2 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
+        <button
+          v-if="imageMimeType"
+          @click="emit('addReference', imageBase64, imageMimeType)"
+          :disabled="!canAddReference"
+          class="rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          :title="canAddReference ? t('addToReferences') : t('referenceImagesLimitReached').replace('{count}', String(referenceLimit))"
+          :aria-label="t('addToReferences')"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2" y="4" width="11" height="16" rx="2" stroke-width="1.75" />
+            <circle cx="5.5" cy="8" r="1" fill="currentColor" stroke="none" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="m4 17 2.5-3 2 2 2.5-3M22 12h-7m0 0 3-3m-3 3 3 3" />
+          </svg>
+        </button>
         <button
           @click="download"
           class="rounded-lg bg-black/60 backdrop-blur-sm p-2 text-white hover:bg-black/80 transition-colors cursor-pointer"

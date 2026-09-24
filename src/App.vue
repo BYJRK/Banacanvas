@@ -7,7 +7,7 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
@@ -127,6 +127,7 @@ watch([selectedProvider, selectedModel, config, downloadFormat], persistParams, 
 
 // Input images (for image-to-image, max 14)
 const inputImages = ref<InputImage[]>([])
+const maxReferenceImages = computed(() => getMaxInputImages(selectedModel.value.id))
 const desktopGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
 const mobileGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
 
@@ -162,6 +163,37 @@ const batchProgress = ref<{ current: number; total: number } | null>(null)
 const batchLoading = ref(false)
 let batchControllers: AbortController[] = []
 let userCancelled = false
+const hasWorkspaceContent = computed(() => Boolean(
+  prompt.value || inputImages.value.length || resultImage.value || resultText.value
+  || resultUsage.value || errorMessage.value || batchResults.value.length || batchProgress.value,
+))
+
+function clearResult() {
+  resultImage.value = undefined
+  resultMimeType.value = undefined
+  resultText.value = undefined
+  resultUsage.value = undefined
+  errorMessage.value = null
+  batchResults.value = []
+  batchProgress.value = null
+}
+
+function clearWorkspace() {
+  if (loading.value) return
+  prompt.value = ''
+  inputImages.value = []
+  showAspectRatioDialog.value = false
+  clearResult()
+}
+
+function addResultToReferences(base64: string, mimeType: string) {
+  if (inputImages.value.length >= maxReferenceImages.value) {
+    showToast(t('referenceImagesLimitReached').replace('{count}', String(maxReferenceImages.value)), 'error')
+    return
+  }
+  inputImages.value = [...inputImages.value, { id: crypto.randomUUID(), base64, mimeType }]
+  showToast(t('addedToReferences'), 'success')
+}
 
 // Toast
 const toasts = ref<{ id: number; message: string; type: 'success' | 'error' | 'info' }[]>([])
@@ -597,8 +629,10 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
           v-model:provider="selectedProvider"
           v-model:input-images="inputImages"
           :loading="loading"
+          :has-content="hasWorkspaceContent"
           @generate="handleGenerate"
           @cancel="cancelGeneration"
+          @clear="clearWorkspace"
           @update:model="onModelChange"
           @provider-change="onProviderChange"
           @first-image-added="handleFirstImageAdded"
@@ -619,8 +653,10 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
             v-model:provider="selectedProvider"
             v-model:input-images="inputImages"
             :loading="loading"
+            :has-content="hasWorkspaceContent"
             @generate="handleGenerate"
             @cancel="cancelGeneration"
+            @clear="clearWorkspace"
             @update:model="onModelChange"
             @provider-change="onProviderChange"
             @first-image-added="handleFirstImageAdded"
@@ -640,7 +676,10 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
               :download-format="downloadFormat"
               :batch-results="batchResults"
               :batch-progress="batchProgress"
-              @clear="resultImage = undefined; resultMimeType = undefined; resultText = undefined; resultUsage = undefined; errorMessage = null; batchResults = []; batchProgress = null"
+              :can-add-reference="inputImages.length < maxReferenceImages"
+              :reference-limit="maxReferenceImages"
+              @clear="clearResult"
+              @add-reference="addResultToReferences"
             />
           </div>
         </div>
