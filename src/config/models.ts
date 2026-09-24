@@ -10,6 +10,7 @@ export const SEEDREAM_5_0_PRO_MODEL = 'bytedance-seed/seedream-5-0-pro'
 export const SEEDREAM_5_0_LITE_MODEL = 'bytedance-seed/seedream-5-0-lite'
 export const RIVERFLOW_V2_5_PRO_MODEL = 'sourceful/riverflow-v2.5-pro'
 export const RIVERFLOW_V2_5_FAST_MODEL = 'sourceful/riverflow-v2.5-fast'
+export const MUSE_IMAGE_MODEL = 'meta/muse-image'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   // Gemini Direct API
@@ -84,6 +85,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: RIVERFLOW_V2_5_FAST_MODEL,
     name: 'Riverflow V2.5 Fast',
     description: 'Sourceful via OpenRouter. Fast image generation and editing, 1K–2K.',
+    provider: 'openrouter',
+  },
+  {
+    id: MUSE_IMAGE_MODEL,
+    name: 'Meta: Muse Image',
+    description: 'Meta\'s agentic image generation and editing model via OpenRouter, with multi-reference composition and precise text rendering.',
     provider: 'openrouter',
   },
   // Vercel AI Gateway
@@ -214,6 +221,11 @@ export function getImageSizes(modelId: string) {
   return FLASH_IMAGE_SIZES
 }
 
+/** Whether the model accepts explicit output size and aspect-ratio controls. */
+export function supportsImageConfiguration(modelId: string): boolean {
+  return modelId !== MUSE_IMAGE_MODEL
+}
+
 /** Models that do not support Grounding with Google Search for image generation */
 const MODELS_WITHOUT_GOOGLE_SEARCH = new Set<string>([
   GEMINI_FLASH_LITE_IMAGE_MODEL,
@@ -283,6 +295,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 
 /** Maximum reference images accepted by the selected model. */
 export function getMaxInputImages(modelId: string): number {
+  if (modelId === MUSE_IMAGE_MODEL) return 4
   if (modelId === GROK_IMAGE_2_MODEL) return 3
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return 14
   if (modelId === SEEDREAM_5_0_LITE_MODEL) return 14
@@ -293,7 +306,7 @@ export function getMaxInputImages(modelId: string): number {
 
 /** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
-  return modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
+  return modelId === MUSE_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
 }
 
 export function supportsImageQuality(modelId: string): boolean {
@@ -348,6 +361,9 @@ export function supportsOutputModalities(modelId: string): boolean {
 
 /** Flat per-image pricing (USD) for models not using token-based pricing */
 const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
+  [MUSE_IMAGE_MODEL]: {
+    '1K': 0.01,
+  },
   [GROK_IMAGE_MODEL]: {
     '1K': 0.05, // $0.05/image
     '2K': 0.07, // $0.07/image

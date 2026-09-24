@@ -23,7 +23,7 @@
 
 ## 支持的提供商与模型
 
-所有提供商均提供相同的三个底层 Gemini 模型：
+所有提供商均提供下列三个 Gemini 模型。OpenRouter 还在模型选择器中提供 Meta、xAI、字节跳动和 Sourceful 的模型。
 
 | 模型 | 内部名称 | 分辨率 | 定价（每 1M Token） |
 |---|---|---|---|
@@ -32,6 +32,8 @@
 | **Nano Banana 2 Lite** | `gemini-3.1-flash-lite-image` | 仅 1K | $0.25 输入 · $1.50 文本输出 · $30 图像输出 |
 
 Nano Banana 2 Lite（据 Nano Banana 官方推文）最快 4 秒即可出图，是最快、最便宜的选项——代价是固定 1K 输出，且不支持 Google 搜索增强。
+
+OpenRouter 还支持 **Meta: Muse Image**（`meta/muse-image`），可用于智能体图像生成、参考图编辑、多参考图合成和精准文字渲染。价格为 $0.01/张，输出尺寸由模型自动选择。
 
 | 提供商 | 说明 |
 |---|---|

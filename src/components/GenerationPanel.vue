@@ -26,6 +26,7 @@ const modelDescKeys: Record<string, MessageKey> = {
   'openrouter:bytedance-seed/seedream-5-0-lite': 'modelSeedream50LiteDesc',
   'openrouter:sourceful/riverflow-v2.5-pro': 'modelRiverflowV25ProDesc',
   'openrouter:sourceful/riverflow-v2.5-fast': 'modelRiverflowV25FastDesc',
+  'openrouter:meta/muse-image': 'modelMuseImageDesc',
   'vercel:google/gemini-3.1-flash-image': 'modelVercelNanoBanana2Desc',
   'vercel:google/gemini-3-pro-image': 'modelVercelNanoBananaProDesc',
   'vercel:google/gemini-3.1-flash-lite-image': 'modelVercelNanoBanana2LiteDesc',

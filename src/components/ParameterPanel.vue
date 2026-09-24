@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch, supportsImageQuality, supportsSeedParameter } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -85,7 +85,7 @@ function formatCost(cost: number): string {
     </h3>
 
     <!-- Image Size -->
-    <div>
+    <div v-if="supportsImageConfiguration(props.modelId)">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('imageSize') }}
       </label>
@@ -111,7 +111,7 @@ function formatCost(cost: number): string {
     </div>
 
     <!-- Aspect Ratio -->
-    <div>
+    <div v-if="supportsImageConfiguration(props.modelId)">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('aspectRatio') }}
       </label>

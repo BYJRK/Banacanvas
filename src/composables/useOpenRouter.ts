@@ -10,6 +10,7 @@ import {
   MODEL_PRICING,
   toOpenRouterImageSize,
   supportsOutputModalities,
+  supportsImageConfiguration,
   supportsImageQuality,
   supportsSeedParameter,
   usesOpenRouterImageApi,
@@ -35,6 +36,7 @@ export function useOpenRouter() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function buildImageConfig(config: GenerationConfig): Record<string, string> | undefined {
+    if (!supportsImageConfiguration(config.model)) return undefined
     const imageConfig: Record<string, string> = {}
     if (config.aspectRatio) imageConfig.aspect_ratio = config.aspectRatio
     if (config.imageSize) imageConfig.image_size = toOpenRouterImageSize(config.imageSize)
@@ -127,8 +129,10 @@ export function useOpenRouter() {
       const body: Record<string, unknown> = {
         model: config.model,
         prompt,
-        resolution: config.imageSize ?? getImageSizes(config.model)[0].value,
-        aspect_ratio: config.aspectRatio ?? '1:1',
+      }
+      if (supportsImageConfiguration(config.model)) {
+        body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
+        body.aspect_ratio = config.aspectRatio ?? '1:1'
       }
       if (supportsImageQuality(config.model)) {
         body.n = 1
@@ -220,14 +224,19 @@ export function useOpenRouter() {
       const completionTokens = result.usage.completion_tokens ?? 0
       const totalTokens = result.usage.total_tokens ?? 0
 
-      // Approximate cost using base model pricing
-      // OpenRouter doesn't break down image vs text tokens, so treat all completion as image
-      const baseModelId = getBaseModelId(modelId)
-      const pricing = MODEL_PRICING[baseModelId]
-      let estimatedCost = 0
-      if (pricing) {
-        estimatedCost += (promptTokens / 1_000_000) * pricing.inputText
-        estimatedCost += (completionTokens / 1_000_000) * pricing.outputImage
+      const responseCost = Number(result.usage.cost)
+      const hasExactCost = Number.isFinite(responseCost)
+      let estimatedCost = hasExactCost ? responseCost : estimateImageOutputCost(modelId, '1K')
+
+      // OpenRouter doesn't break down image vs text tokens for Gemini models, so
+      // treat all completion tokens as image output when no billed cost is returned.
+      if (!hasExactCost) {
+        const baseModelId = getBaseModelId(modelId)
+        const pricing = MODEL_PRICING[baseModelId]
+        if (pricing) {
+          estimatedCost = (promptTokens / 1_000_000) * pricing.inputText
+          estimatedCost += (completionTokens / 1_000_000) * pricing.outputImage
+        }
       }
 
       usage = {
@@ -236,6 +245,7 @@ export function useOpenRouter() {
         thoughtsTokenCount: 0,
         totalTokenCount: totalTokens,
         estimatedCost,
+        costIsExact: hasExactCost,
       }
     }
 

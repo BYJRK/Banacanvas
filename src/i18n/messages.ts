@@ -160,6 +160,7 @@ const messages = {
     modelSeedream50LiteDesc: 'ByteDance Seedream 5.0 Lite via OpenRouter. Fast generation and editing with 2K–4K output and seed control.',
     modelRiverflowV25ProDesc: 'Sourceful via OpenRouter. High-control generation and editing, 1K–4K.',
     modelRiverflowV25FastDesc: 'Sourceful via OpenRouter. Fast generation and editing, 1K–2K.',
+    modelMuseImageDesc: 'Meta\'s agentic image generation and editing model via OpenRouter, with multi-reference composition and precise text rendering. Output size and aspect ratio are selected automatically.',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: 'Aspect Ratio Suggestion',
@@ -335,6 +336,7 @@ const messages = {
     modelSeedream50LiteDesc: '通过 OpenRouter 使用字节跳动 Seedream 5.0 Lite，支持 2K–4K 生成、编辑和随机种子控制。',
     modelRiverflowV25ProDesc: '通过 OpenRouter 使用 Sourceful。高控制力生成与编辑，支持 1K–4K。',
     modelRiverflowV25FastDesc: '通过 OpenRouter 使用 Sourceful。快速生成与编辑，支持 1K–2K。',
+    modelMuseImageDesc: '通过 OpenRouter 使用 Meta 的智能体图像生成与编辑模型，支持多参考图合成和精准文字渲染。输出尺寸和宽高比由模型自动选择。',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: '长宽比建议',
