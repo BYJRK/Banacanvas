@@ -54,43 +54,43 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   {
     id: 'x-ai/grok-imagine-image-quality',
     name: 'Grok Imagine Image Quality',
-    description: 'Grok Imagine Image Quality is xAI\'s fast, high-fidelity image generation and editing model.',
+    description: 'Fast, high-fidelity generation & editing.',
     provider: 'openrouter'
   },
   {
     id: GROK_IMAGE_2_MODEL,
     name: 'Grok Imagine Image 2.0',
-    description: 'xAI\'s latest image generation and editing model via OpenRouter, with 1K–2K output and quality control.',
+    description: 'Generation & editing. 1K–2K, quality control.',
     provider: 'openrouter',
   },
   {
     id: SEEDREAM_5_0_PRO_MODEL,
     name: 'Seedream 5.0 Pro',
-    description: 'ByteDance Seedream 5.0 Pro via OpenRouter. High-fidelity text and image-to-image generation with 1K–2K output.',
+    description: 'High-fidelity generation & editing. 1K–2K.',
     provider: 'openrouter',
   },
   {
     id: SEEDREAM_5_0_LITE_MODEL,
     name: 'Seedream 5.0 Lite',
-    description: 'ByteDance Seedream 5.0 Lite via OpenRouter. Fast image generation and editing with 2K–4K output and optional seed control.',
+    description: 'Fast generation & editing. 2K–4K, seed control.',
     provider: 'openrouter',
   },
   {
     id: RIVERFLOW_V2_5_PRO_MODEL,
     name: 'Riverflow V2.5 Pro',
-    description: 'Sourceful via OpenRouter. High-control image generation and editing, 1K–4K.',
+    description: 'High-control generation & editing. 1K–4K.',
     provider: 'openrouter',
   },
   {
     id: RIVERFLOW_V2_5_FAST_MODEL,
     name: 'Riverflow V2.5 Fast',
-    description: 'Sourceful via OpenRouter. Fast image generation and editing, 1K–2K.',
+    description: 'Fast generation & editing. 1K–2K.',
     provider: 'openrouter',
   },
   {
     id: MUSE_IMAGE_MODEL,
-    name: 'Meta: Muse Image',
-    description: 'Meta\'s agentic image generation and editing model via OpenRouter, with multi-reference composition and precise text rendering.',
+    name: 'Muse Image',
+    description: 'Meta Superintelligence Labs\' first image model. Multi-reference & text rendering; ~$0.01/image. No size or ratio controls.',
     provider: 'openrouter',
   },
   // Vercel AI Gateway

@@ -443,7 +443,7 @@ function onThumbDragEnd() {
       @click="$emit('clear')"
       :disabled="loading || !hasContent"
       class="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:text-red-600 hover:border-red-300 dark:hover:text-red-400 dark:hover:border-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-      :title="t('clearWorkspace')"
+      :title="t('clearWorkspaceHint')"
     >
       {{ t('clearWorkspace') }}
     </button>
