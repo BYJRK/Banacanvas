@@ -23,10 +23,11 @@
 
 ## 支持的提供商与模型
 
-所有提供商均提供下列三个 Gemini 模型。OpenRouter 还在模型选择器中提供 Meta、xAI、字节跳动和 Sourceful 的模型。
+所有提供商均提供下列四个 Gemini 模型。OpenRouter 还在模型选择器中提供 Meta、xAI、字节跳动和 Sourceful 的模型。
 
 | 模型 | 内部名称 | 分辨率 | 定价（每 1M Token） |
 |---|---|---|---|
+| **Nano Banana 2.1** | `gemini-nano-banana-2.1` | 1K – 4K | $1.50 输入 · $7.50 文本输出 · $30 图像输出 |
 | **Nano Banana 2** | `gemini-3.1-flash-image` | 512 – 4K | $0.50 输入 · $3.00 文本输出 · $60 图像输出 |
 | **Nano Banana Pro** | `gemini-3-pro-image` | 1K – 4K | $2.00 输入 · $12.00 文本输出 · $120 图像输出 |
 | **Nano Banana 2 Lite** | `gemini-3.1-flash-lite-image` | 仅 1K | $0.25 输入 · $1.50 文本输出 · $30 图像输出 |

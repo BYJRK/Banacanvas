@@ -53,6 +53,7 @@ const messages = {
     personAdultOnly: 'Allow Adults Only',
     personNone: 'None',
     thinkingMinimal: 'Minimal',
+    thinkingMedium: 'Medium',
     thinkingHigh: 'High',
     outputResolution: 'Output resolution',
     estCostPerImage: 'per image',
@@ -147,6 +148,9 @@ const messages = {
     providerKeyNotSet: 'API key not set for this provider',
 
     // Models
+    modelNanoBanana21Desc: 'Improved visual quality, text rendering & editing. Supports 1K–4K, thinking, Google Search.',
+    modelORNanoBanana21Desc: 'Nano Banana 2.1 via OpenRouter. Improved generation & editing, 1K–4K.',
+    modelVercelNanoBanana21Desc: 'Nano Banana 2.1 via Vercel AI Gateway. Improved generation & editing, 1K–4K.',
     modelNanoBanana2: 'Nano Banana 2',
     modelNanoBanana2Desc: 'Best balance of performance & cost. Supports 512–4K, thinking, Google Search.',
     modelNanoBananaPro: 'Nano Banana Pro',
@@ -233,6 +237,7 @@ const messages = {
     personAdultOnly: '仅允许成人',
     personNone: '不允许',
     thinkingMinimal: '最小',
+    thinkingMedium: '中',
     thinkingHigh: '高',
     outputResolution: '输出分辨率',
     estCostPerImage: '每张',
@@ -327,6 +332,9 @@ const messages = {
     providerKeyNotSet: '未设置该服务商的 API 密钥',
 
     // Models
+    modelNanoBanana21Desc: '提升画质、文字渲染与编辑效果。支持 1K–4K、思考和 Google 搜索。',
+    modelORNanoBanana21Desc: '通过 OpenRouter 使用 Nano Banana 2.1。提升生成与编辑效果，支持 1K–4K。',
+    modelVercelNanoBanana21Desc: '通过 Vercel AI Gateway 使用 Nano Banana 2.1。提升生成与编辑效果，支持 1K–4K。',
     modelNanoBanana2: 'Nano Banana 2',
     modelNanoBanana2Desc: '性能与成本的最佳平衡。支持 512–4K、思考、Google 搜索。',
     modelNanoBananaPro: 'Nano Banana Pro',

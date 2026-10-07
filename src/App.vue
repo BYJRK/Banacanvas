@@ -7,7 +7,7 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getThinkingLevels, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
@@ -302,6 +302,11 @@ onMounted(() => {
 function onModelChange(model: ModelOption) {
   selectedModel.value = model
   const newConfig = { ...config.value, model: model.id, provider: model.provider }
+
+  // Reset thinking levels that the new model does not accept.
+  if (newConfig.thinkingLevel && !getThinkingLevels(model.id).some((level) => level.value === newConfig.thinkingLevel)) {
+    newConfig.thinkingLevel = 'MINIMAL'
+  }
 
   // Reset imageSize if not in the new model's size list
   const sizes = getImageSizes(model.id)

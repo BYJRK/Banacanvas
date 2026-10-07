@@ -23,10 +23,11 @@ A modern web UI for AI image generation powered by Google Gemini Image (aka. Nan
 
 ## Supported Providers & Models
 
-All providers offer the three Gemini models below. OpenRouter additionally exposes models from Meta, xAI, ByteDance, and Sourceful in the model selector.
+All providers offer the four Gemini models below. OpenRouter additionally exposes models from Meta, xAI, ByteDance, and Sourceful in the model selector.
 
 | Model | Internal Name | Resolution | Pricing (per 1M tokens) |
 |---|---|---|---|
+| **Nano Banana 2.1** | `gemini-nano-banana-2.1` | 1K – 4K | $1.50 input · $7.50 text output · $30 image output |
 | **Nano Banana 2** | `gemini-3.1-flash-image` | 512 – 4K | $0.50 input · $3.00 text output · $60 image output |
 | **Nano Banana Pro** | `gemini-3-pro-image` | 1K – 4K | $2.00 input · $12.00 text output · $120 image output |
 | **Nano Banana 2 Lite** | `gemini-3.1-flash-lite-image` | 1K only | $0.25 input · $1.50 text output · $30 image output |

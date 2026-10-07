@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, THINKING_LEVELS, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -183,7 +183,7 @@ function formatCost(cost: number): string {
       </label>
       <div class="flex gap-1.5">
         <button
-          v-for="level in THINKING_LEVELS"
+          v-for="level in getThinkingLevels(props.modelId)"
           :key="level.value"
           @click="setThinkingLevel(level.value as GenerationConfig['thinkingLevel'])"
           :class="[
@@ -193,7 +193,7 @@ function formatCost(cost: number): string {
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
           ]"
         >
-          {{ level.value === 'MINIMAL' ? t('thinkingMinimal') : t('thinkingHigh') }}
+          {{ level.value === 'MINIMAL' ? t('thinkingMinimal') : level.value === 'MEDIUM' ? t('thinkingMedium') : t('thinkingHigh') }}
         </button>
       </div>
     </div>

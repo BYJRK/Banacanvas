@@ -1,6 +1,7 @@
 import type { ModelOption, Provider } from '../types'
 
 // Canonical model IDs — avoid scattering magic strings across capability helpers
+export const GEMINI_NANO_BANANA_2_1_MODEL = 'gemini-nano-banana-2.1'
 export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
 export const GEMINI_FLASH_LITE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image'
 export const GEMINI_PRO_IMAGE_MODEL = 'gemini-3-pro-image'
@@ -21,6 +22,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     provider: 'gemini',
   },
   {
+    id: GEMINI_NANO_BANANA_2_1_MODEL,
+    name: 'Nano Banana 2.1',
+    description: 'Improved visual quality, text rendering & editing. Supports 1K–4K, thinking, Google Search.',
+    provider: 'gemini',
+  },
+  {
     id: 'gemini-3-pro-image',
     name: 'Nano Banana Pro',
     description: 'Professional quality. Advanced reasoning & text rendering.',
@@ -37,6 +44,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: 'google/gemini-3.1-flash-image',
     name: 'Nano Banana 2',
     description: 'Gemini Flash via OpenRouter. Supports aspect ratio & image size.',
+    provider: 'openrouter',
+  },
+  {
+    id: `google/${GEMINI_NANO_BANANA_2_1_MODEL}`,
+    name: 'Nano Banana 2.1',
+    description: 'Nano Banana 2.1 via OpenRouter. Improved generation & editing, 1K–4K.',
     provider: 'openrouter',
   },
   {
@@ -98,6 +111,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: 'google/gemini-3.1-flash-image',
     name: 'Nano Banana 2',
     description: 'Gemini Flash via Vercel AI Gateway. Fast image generation.',
+    provider: 'vercel',
+  },
+  {
+    id: `google/${GEMINI_NANO_BANANA_2_1_MODEL}`,
+    name: 'Nano Banana 2.1',
+    description: 'Nano Banana 2.1 via Vercel AI Gateway. Improved generation & editing, 1K–4K.',
     provider: 'vercel',
   },
   {
@@ -216,7 +235,7 @@ export function getImageSizes(modelId: string) {
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL) return RIVERFLOW_PRO_IMAGE_SIZES
   if (modelId === RIVERFLOW_V2_5_FAST_MODEL) return RIVERFLOW_FAST_IMAGE_SIZES
   const base = getBaseModelId(modelId)
-  if (base === GEMINI_PRO_IMAGE_MODEL) return PRO_IMAGE_SIZES
+  if (base === GEMINI_PRO_IMAGE_MODEL || base === GEMINI_NANO_BANANA_2_1_MODEL) return PRO_IMAGE_SIZES
   if (base === GEMINI_FLASH_LITE_IMAGE_MODEL) return LITE_IMAGE_SIZES
   return FLASH_IMAGE_SIZES
 }
@@ -326,6 +345,18 @@ export const THINKING_LEVELS = [
   { value: 'HIGH', label: 'High' },
 ] as const
 
+const NANO_BANANA_2_1_THINKING_LEVELS = [
+  THINKING_LEVELS[0],
+  { value: 'MEDIUM', label: 'Medium' },
+  THINKING_LEVELS[1],
+] as const
+
+export function getThinkingLevels(modelId: string) {
+  return getBaseModelId(modelId) === GEMINI_NANO_BANANA_2_1_MODEL
+    ? NANO_BANANA_2_1_THINKING_LEVELS
+    : THINKING_LEVELS
+}
+
 // Pricing per million tokens (USD) - standard tier
 // Source: https://ai.google.dev/gemini-api/docs/pricing
 export const MODEL_PRICING: Record<string, {
@@ -333,6 +364,11 @@ export const MODEL_PRICING: Record<string, {
   outputText: number
   outputImage: number
 }> = {
+  [GEMINI_NANO_BANANA_2_1_MODEL]: {
+    inputText: 1.50,
+    outputText: 7.50,
+    outputImage: 30.00,
+  },
   [GEMINI_FLASH_IMAGE_MODEL]: {
     inputText: 0.50,   // $0.50 per 1M tokens (text/image input)
     outputText: 3.00,   // $3.00 per 1M tokens (text + thinking output)
@@ -394,6 +430,11 @@ export function toOpenRouterImageSize(size: string): string {
 // Official image output token counts per model and size
 // Source: https://ai.google.dev/gemini-api/docs/pricing
 const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
+  [GEMINI_NANO_BANANA_2_1_MODEL]: {
+    '1K': 1120, // $0.0336/image at $30/1M
+    '2K': 1680, // $0.0504/image
+    '4K': 3780, // $0.1134/image (pricing page; image guide still lists 2520)
+  },
   [GEMINI_FLASH_IMAGE_MODEL]: {
     '512': 747,   // $0.045/image at $60/1M
     '1K':  1120,  // $0.067/image

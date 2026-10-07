@@ -23,7 +23,7 @@ export interface GenerationConfig {
   imageQuality?: 'low' | 'medium'
   seed?: number
   personGeneration?: 'ALLOW_ALL' | 'ALLOW_ADULT' | 'ALLOW_NONE'
-  thinkingLevel?: 'MINIMAL' | 'HIGH'
+  thinkingLevel?: 'MINIMAL' | 'MEDIUM' | 'HIGH'
   googleSearch?: boolean
   batchSize?: number
 }

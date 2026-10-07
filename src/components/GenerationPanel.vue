@@ -14,9 +14,11 @@ import type { MessageKey } from '../i18n/messages'
 const { t } = useI18n()
 
 const modelDescKeys: Record<string, MessageKey> = {
+  'gemini:gemini-nano-banana-2.1': 'modelNanoBanana21Desc',
   'gemini:gemini-3.1-flash-image': 'modelNanoBanana2Desc',
   'gemini:gemini-3-pro-image': 'modelNanoBananaProDesc',
   'gemini:gemini-3.1-flash-lite-image': 'modelNanoBanana2LiteDesc',
+  'openrouter:google/gemini-nano-banana-2.1': 'modelORNanoBanana21Desc',
   'openrouter:google/gemini-3.1-flash-image': 'modelORNanoBanana2Desc',
   'openrouter:google/gemini-3-pro-image': 'modelORNanoBananaProDesc',
   'openrouter:google/gemini-3.1-flash-lite-image': 'modelORNanoBanana2LiteDesc',
@@ -27,6 +29,7 @@ const modelDescKeys: Record<string, MessageKey> = {
   'openrouter:sourceful/riverflow-v2.5-pro': 'modelRiverflowV25ProDesc',
   'openrouter:sourceful/riverflow-v2.5-fast': 'modelRiverflowV25FastDesc',
   'openrouter:meta/muse-image': 'modelMuseImageDesc',
+  'vercel:google/gemini-nano-banana-2.1': 'modelVercelNanoBanana21Desc',
   'vercel:google/gemini-3.1-flash-image': 'modelVercelNanoBanana2Desc',
   'vercel:google/gemini-3-pro-image': 'modelVercelNanoBananaProDesc',
   'vercel:google/gemini-3.1-flash-lite-image': 'modelVercelNanoBanana2LiteDesc',
