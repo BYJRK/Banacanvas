@@ -7,10 +7,12 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
+import { useReferenceImageResize } from './composables/useReferenceImageResize'
 import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getThinkingLevels, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
+import ReferenceImageResizeDialog from './components/ReferenceImageResizeDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
 import ImageDisplay from './components/ImageDisplay.vue'
@@ -44,8 +46,13 @@ function cancelGeneration() {
 const showApiKeyDialog = ref(false)
 const showAspectRatioDialog = ref(false)
 const aspectRatioSuggestion = ref({ width: 0, height: 0, ratio: '' })
+const pendingFirstImageId = ref<string | null>(null)
 
-function handleFirstImageAdded(width: number, height: number) {
+function handleFirstImageAdded(id: string) {
+  pendingFirstImageId.value = id
+}
+
+function suggestImageAspectRatio(width: number, height: number) {
   if (!suggestAspectRatio.value) return
   const ratios = getAspectRatios(selectedModel.value.id) as readonly string[]
   const imgRatio = width / height
@@ -127,9 +134,38 @@ watch([selectedProvider, selectedModel, config, downloadFormat], persistParams, 
 
 // Input images (for image-to-image, max 14)
 const inputImages = ref<InputImage[]>([])
+const { resizeAsPng, request: resizeRequest, resizingIds, busy: referenceImagesBusy, decide: decideResize } = useReferenceImageResize(
+  inputImages,
+  (message) => showToast(message, 'error'),
+)
 const maxReferenceImages = computed(() => getMaxInputImages(selectedModel.value.id))
 const desktopGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
 const mobileGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
+
+// Read the current reference only after resize decisions and replacements finish.
+watch(
+  () => [pendingFirstImageId.value, referenceImagesBusy.value,
+    inputImages.value.find((image) => image.id === pendingFirstImageId.value)] as const,
+  ([id, busy, image], _previous, onCleanup) => {
+    if (!id) return
+    if (!image) {
+      pendingFirstImageId.value = null
+      return
+    }
+    if (busy) return
+    const source = new Image()
+    source.onload = () => {
+      suggestImageAspectRatio(source.naturalWidth, source.naturalHeight)
+      pendingFirstImageId.value = null
+    }
+    source.onerror = () => { pendingFirstImageId.value = null }
+    onCleanup(() => {
+      source.onload = source.onerror = null
+      source.src = ''
+    })
+    source.src = `data:${image.mimeType};base64,${image.base64}`
+  },
+)
 
 function isEditableTarget(target: EventTarget | null) {
   return target instanceof HTMLInputElement
@@ -348,6 +384,7 @@ function onProviderChange(provider: Provider) {
 }
 
 async function handleGenerate() {
+  if (referenceImagesBusy.value) return
   const provider = selectedModel.value.provider
   if (!apiKeyStore.hasKeyFor(provider)) {
     showApiKeyDialog.value = true
@@ -633,6 +670,8 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
           v-model:model="selectedModel"
           v-model:provider="selectedProvider"
           v-model:input-images="inputImages"
+          :resizing-ids="resizingIds"
+          :reference-images-busy="referenceImagesBusy"
           :loading="loading"
           :has-content="hasWorkspaceContent"
           @generate="handleGenerate"
@@ -644,7 +683,7 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
           @toast="showToast"
         />
         <hr class="border-gray-200 dark:border-gray-800" />
-        <ParameterPanel v-model="config" v-model:download-format="downloadFormat" :model-id="config.model" :provider="selectedProvider" :notify-on-end="notifyOnEnd" :suggest-aspect-ratio="suggestAspectRatio" @notify-change="notifyOnEnd = $event" @suggest-aspect-ratio-change="suggestAspectRatio = $event" />
+        <ParameterPanel v-model="config" v-model:download-format="downloadFormat" v-model:resize-as-png="resizeAsPng" :model-id="config.model" :provider="selectedProvider" :notify-on-end="notifyOnEnd" :suggest-aspect-ratio="suggestAspectRatio" @notify-change="notifyOnEnd = $event" @suggest-aspect-ratio-change="suggestAspectRatio = $event" />
       </aside>
 
       <!-- Center: Image display -->
@@ -657,6 +696,8 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
             v-model:model="selectedModel"
             v-model:provider="selectedProvider"
             v-model:input-images="inputImages"
+            :resizing-ids="resizingIds"
+            :reference-images-busy="referenceImagesBusy"
             :loading="loading"
             :has-content="hasWorkspaceContent"
             @generate="handleGenerate"
@@ -740,8 +781,9 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
     <ApiKeyDialog :open="showApiKeyDialog" @close="showApiKeyDialog = false" />
 
     <!-- Aspect Ratio Suggestion Dialog -->
+    <ReferenceImageResizeDialog :request="resizeRequest" @decide="decideResize" />
     <AspectRatioSuggestionDialog
-      :open="showAspectRatioDialog"
+      :open="showAspectRatioDialog && !referenceImagesBusy"
       :image-width="aspectRatioSuggestion.width"
       :image-height="aspectRatioSuggestion.height"
       :suggested-ratio="aspectRatioSuggestion.ratio"

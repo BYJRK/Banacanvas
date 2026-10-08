@@ -15,6 +15,14 @@ export interface InputImage {
   mimeType: string
 }
 
+export interface ReferenceImageResizeRequest {
+  id: string
+  width: number
+  height: number
+  targetWidth: number
+  targetHeight: number
+}
+
 export interface GenerationConfig {
   provider: Provider
   model: string

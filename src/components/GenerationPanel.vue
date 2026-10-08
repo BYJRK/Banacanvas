@@ -51,13 +51,15 @@ const emit = defineEmits<{
   (e: 'cancel'): void
   (e: 'clear'): void
   (e: 'providerChange', provider: Provider): void
-  (e: 'firstImageAdded', width: number, height: number): void
+  (e: 'firstImageAdded', id: string): void
   (e: 'toast', message: string, type: 'error' | 'info'): void
 }>()
 
-defineProps<{
+const props = defineProps<{
   loading: boolean
   hasContent: boolean
+  resizingIds: Set<string>
+  referenceImagesBusy: boolean
 }>()
 
 const filteredModels = computed(() => getModelsForProvider(selectedProvider.value))
@@ -74,7 +76,7 @@ const showFullscreenPrompt = ref(false)
 const dragIdx = ref<number | null>(null)
 const dropIdx = ref<number | null>(null)
 
-const canGenerate = computed(() => prompt.value.trim().length > 0)
+const canGenerate = computed(() => prompt.value.trim().length > 0 && !props.referenceImagesBusy)
 const maxImages = computed(() => getMaxInputImages(selectedModel.value.id))
 const canAddMore = computed(() => inputImages.value.length < maxImages.value)
 const canReadClipboard = computed(() => typeof navigator !== 'undefined' && typeof navigator.clipboard?.read === 'function')
@@ -121,16 +123,13 @@ function addFiles(files: Iterable<File>) {
 
       const [header, data] = result.split(',')
       const mimeType = header.match(/data:(.*?);/)?.[1] ?? 'image/png'
+      const id = crypto.randomUUID()
       inputImages.value = [
         ...inputImages.value,
-        { id: crypto.randomUUID(), base64: data, mimeType },
+        { id, base64: data, mimeType },
       ]
       if (detectFirstImage && index === 0) {
-        const img = new Image()
-        img.onload = () => {
-          emit('firstImageAdded', img.naturalWidth, img.naturalHeight)
-        }
-        img.src = result
+        emit('firstImageAdded', id)
       }
     }
   })
@@ -383,6 +382,13 @@ function onThumbDragEnd() {
           <span class="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[9px] text-center leading-tight">
             {{ idx + 1 }}
           </span>
+          <div v-if="resizingIds.has(img.id)" class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50" role="status" :aria-label="t('referenceImageResizing')">
+            <svg class="h-6 w-6 animate-spin text-white" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-30" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" fill="none" />
+              <path d="M12 3a9 9 0 019 9" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none" />
+            </svg>
+            <span class="sr-only">{{ t('referenceImageResizing') }}</span>
+          </div>
         </div>
       </div>
 
