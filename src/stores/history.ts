@@ -43,12 +43,19 @@ function idbPut(db: IDBDatabase, entry: HistoryEntry): Promise<void> {
   })
 }
 
-function idbDelete(db: IDBDatabase, id: string): Promise<void> {
+function idbDeleteEntries(db: IDBDatabase, ids: ReadonlySet<string>): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite')
-    tx.objectStore(STORE_NAME).delete(id)
     tx.oncomplete = () => resolve()
+    tx.onabort = () => reject(tx.error ?? new Error('History deletion failed'))
     tx.onerror = () => reject(tx.error)
+    const store = tx.objectStore(STORE_NAME)
+    try {
+      for (const id of ids) store.delete(id)
+    } catch (e: unknown) {
+      tx.abort()
+      reject(e)
+    }
   })
 }
 
@@ -142,9 +149,15 @@ export const useHistoryStore = defineStore('history', () => {
     return newEntry
   }
 
+  async function removeEntries(ids: readonly string[]) {
+    const idsToRemove = new Set(ids)
+    if (idsToRemove.size === 0) return
+    if (db) await idbDeleteEntries(db, idsToRemove)
+    entries.value = entries.value.filter((entry) => !idsToRemove.has(entry.id))
+  }
+
   async function removeEntry(id: string) {
-    entries.value = entries.value.filter((e) => e.id !== id)
-    if (db) await idbDelete(db, id)
+    await removeEntries([id])
   }
 
   async function clearAll() {
@@ -245,6 +258,6 @@ export const useHistoryStore = defineStore('history', () => {
     return importedEntries.length
   }
 
-  return { entries, init, addEntry, removeEntry, clearAll, exportZip, importZip }
+  return { entries, init, addEntry, removeEntry, removeEntries, clearAll, exportZip, importZip }
 })
 

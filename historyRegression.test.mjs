@@ -137,3 +137,78 @@ test('invalid ZIP imports leave existing history unchanged; valid overwrite repl
   assert.equal(await store.importZip(await zip.generateAsync({ type: 'uint8array' }), 'overwrite'), 1)
   assert.deepEqual(store.entries.map((entry) => entry.id), ['replacement'])
 })
+
+// Hold deletion transactions open so tests can observe state before commit or abort.
+async function historyWithPendingDeletes(t) {
+  const previousIndexedDB = globalThis.indexedDB
+  const transactions = []
+  const db = {
+    transaction(_name, mode) {
+      if (mode === 'readonly') {
+        return { objectStore: () => ({ index: () => ({ getAll() {
+          const request = { result: [] }
+          queueMicrotask(() => request.onsuccess())
+          return request
+        } }) }) }
+      }
+      const tx = {
+        error: null,
+        deletedIds: [],
+        objectStore: () => ({ delete: (id) => tx.deletedIds.push(id) }),
+        abort: () => tx.onabort(),
+      }
+      transactions.push(tx)
+      return tx
+    },
+  }
+  globalThis.indexedDB = { open() {
+    const request = { result: db }
+    queueMicrotask(() => request.onsuccess())
+    return request
+  } }
+  t.after(() => { globalThis.indexedDB = previousIndexedDB })
+  setActivePinia(createPinia())
+  const store = useHistoryStore()
+  await store.init()
+  store.entries = ['batch-a', 'batch-b', 'other'].map((id) => ({
+    id, timestamp: 1, prompt: '', config: {}, imageBase64: 'YQ==', imageMimeType: 'image/png',
+  }))
+  return { store, transactions }
+}
+
+test('batch deletion updates the list once after commit and preserves concurrent additions', async (t) => {
+  const { store, transactions } = await historyWithPendingDeletes(t)
+  const deletion = store.removeEntries(['batch-a', 'batch-b', 'batch-a'])
+  assert.equal(transactions.length, 1)
+  assert.deepEqual(transactions[0].deletedIds, ['batch-a', 'batch-b'])
+  assert.deepEqual(store.entries.map((entry) => entry.id), ['batch-a', 'batch-b', 'other'])
+
+  store.entries = [{ ...store.entries[0], id: 'new' }, ...store.entries]
+  const updates = []
+  const stop = vue.watch(() => store.entries.map((entry) => entry.id), (ids) => updates.push(ids), { flush: 'sync' })
+  t.after(stop)
+  transactions[0].oncomplete()
+  await deletion
+  assert.deepEqual(updates, [['new', 'other']])
+})
+
+test('aborted batch deletion preserves the full list and single deletion still works', async (t) => {
+  const { store, transactions } = await historyWithPendingDeletes(t)
+  const before = store.entries
+  const deletion = store.removeEntries(['batch-a', 'batch-b'])
+  transactions[0].error = new Error('Deletion aborted')
+  transactions[0].onabort()
+  await assert.rejects(deletion, /Deletion aborted/)
+  assert.equal(store.entries, before)
+
+  const singleDeletion = store.removeEntry('other')
+  assert.deepEqual(transactions[1].deletedIds, ['other'])
+  transactions[1].oncomplete()
+  await singleDeletion
+  assert.deepEqual(store.entries.map((entry) => entry.id), ['batch-a', 'batch-b'])
+
+  const remaining = store.entries
+  await store.removeEntries([])
+  assert.equal(transactions.length, 2)
+  assert.equal(store.entries, remaining)
+})

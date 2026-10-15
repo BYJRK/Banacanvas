@@ -161,7 +161,7 @@ function handleSelectGroup(group: HistoryGroup) {
 }
 async function handleRemoveGroup(group: HistoryGroup) {
   try {
-    for (const entry of group.entries) await historyStore.removeEntry(entry.id)
+    await historyStore.removeEntries(group.entries.map((entry) => entry.id))
   } catch (e: unknown) {
     emit('toast', e instanceof Error ? e.message : String(e), 'error')
   }
