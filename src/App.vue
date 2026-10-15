@@ -791,7 +791,7 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
           @mousedown.prevent="onResizeStart"
           @touchstart.prevent="onResizeTouchStart"
         />
-        <HistoryPanel :full-page="historyFullPage" @open-full-page="openHistoryFullPage" @back="closeHistory" @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
+        <HistoryPanel :active="showHistory" :full-page="historyFullPage" @open-full-page="openHistoryFullPage" @back="closeHistory" @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
       </aside>
     </div>
 

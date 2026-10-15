@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, shallowRef, watch, onMounted, onUnmounted } from 'vue'
 import { useHistoryStore } from '../stores/history'
 import { getHistoryInputImages } from '../historyImages'
 import type { HistoryEntry, HistoryGroup } from '../types'
 import { useI18n } from '../composables/useI18n'
 import { useHistoryPreferences } from '../composables/useHistoryPreferences'
 import HistoryGroupCard from './history/HistoryGroupCard.vue'
+import HistoryBatchPopover from './history/HistoryBatchPopover.vue'
 
-const props = withDefaults(defineProps<{ fullPage?: boolean }>(), { fullPage: false })
+const props = withDefaults(defineProps<{ fullPage?: boolean; active?: boolean }>(), { fullPage: false, active: true })
 const emit = defineEmits<{
   (e: 'openFullPage'): void
   (e: 'back'): void
@@ -135,15 +136,25 @@ const historyGroups = computed<HistoryGroup[]>(() => {
   }
   return groups
 })
-const expandedGroups = ref(new Set<string>())
-function toggleGroup(group: HistoryGroup) {
-  if (expandedGroups.value.has(group.key)) expandedGroups.value.delete(group.key)
-  else expandedGroups.value.add(group.key)
+const openBatch = shallowRef<{ key: string; anchor: HTMLButtonElement; id: string } | null>(null)
+const activeGroup = computed(() => historyGroups.value.find((group) => group.key === openBatch.value?.key))
+function closeBatch(restoreFocus = false) {
+  const anchor = openBatch.value?.anchor
+  openBatch.value = null
+  if (restoreFocus && props.active && anchor?.isConnected) anchor.focus({ preventScroll: true })
 }
-watch(historyGroups, (groups) => {
-  const validKeys = new Set(groups.filter((group) => group.entries.length > 1).map((group) => group.key))
-  expandedGroups.value = new Set([...expandedGroups.value].filter((key) => validKeys.has(key)))
+function toggleGroup(group: HistoryGroup, anchor: HTMLButtonElement, id: string) {
+  if (openBatch.value?.key === group.key) closeBatch()
+  else openBatch.value = { key: group.key, anchor, id }
+}
+watch(activeGroup, (group) => {
+  if (!group || group.entries.length < 2) closeBatch()
 })
+watch([viewMode, () => props.fullPage, () => props.active], () => closeBatch())
+function handleBatchImageSelect(entry: HistoryEntry) {
+  closeBatch()
+  emit('select', entry)
+}
 function handleSelectGroup(group: HistoryGroup) {
   if (group.entries.length === 1) emit('select', group.entries[0])
   else emit('selectBatch', group.ordered)
@@ -307,14 +318,15 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
       </div>
     </div>
     <div v-if="!historyStore.entries.length" class="flex-1 flex items-center justify-center rounded-xl border border-dashed border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400 p-8">{{ t('noHistory') }}</div>
-    <div v-else-if="viewMode === 'waterfall'" class="flex items-start gap-3 overflow-y-auto flex-1 min-h-0 p-1">
+    <div v-else-if="viewMode === 'waterfall'" data-history-scroll class="flex items-start gap-3 overflow-y-auto flex-1 min-h-0 p-1">
       <div v-for="(col, index) in waterfallColumns" :key="index" class="flex flex-col gap-3 flex-1 min-w-0">
-        <HistoryGroupCard v-for="group in col" :key="group.key" :group="group" :view-mode="viewMode" :full-page="fullPage" :expanded="expandedGroups.has(group.key)" :time-label="formatTime(group.representative.timestamp)" @select="emit('select', $event)" @select-group="handleSelectGroup" @remove="handleRemoveGroup" @toggle="toggleGroup" />
+        <HistoryGroupCard v-for="group in col" :key="group.key" :group="group" :view-mode="viewMode" :full-page="fullPage" :expanded="openBatch?.key === group.key" :time-label="formatTime(group.representative.timestamp)" @select-group="handleSelectGroup" @remove="handleRemoveGroup" @toggle="toggleGroup" />
       </div>
     </div>
-    <div v-else class="grid auto-rows-max items-start gap-3 overflow-y-auto flex-1 min-h-0 p-1" :style="{ gridTemplateColumns: `repeat(${viewMode === 'list' ? 1 : gridCols}, minmax(0, 1fr))` }">
-      <HistoryGroupCard v-for="group in historyGroups" :key="group.key" :group="group" :view-mode="viewMode" :full-page="fullPage" :expanded="expandedGroups.has(group.key)" :time-label="formatTime(group.representative.timestamp)" @select="emit('select', $event)" @select-group="handleSelectGroup" @remove="handleRemoveGroup" @toggle="toggleGroup" />
+    <div v-else data-history-scroll class="grid auto-rows-max items-start gap-3 overflow-y-auto flex-1 min-h-0 p-1" :style="{ gridTemplateColumns: `repeat(${viewMode === 'list' ? 1 : gridCols}, minmax(0, 1fr))` }">
+      <HistoryGroupCard v-for="group in historyGroups" :key="group.key" :group="group" :view-mode="viewMode" :full-page="fullPage" :expanded="openBatch?.key === group.key" :time-label="formatTime(group.representative.timestamp)" @select-group="handleSelectGroup" @remove="handleRemoveGroup" @toggle="toggleGroup" />
     </div>
+    <HistoryBatchPopover v-if="active && openBatch && activeGroup" :key="openBatch.id" :group="activeGroup" :anchor="openBatch.anchor" :id="openBatch.id" @close="closeBatch" @select="handleBatchImageSelect" />
     <Teleport to="body">
       <div v-if="showImportDialog" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" @click.self="showImportDialog = false; pendingImportFile = null">
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-80 p-5">
