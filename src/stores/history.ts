@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import JSZip from 'jszip'
-import type { HistoryEntry } from '../types'
+import { getHistoryInputImages } from '../historyImages'
+import type { HistoryEntry, InputImage } from '../types'
 
 const DB_NAME = 'banacanvas'
 const DB_VERSION = 1
@@ -117,20 +118,19 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   async function addEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'>) {
-    const [main, input] = await Promise.all([
+    const [main, inputs] = await Promise.all([
       toWebP(entry.imageBase64, entry.imageMimeType),
-      entry.inputImageBase64 && entry.inputImageMimeType
-        ? toWebP(entry.inputImageBase64, entry.inputImageMimeType)
-        : Promise.resolve(undefined),
+      Promise.all(getHistoryInputImages(entry).map((image) => toWebP(image.base64, image.mimeType))),
     ])
+    const { inputImageBase64: _ib, inputImageMimeType: _im, ...rest } = entry
 
     const newEntry: HistoryEntry = {
-      ...entry,
+      ...rest,
       id: crypto.randomUUID(),
       timestamp: Date.now(),
       imageBase64: main.base64,
       imageMimeType: main.mimeType,
-      ...(input ? { inputImageBase64: input.base64, inputImageMimeType: input.mimeType } : {}),
+      inputImages: inputs,
     }
 
     entries.value.unshift(newEntry)
@@ -155,9 +155,9 @@ export const useHistoryStore = defineStore('history', () => {
   async function exportZip(): Promise<Blob> {
     const zip = new JSZip()
     const imgFolder = zip.folder('images')!
-    const metadata: Array<Omit<HistoryEntry, 'imageBase64' | 'imageMimeType' | 'inputImageBase64' | 'inputImageMimeType'> & {
+    const metadata: Array<Omit<HistoryEntry, 'imageBase64' | 'imageMimeType' | 'inputImages' | 'inputImageBase64' | 'inputImageMimeType'> & {
       imageFile: string
-      inputImageFile?: string
+      inputImageFiles: string[]
     }> = []
 
     for (const entry of entries.value) {
@@ -165,15 +165,15 @@ export const useHistoryStore = defineStore('history', () => {
       const imageFile = `${entry.id}.${ext}`
       imgFolder.file(imageFile, entry.imageBase64, { base64: true })
 
-      let inputImageFile: string | undefined
-      if (entry.inputImageBase64 && entry.inputImageMimeType) {
-        const inputExt = entry.inputImageMimeType.split('/')[1] || 'webp'
-        inputImageFile = `${entry.id}_input.${inputExt}`
-        imgFolder.file(inputImageFile, entry.inputImageBase64, { base64: true })
-      }
+      const inputImageFiles = getHistoryInputImages(entry).map((image, index) => {
+        const inputExt = image.mimeType.split('/')[1] || 'webp'
+        const inputImageFile = `${entry.id}_input_${index}.${inputExt}`
+        imgFolder.file(inputImageFile, image.base64, { base64: true })
+        return inputImageFile
+      })
 
-      const { imageBase64: _, imageMimeType: _m, inputImageBase64: _ib, inputImageMimeType: _im, ...rest } = entry
-      metadata.push({ ...rest, imageFile, ...(inputImageFile ? { inputImageFile } : {}) })
+      const { imageBase64: _, imageMimeType: _m, inputImages: _inputs, inputImageBase64: _ib, inputImageMimeType: _im, ...rest } = entry
+      metadata.push({ ...rest, imageFile, inputImageFiles })
     }
 
     zip.file('metadata.json', JSON.stringify(metadata, null, 2))
@@ -188,13 +188,8 @@ export const useHistoryStore = defineStore('history', () => {
     const metadata: Array<Record<string, unknown>> = JSON.parse(raw)
     if (!Array.isArray(metadata)) throw new Error('Invalid metadata format')
 
-    if (mode === 'overwrite') {
-      entries.value = []
-      if (db) await idbClear(db)
-    }
-
-    const existingIds = new Set(entries.value.map((e) => e.id))
-    let importedCount = 0
+    const existingIds = new Set(mode === 'merge' ? entries.value.map((e) => e.id) : [])
+    const importedEntries: HistoryEntry[] = []
 
     for (const item of metadata) {
       const id = item.id as string
@@ -202,38 +197,52 @@ export const useHistoryStore = defineStore('history', () => {
 
       const imageFileName = item.imageFile as string
       const imgFile = zip.file(`images/${imageFileName}`)
-      if (!imgFile) continue
+      if (!imgFile) throw new Error(`Invalid archive: image ${imageFileName} not found`)
 
       const imageBase64 = await imgFile.async('base64')
       const ext = imageFileName.split('.').pop() || 'webp'
       const imageMimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
-      let inputImageBase64: string | undefined
-      let inputImageMimeType: string | undefined
-      if (item.inputImageFile) {
-        const inputFile = zip.file(`images/${item.inputImageFile as string}`)
-        if (inputFile) {
-          inputImageBase64 = await inputFile.async('base64')
-          const inputExt = (item.inputImageFile as string).split('.').pop() || 'webp'
-          inputImageMimeType = `image/${inputExt === 'jpg' ? 'jpeg' : inputExt}`
-        }
+      const inputImages: Omit<InputImage, 'id'>[] = []
+      const inputImageFiles = Array.isArray(item.inputImageFiles)
+        ? item.inputImageFiles as string[]
+        : item.inputImageFile ? [item.inputImageFile as string] : []
+      for (const name of inputImageFiles) {
+        const inputFile = zip.file(`images/${name}`)
+        if (!inputFile) throw new Error(`Invalid archive: reference image ${name} not found`)
+        const inputExt = name.split('.').pop() || 'webp'
+        inputImages.push({
+          base64: await inputFile.async('base64'),
+          mimeType: `image/${inputExt === 'jpg' ? 'jpeg' : inputExt}`,
+        })
       }
 
-      const { imageFile: _if, inputImageFile: _iif, ...rest } = item
+      const { imageFile: _if, inputImageFile: _iif, inputImageFiles: _iifs, ...rest } = item
       const entry: HistoryEntry = {
         ...rest,
         imageBase64,
         imageMimeType,
-        ...(inputImageBase64 ? { inputImageBase64, inputImageMimeType } : {}),
+        inputImages,
       } as HistoryEntry
 
-      entries.value.push(entry)
-      if (db) await idbPut(db, entry)
-      importedCount++
+      importedEntries.push(entry)
     }
 
-    entries.value.sort((a, b) => b.timestamp - a.timestamp)
-    return importedCount
+    if (db) {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db!.transaction(STORE_NAME, 'readwrite')
+        const store = tx.objectStore(STORE_NAME)
+        if (mode === 'overwrite') store.clear()
+        for (const entry of importedEntries) store.put(entry)
+        tx.oncomplete = () => resolve()
+        tx.onabort = () => reject(tx.error ?? new Error('History import failed'))
+        tx.onerror = () => reject(tx.error)
+      })
+    }
+
+    entries.value = (mode === 'overwrite' ? importedEntries : [...entries.value, ...importedEntries])
+      .sort((a, b) => b.timestamp - a.timestamp)
+    return importedEntries.length
   }
 
   return { entries, init, addEntry, removeEntry, clearAll, exportZip, importZip }

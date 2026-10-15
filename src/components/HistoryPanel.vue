@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useHistoryStore } from '../stores/history'
+import { getHistoryInputImages } from '../historyImages'
 import type { HistoryEntry } from '../types'
 import { useI18n } from '../composables/useI18n'
 import { AVAILABLE_MODELS } from '../config/models'
@@ -124,7 +125,10 @@ function canGroup(a: HistoryEntry, b: HistoryEntry): boolean {
   if ((a.config.imageSize ?? '') !== (b.config.imageSize ?? '')) return false
   if ((a.config.imageQuality ?? '') !== (b.config.imageQuality ?? '')) return false
   if ((a.config.seed ?? null) !== (b.config.seed ?? null)) return false
-  if ((a.inputImageBase64 ?? '') !== (b.inputImageBase64 ?? '')) return false
+  const aInputs = getHistoryInputImages(a)
+  const bInputs = getHistoryInputImages(b)
+  if (aInputs.length !== bInputs.length) return false
+  if (aInputs.some((image, index) => image.base64 !== bInputs[index].base64 || image.mimeType !== bInputs[index].mimeType)) return false
   if (Math.abs(a.timestamp - b.timestamp) > BATCH_WINDOW_MS) return false
   return true
 }

@@ -7,6 +7,7 @@ import { useOpenRouter } from './composables/useOpenRouter'
 import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
+import { getHistoryInputImages } from './historyImages'
 import { useReferenceImageResize } from './composables/useReferenceImageResize'
 import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getThinkingLevels, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
@@ -134,7 +135,7 @@ watch([selectedProvider, selectedModel, config, downloadFormat], persistParams, 
 
 // Input images (for image-to-image, max 14)
 const inputImages = ref<InputImage[]>([])
-const { resizeAsPng, request: resizeRequest, resizingIds, busy: referenceImagesBusy, decide: decideResize } = useReferenceImageResize(
+const { resizeAsPng, request: resizeRequest, resizingIds, busy: referenceImagesBusy, decide: decideResize, restoreImages } = useReferenceImageResize(
   inputImages,
   (message) => showToast(message, 'error'),
 )
@@ -401,6 +402,8 @@ async function handleGenerate() {
   batchProgress.value = null
 
   const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id, provider }
+  const currentPrompt = prompt.value
+  const currentInputImages = inputImages.value.map((image) => ({ ...image }))
   const api = provider === 'vercel' ? vercelAI : provider === 'openrouter' ? openRouter : gemini
   const batchSize = currentConfig.batchSize ?? 1
 
@@ -410,10 +413,10 @@ async function handleGenerate() {
       const startTime = performance.now()
       let result
 
-      if (inputImages.value.length > 0) {
-        result = await api.editImage(inputImages.value, prompt.value, currentConfig)
+      if (currentInputImages.length > 0) {
+        result = await api.editImage(currentInputImages, currentPrompt, currentConfig)
       } else {
-        result = await api.generateImage(prompt.value, currentConfig)
+        result = await api.generateImage(currentPrompt, currentConfig)
       }
 
       const elapsedMs = Math.round(performance.now() - startTime)
@@ -426,12 +429,11 @@ async function handleGenerate() {
         : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
 
       await historyStore.addEntry({
-        prompt: prompt.value,
+        prompt: currentPrompt,
         config: currentConfig,
         imageBase64: result.imageBase64,
         imageMimeType: result.imageMimeType,
-        inputImageBase64: inputImages.value[0]?.base64,
-        inputImageMimeType: inputImages.value[0]?.mimeType,
+        inputImages: currentInputImages.map(({ base64, mimeType }) => ({ base64, mimeType })),
         textResponse: result.textResponse,
       })
 
@@ -455,9 +457,9 @@ async function handleGenerate() {
         const ac = new AbortController()
         batchControllers.push(ac)
         try {
-          const result = inputImages.value.length > 0
-            ? await api.editImage(inputImages.value, prompt.value, currentConfig, ac.signal)
-            : await api.generateImage(prompt.value, currentConfig, ac.signal)
+          const result = currentInputImages.length > 0
+            ? await api.editImage(currentInputImages, currentPrompt, currentConfig, ac.signal)
+            : await api.generateImage(currentPrompt, currentConfig, ac.signal)
 
           const item: BatchResultItem = {
             imageBase64: result.imageBase64,
@@ -468,12 +470,11 @@ async function handleGenerate() {
           batchResults.value = [...batchResults.value, item]
 
           await historyStore.addEntry({
-            prompt: prompt.value,
+            prompt: currentPrompt,
             config: currentConfig,
             imageBase64: result.imageBase64,
             imageMimeType: result.imageMimeType,
-            inputImageBase64: inputImages.value[0]?.base64,
-            inputImageMimeType: inputImages.value[0]?.mimeType,
+            inputImages: currentInputImages.map(({ base64, mimeType }) => ({ base64, mimeType })),
             textResponse: result.textResponse,
           })
         } catch (e: unknown) {
@@ -524,6 +525,12 @@ async function handleGenerate() {
   }
 }
 
+function restoreHistoryReferences(entry: HistoryEntry) {
+  pendingFirstImageId.value = null
+  showAspectRatioDialog.value = false
+  restoreImages(getHistoryInputImages(entry).map((image) => ({ ...image, id: crypto.randomUUID() })))
+}
+
 function handleHistorySelect(entry: HistoryEntry) {
   prompt.value = entry.prompt
   const entryProvider = entry.config.provider ?? 'gemini'
@@ -534,11 +541,7 @@ function handleHistorySelect(entry: HistoryEntry) {
   resultImage.value = entry.imageBase64
   resultMimeType.value = entry.imageMimeType
   resultText.value = entry.textResponse
-  if (entry.inputImageBase64 && entry.inputImageMimeType) {
-    inputImages.value = [{ id: crypto.randomUUID(), base64: entry.inputImageBase64, mimeType: entry.inputImageMimeType }]
-  } else {
-    inputImages.value = []
-  }
+  restoreHistoryReferences(entry)
   errorMessage.value = null
   batchResults.value = []
   batchProgress.value = null
@@ -560,11 +563,7 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
   const matchedModel = AVAILABLE_MODELS.find((m) => m.id === first.config.model)
   selectedModel.value = matchedModel ?? { id: first.config.model, name: first.config.model, description: '', provider: entryProvider }
 
-  if (first.inputImageBase64 && first.inputImageMimeType) {
-    inputImages.value = [{ id: crypto.randomUUID(), base64: first.inputImageBase64, mimeType: first.inputImageMimeType }]
-  } else {
-    inputImages.value = []
-  }
+  restoreHistoryReferences(first)
 
   // Populate batch gallery; clear single-image state
   resultImage.value = undefined

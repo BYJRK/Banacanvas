@@ -43,6 +43,7 @@ export interface HistoryEntry {
   config: GenerationConfig
   imageBase64: string
   imageMimeType: string
+  inputImages?: Omit<InputImage, 'id'>[]
   inputImageBase64?: string
   inputImageMimeType?: string
   textResponse?: string

@@ -28,6 +28,17 @@ export function useReferenceImageResize(
   let queue = Promise.resolve()
   let resolveDecision: ((resize: boolean) => void) | null = null
   let disposed = false
+  let restoring = false
+
+  function restoreImages(restoredImages: InputImage[]) {
+    decide(false)
+    restoring = true
+    try {
+      images.value = restoredImages
+    } finally {
+      restoring = false
+    }
+  }
 
   function decide(resize: boolean) {
     request.value = null
@@ -110,6 +121,7 @@ export function useReferenceImageResize(
 
   watch(() => images.value.map((image) => image.id), (ids, previousIds) => {
     if (request.value && !ids.includes(request.value.id)) decide(false)
+    if (restoring) return
     const previous = new Set(previousIds)
     for (const image of images.value) {
       if (previous.has(image.id) || !SUPPORTED_TYPES.has(image.mimeType)) continue
@@ -123,5 +135,5 @@ export function useReferenceImageResize(
     decide(false)
   })
 
-  return { resizeAsPng, request, resizingIds, busy, decide }
+  return { resizeAsPng, request, resizingIds, busy, decide, restoreImages }
 }
