@@ -49,6 +49,15 @@ export interface HistoryEntry {
   textResponse?: string
 }
 
+export type HistoryViewMode = 'grid' | 'waterfall' | 'list'
+
+export interface HistoryGroup {
+  key: string
+  entries: HistoryEntry[]
+  ordered: HistoryEntry[]
+  representative: HistoryEntry
+}
+
 export interface UsageInfo {
   promptTokenCount: number
   candidatesTokenCount: number

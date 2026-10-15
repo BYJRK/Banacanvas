@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
 import { useGemini } from './composables/useGemini'
@@ -175,7 +175,7 @@ function isEditableTarget(target: EventTarget | null) {
 }
 
 function handlePaste(event: ClipboardEvent) {
-  if (isEditableTarget(event.target)) return
+  if (showHistory.value || isEditableTarget(event.target)) return
 
   const files = event.clipboardData?.files
   if (!files?.length || !Array.from(files).some((file) => file.type.startsWith('image/'))) return
@@ -246,6 +246,35 @@ function showToast(message: string, type: 'success' | 'error' | 'info' = 'info')
 
 // History sidebar
 const showHistory = ref(false)
+const historyFullPage = ref(false)
+const historyToggle = ref<HTMLButtonElement | null>(null)
+const historyContainer = ref<HTMLElement | null>(null)
+
+async function openHistoryFullPage() {
+  showHistory.value = true
+  historyFullPage.value = true
+  await nextTick()
+  historyContainer.value?.querySelector<HTMLButtonElement>('button')?.focus()
+}
+
+async function closeHistory() {
+  showHistory.value = false
+  historyFullPage.value = false
+  await nextTick()
+  historyToggle.value?.focus()
+}
+
+function toggleHistory() {
+  if (showHistory.value) void closeHistory()
+  else showHistory.value = true
+}
+
+function handleHistoryKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && showHistory.value && !showApiKeyDialog.value) {
+    void closeHistory()
+  }
+}
+
 
 // Sidebar resizable width
 const SIDEBAR_MIN_W = 288   // w-72 = 18rem = 288px (current default)
@@ -546,7 +575,7 @@ function handleHistorySelect(entry: HistoryEntry) {
   batchResults.value = []
   batchProgress.value = null
   resultUsage.value = undefined
-  showHistory.value = false
+  void closeHistory()
 }
 
 function handleHistorySelectBatch(entries: HistoryEntry[]) {
@@ -578,12 +607,12 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
   }))
   batchProgress.value = null
   resultUsage.value = undefined
-  showHistory.value = false
+  void closeHistory()
 }
 </script>
 
 <template>
-  <div class="h-screen flex flex-col overflow-hidden">
+  <div class="h-screen flex flex-col overflow-hidden" @keydown="handleHistoryKeydown">
     <!-- Header -->
     <header class="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
@@ -620,7 +649,10 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
           </button>
           <!-- History toggle -->
           <button
-            @click="showHistory = !showHistory"
+            ref="historyToggle"
+            @click="toggleHistory"
+            :aria-label="t('history')"
+            :aria-expanded="showHistory"
             class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
             :title="t('history')"
           >
@@ -660,7 +692,8 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
     </header>
 
     <!-- Main content -->
-    <div class="flex-1 flex min-h-0">
+    <div class="relative flex-1 flex min-h-0">
+      <div v-show="!historyFullPage" class="flex flex-1 min-h-0 min-w-0">
       <!-- Left: Controls -->
       <aside class="w-80 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-4 flex flex-col gap-6 hidden md:flex">
         <GenerationPanel
@@ -730,26 +763,35 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
         </div>
       </main>
 
-      <!-- Right: History sidebar overlay -->
+      </div>
+
+      <!-- Shared history browser: sidebar or full-page content -->
       <div
-        class="fixed inset-0 z-40 bg-black/40 transition-opacity duration-250"
-        :class="showHistory ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+        v-show="showHistory && !historyFullPage"
+        class="fixed inset-0 z-40 bg-black/40"
         aria-hidden="true"
-        @click="showHistory = false"
+        @click="closeHistory"
       />
       <aside
-        class="fixed right-0 top-0 bottom-0 z-50 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-3 shadow-xl transition-transform duration-250 ease-out"
-        :class="showHistory ? 'translate-x-0' : 'translate-x-full pointer-events-none'"
-        :style="{ width: sidebarWidth + 'px' }"
+        ref="historyContainer"
+        class="bg-white dark:bg-gray-900 min-h-0"
+        :class="[
+          historyFullPage
+            ? 'absolute inset-0 p-4 sm:p-6'
+            : 'fixed right-0 top-0 bottom-0 z-50 border-l border-gray-200 dark:border-gray-800 p-3 shadow-xl transition-transform duration-250 ease-out',
+          !historyFullPage && !showHistory ? 'translate-x-full pointer-events-none' : '',
+        ]"
+        :style="historyFullPage ? undefined : { width: `min(${sidebarWidth}px, 100vw)` }"
+        :inert="!showHistory"
         :aria-hidden="!showHistory"
       >
-        <!-- Resize drag handle -->
         <div
+          v-if="!historyFullPage"
           class="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-violet-500/30 active:bg-violet-500/40 transition-colors"
           @mousedown.prevent="onResizeStart"
           @touchstart.prevent="onResizeTouchStart"
         />
-        <HistoryPanel @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
+        <HistoryPanel :full-page="historyFullPage" @open-full-page="openHistoryFullPage" @back="closeHistory" @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
       </aside>
     </div>
 

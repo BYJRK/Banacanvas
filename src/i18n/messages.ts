@@ -88,6 +88,13 @@ const messages = {
 
     // HistoryPanel
     noHistory: 'No history yet',
+    openHistoryPage: 'Open full page',
+    backToWorkspace: 'Back to workspace',
+    historyImageCount: '{count} saved images',
+    expandBatch: 'Expand · {count} images',
+    collapseBatch: 'Collapse',
+    viewBatchImage: 'View image {index} of {count}',
+    deleteHistoryImage: 'Delete image',
     storageTitle: 'Browser Storage (IndexedDB)',
     storageUsed: 'Used',
     storageFree: 'Free',
@@ -280,6 +287,13 @@ const messages = {
 
     // HistoryPanel
     noHistory: '暂无历史记录',
+    openHistoryPage: '打开完整页面',
+    backToWorkspace: '返回工作区',
+    historyImageCount: '已保存 {count} 张图片',
+    expandBatch: '展开 · {count} 张图片',
+    collapseBatch: '收起',
+    viewBatchImage: '查看第 {index} 张图片，共 {count} 张',
+    deleteHistoryImage: '删除图片',
     storageTitle: '浏览器存储（IndexedDB）',
     storageUsed: '已用',
     storageFree: '剩余',
