@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter } from '../config/models'
+import { Popover, PopoverButton, PopoverPanel } from '@headlessui/vue'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, MODEL_PRICING, supportsImageSizeConfiguration } from '../config/models'
 import type { GenerationConfig, DownloadFormat, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 
@@ -17,8 +18,9 @@ defineEmits<{
 const { t } = useI18n()
 
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
-const imageSizes = computed(() => getImageSizes(props.modelId))
-const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K', props.modelId))
+const imageSizes = computed(() => getImageSizes(props.modelId, props.provider))
+const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K', props.modelId, props.provider))
+const maiPricing = computed(() => isMaiImageModel(props.modelId) ? MODEL_PRICING[props.modelId] : undefined)
 const unsupportedSizes = computed(() => getUnsupportedImageSizes(props.provider))
 function isSizeDisabled(size: string) {
   return unsupportedSizes.value.includes(size)
@@ -66,9 +68,10 @@ function setBatchSize(size: number) {
 const estimatedTotalCost = computed(() =>
   estimateImageOutputCost(
     props.modelId,
-    config.value.imageSize ?? '1K',
+    isMaiImageModel(props.modelId) && config.value.aspectRatio === 'auto' ? '1K' : config.value.imageSize ?? '1K',
     config.value.batchSize ?? 1,
     config.value.imageQuality ?? 'medium',
+    props.provider,
   )
 )
 
@@ -86,7 +89,7 @@ function formatCost(cost: number): string {
     </h3>
 
     <!-- Image Size -->
-    <div v-if="supportsImageConfiguration(props.modelId)">
+    <div v-if="supportsImageSizeConfiguration(props.modelId, props.provider) && !(isMaiImageModel(props.modelId) && config.aspectRatio === 'auto')">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('imageSize') }}
       </label>
@@ -220,6 +223,49 @@ function formatCost(cost: number): string {
       </button>
     </div>
 
+    <!-- Bing Search (MAI only) -->
+    <div v-if="isMaiImageModel(props.modelId)" class="flex items-center justify-between gap-3">
+      <div class="relative flex items-center gap-1.5">
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {{ t('webGrounding') }}
+        </span>
+        <Popover class="flex">
+          <PopoverButton
+            :aria-label="t('webGroundingInfo')"
+            class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 cursor-pointer"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <circle cx="10" cy="10" r="7.25" />
+              <path d="M10 9v5" stroke-linecap="round" />
+              <circle cx="10" cy="6" r="0.75" fill="currentColor" stroke="none" />
+            </svg>
+          </PopoverButton>
+          <PopoverPanel class="absolute left-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-3rem)] rounded-lg border border-gray-200 bg-white p-3 text-xs leading-relaxed text-gray-600 shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+            <p>{{ t('maiImageHint') }}</p>
+            <p class="mt-2">{{ t('maiWebGroundingPrice') }}</p>
+          </PopoverPanel>
+        </Popover>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        :aria-checked="config.webGrounding ?? false"
+        :aria-label="t('webGrounding')"
+        @click="config = { ...config, webGrounding: !config.webGrounding }"
+        :class="[
+          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900',
+          config.webGrounding ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-700',
+        ]"
+      >
+        <span
+          :class="[
+            'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+            config.webGrounding ? 'translate-x-4' : 'translate-x-0',
+          ]"
+        />
+      </button>
+    </div>
+
     <!-- Person Generation (Gemini only) -->
     <div v-if="props.provider === 'gemini'">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -252,8 +298,11 @@ function formatCost(cost: number): string {
         />
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-6 text-center">{{ config.batchSize ?? 1 }}</span>
       </div>
-      <p class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+      <p v-if="estimatedTotalCost != null" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
         {{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost) }}
+      </p>
+      <p v-else-if="maiPricing" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+        {{ t('maiTokenPricing').replace('{text}', String(maiPricing.inputText)).replace('{image}', String(maiPricing.inputImage)).replace('{output}', String(maiPricing.outputImage)) }}
       </p>
     </div>
 

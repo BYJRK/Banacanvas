@@ -12,6 +12,13 @@ export const SEEDREAM_5_0_LITE_MODEL = 'bytedance-seed/seedream-5-0-lite'
 export const RIVERFLOW_V2_5_PRO_MODEL = 'sourceful/riverflow-v2.5-pro'
 export const RIVERFLOW_V2_5_FAST_MODEL = 'sourceful/riverflow-v2.5-fast'
 export const MUSE_IMAGE_MODEL = 'meta/muse-image'
+export const MAI_IMAGE_2_6_MODEL = 'microsoft/mai-image-2.6'
+export const MAI_IMAGE_2_6_FLASH_MODEL = 'microsoft/mai-image-2.6-flash'
+export const MAI_VERCEL_WEB_GROUNDING_COST = 0.014
+
+export function isMaiImageModel(modelId: string): boolean {
+  return modelId === MAI_IMAGE_2_6_MODEL || modelId === MAI_IMAGE_2_6_FLASH_MODEL
+}
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   // Gemini Direct API
@@ -106,6 +113,21 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Meta Superintelligence Labs\' first image model. Multi-reference & text rendering; ~$0.01/image. No size or ratio controls.',
     provider: 'openrouter',
   },
+  // Microsoft MAI, available through both image gateways
+  ...(['openrouter', 'vercel'] as const).flatMap((provider): ModelOption[] => [
+    {
+      id: MAI_IMAGE_2_6_MODEL,
+      name: 'MAI-Image-2.6',
+      description: 'Microsoft image generation & precise editing. Up to 5 reference images.',
+      provider,
+    },
+    {
+      id: MAI_IMAGE_2_6_FLASH_MODEL,
+      name: 'MAI-Image-2.6 Flash',
+      description: 'Faster, lower-cost Microsoft generation & editing. Up to 5 reference images.',
+      provider,
+    },
+  ]),
   // Vercel AI Gateway
   {
     id: 'google/gemini-3.1-flash-image',
@@ -217,7 +239,35 @@ const RIVERFLOW_FAST_IMAGE_SIZES = [
   { value: '2K', label: '2K' },
 ] as const
 
+const MAI_ASPECT_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', 'auto'] as const
+const MAI_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+  { value: '1.5K', label: '1.5K' },
+] as const
+
+/** MAI uses a pixel budget; follow Azure's 16px rounding and 768px minimum side. */
+export function getMaiImageSize(aspectRatio: string, imageSize: string): `${number}x${number}` | undefined {
+  if (aspectRatio === 'auto') return undefined
+  if (!(MAI_ASPECT_RATIOS as readonly string[]).includes(aspectRatio)) return undefined
+  const [w, h] = aspectRatio.split(':').map(Number)
+  const ratio = w / h
+  const pixels = imageSize === '1.5K' ? 1536 ** 2 : 1024 ** 2
+  let width = Math.sqrt(pixels * ratio)
+  let height = width / ratio
+  if (Math.min(width, height) < 768) {
+    ;[width, height] = width < height ? [768, 768 / ratio] : [768 * ratio, 768]
+  }
+  const floor16 = (value: number) => Math.max(768, Math.floor(value / 16 + 1e-9) * 16)
+  return `${floor16(width)}x${floor16(height)}`
+}
+
+/** OpenRouter exposes MAI aspect ratio, but no resolution control. */
+export function supportsImageSizeConfiguration(modelId: string, provider: Provider): boolean {
+  return supportsImageConfiguration(modelId) && !(isMaiImageModel(modelId) && provider === 'openrouter')
+}
+
 export function getAspectRatios(modelId: string) {
+  if (isMaiImageModel(modelId)) return MAI_ASPECT_RATIOS
   if (modelId === GROK_IMAGE_2_MODEL) return GROK_2_ASPECT_RATIOS
   if (modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL) return SEEDREAM_ASPECT_RATIOS
   if (modelId === GROK_IMAGE_MODEL) return GROK_ASPECT_RATIOS
@@ -228,7 +278,8 @@ export function getAspectRatios(modelId: string) {
   return FLASH_ASPECT_RATIOS
 }
 
-export function getImageSizes(modelId: string) {
+export function getImageSizes(modelId: string, provider?: Provider) {
+  if (isMaiImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : MAI_IMAGE_SIZES
   if (modelId === GROK_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL) return GROK_IMAGE_SIZES
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return SEEDREAM_IMAGE_SIZES
   if (modelId === SEEDREAM_5_0_LITE_MODEL) return SEEDREAM_LITE_IMAGE_SIZES
@@ -304,7 +355,10 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
   '2:1':    { '1K': '1408×704',   '2K': '2880×1440' },
 }
 
-export function getResolution(aspectRatio: string, imageSize: string, modelId?: string): string | undefined {
+export function getResolution(aspectRatio: string, imageSize: string, modelId?: string, provider?: Provider): string | undefined {
+  if (modelId && isMaiImageModel(modelId)) {
+    return provider === 'openrouter' ? undefined : getMaiImageSize(aspectRatio, imageSize)?.replace('x', '×')
+  }
   if (modelId === GROK_IMAGE_MODEL) return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
   if (modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL) return undefined
   // Riverflow exposes normalized 1K/2K/4K tiers, not a fixed pixel matrix.
@@ -314,6 +368,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 
 /** Maximum reference images accepted by the selected model. */
 export function getMaxInputImages(modelId: string): number {
+  if (isMaiImageModel(modelId)) return 5
   if (modelId === MUSE_IMAGE_MODEL) return 4
   if (modelId === GROK_IMAGE_2_MODEL) return 3
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return 14
@@ -325,6 +380,7 @@ export function getMaxInputImages(modelId: string): number {
 
 /** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
+  if (isMaiImageModel(modelId)) return true
   return modelId === MUSE_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
 }
 
@@ -361,9 +417,13 @@ export function getThinkingLevels(modelId: string) {
 // Source: https://ai.google.dev/gemini-api/docs/pricing
 export const MODEL_PRICING: Record<string, {
   inputText: number
+  inputImage?: number
   outputText: number
   outputImage: number
 }> = {
+  // OpenRouter Image endpoint pricing / Vercel AI Gateway, verified 2026-10-15.
+  [MAI_IMAGE_2_6_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 38 },
+  [MAI_IMAGE_2_6_FLASH_MODEL]: { inputText: 1.75, inputImage: 2.5, outputText: 0, outputImage: 19 },
   [GEMINI_NANO_BANANA_2_1_MODEL]: {
     inputText: 1.50,
     outputText: 7.50,
@@ -460,7 +520,14 @@ export function estimateImageOutputCost(
   imageSize: string,
   batchSize: number = 1,
   imageQuality: 'low' | 'medium' = 'medium',
-): number {
+  provider?: Provider,
+): number | undefined {
+  // User-provided planning estimates; completed MAI jobs still use returned billing/usage.
+  if (isMaiImageModel(modelId)) {
+    const price = modelId === MAI_IMAGE_2_6_FLASH_MODEL ? 0.02 : 0.04
+    const sizeMultiplier = provider === 'vercel' && imageSize === '1.5K' ? 2 : 1
+    return price * sizeMultiplier * batchSize
+  }
   // OpenRouter endpoint pricing variants: low_1k $0.04, low_2k $0.06,
   // medium_1k $0.06, medium_2k $0.08. Input references cost $0.01 each
   // and are intentionally excluded because this helper estimates output only.
@@ -480,4 +547,19 @@ export function estimateImageOutputCost(
   const modelTokens = IMAGE_OUTPUT_TOKENS[base] ?? IMAGE_OUTPUT_TOKENS[GEMINI_FLASH_IMAGE_MODEL]
   const tokens = modelTokens[imageSize] ?? modelTokens['1K']
   return (tokens / 1_000_000) * pricing.outputImage * batchSize
+}
+
+/** Estimate MAI cost from returned usage; unknown input splits use the higher image rate. */
+export function estimateMaiTokenCost(
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number | undefined,
+  inputImageTokens?: number,
+): number | undefined {
+  if (outputTokens == null) return undefined
+  const pricing = MODEL_PRICING[modelId]
+  const imageTokens = Math.min(inputTokens, Math.max(0, inputImageTokens ?? inputTokens))
+  return ((inputTokens - imageTokens) * pricing.inputText
+    + imageTokens * (pricing.inputImage ?? pricing.inputText)
+    + outputTokens * pricing.outputImage) / 1_000_000
 }

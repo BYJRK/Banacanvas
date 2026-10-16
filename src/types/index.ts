@@ -27,12 +27,13 @@ export interface GenerationConfig {
   provider: Provider
   model: string
   aspectRatio?: string
-  imageSize?: '512' | '1K' | '2K' | '4K'
+  imageSize?: '512' | '1K' | '1.5K' | '2K' | '4K'
   imageQuality?: 'low' | 'medium'
   seed?: number
   personGeneration?: 'ALLOW_ALL' | 'ALLOW_ADULT' | 'ALLOW_NONE'
   thinkingLevel?: 'MINIMAL' | 'MEDIUM' | 'HIGH'
   googleSearch?: boolean
+  webGrounding?: boolean
   batchSize?: number
 }
 
@@ -63,7 +64,7 @@ export interface UsageInfo {
   candidatesTokenCount: number
   thoughtsTokenCount: number
   totalTokenCount: number
-  estimatedCost: number
+  estimatedCost?: number
   /** True when the provider returned the completed job's exact billed cost. */
   costIsExact?: boolean
   elapsedMs?: number

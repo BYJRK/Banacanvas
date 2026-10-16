@@ -1,9 +1,10 @@
 import { ref } from 'vue'
-import { generateText, createGateway } from 'ai'
+import { generateText, generateImage as generateSdkImage, createGateway } from 'ai'
 import type { ModelMessage } from 'ai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { getBaseModelId, MODEL_PRICING } from '../config/models'
+import { estimateMaiTokenCost, getBaseModelId, getMaiImageSize, getMaxInputImages, isMaiImageModel, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
+import { prepareMaiImages } from '../maiImages'
 import { useI18n } from './useI18n'
 
 export function useVercelAI() {
@@ -20,7 +21,8 @@ export function useVercelAI() {
   }
 
   async function doRequest(
-    messages: ModelMessage[],
+    prompt: string,
+    images: InputImage[],
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
@@ -36,6 +38,62 @@ export function useVercelAI() {
 
     try {
       const gateway = createGateway({ apiKey })
+      const signal = externalSignal ?? abortController!.signal
+
+      if (isMaiImageModel(config.model)) {
+        const maxImages = getMaxInputImages(config.model)
+        if (images.length > maxImages) {
+          throw new Error(t('referenceImagesLimitReached').replace('{count}', String(maxImages)))
+        }
+        const references = await prepareMaiImages(images, signal)
+        signal.throwIfAborted()
+        const result = await generateSdkImage({
+          model: gateway.imageModel(config.model),
+          prompt: references.length > 0
+            ? { text: prompt, images: references.map((image) => `data:${image.mimeType};base64,${image.base64}`) }
+            : prompt,
+          n: 1,
+          size: getMaiImageSize(config.aspectRatio ?? '1:1', config.imageSize ?? '1K'),
+          providerOptions: {
+            azure: {
+              autoAspectRatio: config.aspectRatio === 'auto',
+              webGrounding: config.webGrounding ?? false,
+            },
+          },
+          abortSignal: signal,
+        })
+        const image = result.images[0]
+        if (!image) throw new Error(t('noImageGenerated'))
+        const promptTokens = result.usage.inputTokens ?? 0
+        const outputTokens = result.usage.outputTokens
+        const metadata = result.providerMetadata.azure?.images
+        const imageTokenCounts = metadata?.map((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
+          && typeof entry.imageTokens === 'number' ? entry.imageTokens : undefined)
+        const hasImageTokenSplit = imageTokenCounts && imageTokenCounts.length > 0 && imageTokenCounts.every((count) => count != null)
+        const imageTokens = images.length === 0 ? 0 : hasImageTokenSplit
+          ? imageTokenCounts.reduce<number>((total, count) => total + (count ?? 0), 0)
+          : undefined
+        const tokenCost = estimateMaiTokenCost(config.model, promptTokens, outputTokens, imageTokens)
+        return {
+          imageBase64: image.base64,
+          imageMimeType: image.mediaType,
+          usage: {
+            promptTokenCount: promptTokens,
+            candidatesTokenCount: outputTokens ?? 0,
+            thoughtsTokenCount: 0,
+            totalTokenCount: result.usage.totalTokens ?? promptTokens + (outputTokens ?? 0),
+            estimatedCost: tokenCost == null ? undefined : tokenCost + (config.webGrounding ? MAI_VERCEL_WEB_GROUNDING_COST : 0),
+          },
+        }
+      }
+
+      const messages: ModelMessage[] = [{
+        role: 'user',
+        content: images.length > 0 ? [
+          ...images.map((image) => ({ type: 'image' as const, image: `data:${image.mimeType};base64,${image.base64}` })),
+          { type: 'text' as const, text: prompt },
+        ] : prompt,
+      }]
 
       // Google-specific image config (aspect ratio + resolution)
       const imageConfig: Record<string, string> = {}
@@ -124,13 +182,7 @@ export function useVercelAI() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
-    const messages: ModelMessage[] = [
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ]
-    return doRequest(messages, config, externalSignal)
+    return doRequest(prompt, [], config, externalSignal)
   }
 
   async function editImage(
@@ -139,19 +191,7 @@ export function useVercelAI() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
-    const messages: ModelMessage[] = [
-      {
-        role: 'user',
-        content: [
-          ...images.map((img) => ({
-            type: 'image' as const,
-            image: `data:${img.mimeType};base64,${img.base64}`,
-          })),
-          { type: 'text' as const, text: prompt },
-        ],
-      },
-    ]
-    return doRequest(messages, config, externalSignal)
+    return doRequest(prompt, images, config, externalSignal)
   }
 
   return { loading, error, generateImage, editImage, cancel }

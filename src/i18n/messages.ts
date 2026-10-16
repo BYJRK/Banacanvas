@@ -186,6 +186,13 @@ const messages = {
     modelRiverflowV25ProDesc: 'High-control generation & editing. 1K–4K.',
     modelRiverflowV25FastDesc: 'Fast generation & editing. 1K–2K.',
     modelMuseImageDesc: 'Meta Superintelligence Labs\' first image model. Multi-reference & text rendering; ~$0.01/image. No size or ratio controls.',
+    modelMaiImage26Desc: 'Microsoft generation & precise editing. Strong text rendering; up to 5 reference images.',
+    modelMaiImage26FlashDesc: 'Faster, lower-cost Microsoft generation & editing; up to 5 reference images.',
+    webGrounding: 'Bing web grounding',
+    webGroundingInfo: 'About Bing web grounding',
+    maiImageHint: 'Billed by actual token usage. Auto ratio lets the model choose the size.',
+    maiWebGroundingPrice: 'Web grounding: Vercel +$0.014/request; OpenRouter uses returned billing.',
+    maiTokenPricing: 'USD / 1M tokens: text input ${text} · image input ${image} · image output ${output}.',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: 'Aspect Ratio Suggestion',
@@ -387,6 +394,13 @@ const messages = {
     modelRiverflowV25ProDesc: '高控制力生成与编辑。支持 1K–4K。',
     modelRiverflowV25FastDesc: '快速生成与编辑。支持 1K–2K。',
     modelMuseImageDesc: 'Meta 超级智能实验室首款图像生成模型，支持多参考图与文字渲染。每张约 $0.01；无法设置尺寸和宽高比。',
+    modelMaiImage26Desc: '微软高质量生成与精准编辑，擅长文字渲染；最多 5 张参考图。',
+    modelMaiImage26FlashDesc: '微软低延迟、低成本图像生成与编辑；最多 5 张参考图。',
+    webGrounding: 'Bing 网络搜索增强',
+    webGroundingInfo: '查看 Bing 网络搜索增强说明',
+    maiImageHint: '按实际 Token 用量计费。自动比例由模型决定输出尺寸。',
+    maiWebGroundingPrice: '网络搜索：Vercel 另收 $0.014/次；OpenRouter 以返回账单为准。',
+    maiTokenPricing: '美元 / 百万 Token：文本输入 ${text} · 图像输入 ${image} · 图像输出 ${output}。',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: '长宽比建议',

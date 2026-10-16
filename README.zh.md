@@ -25,6 +25,8 @@
 
 所有提供商均提供下列四个 Gemini 模型。OpenRouter 还在模型选择器中提供 Meta、xAI、字节跳动和 Sourceful 的模型。
 
+OpenRouter 和 Vercel AI Gateway 还支持微软 **MAI-Image-2.6**（`microsoft/mai-image-2.6`）与 **MAI-Image-2.6 Flash**（`microsoft/mai-image-2.6-flash`）。两款均支持文生图、最多 5 张参考图编辑、7 种固定宽高比及自动比例，并可开启 Bing 网络搜索增强。Vercel 提供 1K / 1.5K 像素预算预设（总像素最多 1536²）；OpenRouter 当前仅开放宽高比控制。标准版每百万 Token 的文本输入 / 图像输入 / 图像输出费用为 $5 / $8 / $38；Flash 为 $1.75 / $2.50 / $19。生成前按标准版约 $0.04/张、Flash 约 $0.02/张估算；Vercel 的 1.5K 预估翻倍为 $0.08/张和 $0.04/张，合计再乘以批量数量；生成后按返回的账单或 Token 用量展示费用。详见[调研与接口说明](./docs/mai-image-2.6.md)（核实于 2026-10-15）。
+
 | 模型 | 内部名称 | 分辨率 | 定价（每 1M Token） |
 |---|---|---|---|
 | **Nano Banana 2.1** | `gemini-nano-banana-2.1` | 1K – 4K | $1.50 输入 · $7.50 文本输出 · $30 图像输出 |

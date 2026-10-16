@@ -109,6 +109,7 @@ const config = ref<GenerationConfig>({
   seed: persisted.config.seed,
   thinkingLevel: persisted.config.thinkingLevel ?? 'MINIMAL',
   googleSearch: persisted.config.googleSearch ?? false,
+  webGrounding: persisted.config.webGrounding ?? false,
   batchSize: persisted.config.batchSize ?? 1,
 })
 
@@ -126,6 +127,7 @@ function persistParams() {
       seed: config.value.seed,
       thinkingLevel: config.value.thinkingLevel,
       googleSearch: config.value.googleSearch,
+      webGrounding: config.value.webGrounding,
       batchSize: config.value.batchSize,
     },
   }))
@@ -375,7 +377,7 @@ function onModelChange(model: ModelOption) {
   }
 
   // Reset imageSize if not in the new model's size list
-  const sizes = getImageSizes(model.id)
+  const sizes = getImageSizes(model.id, model.provider)
   const validSizes = sizes.map((s) => s.value)
   if (newConfig.imageSize && !validSizes.includes(newConfig.imageSize as any)) {
     newConfig.imageSize = validSizes[0] as GenerationConfig['imageSize']
@@ -455,7 +457,7 @@ async function handleGenerate() {
       resultText.value = result.textResponse
       resultUsage.value = result.usage
         ? { ...result.usage, elapsedMs }
-        : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
+        : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, elapsedMs }
 
       await historyStore.addEntry({
         prompt: currentPrompt,
@@ -529,7 +531,11 @@ async function handleGenerate() {
           aggregatedUsage.candidatesTokenCount += r.usage.candidatesTokenCount
           aggregatedUsage.thoughtsTokenCount += r.usage.thoughtsTokenCount
           aggregatedUsage.totalTokenCount += r.usage.totalTokenCount
-          aggregatedUsage.estimatedCost += r.usage.estimatedCost
+          aggregatedUsage.estimatedCost = aggregatedUsage.estimatedCost != null && r.usage.estimatedCost != null
+            ? aggregatedUsage.estimatedCost + r.usage.estimatedCost
+            : undefined
+        } else if (r.imageBase64) {
+          aggregatedUsage.estimatedCost = undefined
         }
       }
       resultUsage.value = aggregatedUsage

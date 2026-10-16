@@ -25,6 +25,8 @@ A modern web UI for AI image generation powered by Google Gemini Image (aka. Nan
 
 All providers offer the four Gemini models below. OpenRouter additionally exposes models from Meta, xAI, ByteDance, and Sourceful in the model selector.
 
+OpenRouter and Vercel AI Gateway also support **MAI-Image-2.6** (`microsoft/mai-image-2.6`) and **MAI-Image-2.6 Flash** (`microsoft/mai-image-2.6-flash`) from Microsoft. Both generate and edit images with up to 5 references, 7 fixed aspect ratios plus auto, and optional Bing web grounding. Vercel offers 1K / 1.5K pixel-budget presets (up to 1536² total pixels); OpenRouter currently exposes aspect ratio only. Standard pricing is $5 text input / $8 image input / $38 image output per million tokens; Flash is $1.75 / $2.50 / $19. Before generation, budget estimates are approximately $0.04/image for standard and $0.02/image for Flash. Vercel 1.5K doubles these estimates to $0.08/$0.04; totals are multiplied by the batch count. Completed jobs use returned billing or token usage. See [research and API details](./docs/mai-image-2.6.md) (verified October 15, 2026).
+
 | Model | Internal Name | Resolution | Pricing (per 1M tokens) |
 |---|---|---|---|
 | **Nano Banana 2.1** | `gemini-nano-banana-2.1` | 1K – 4K | $1.50 input · $7.50 text output · $30 image output |

@@ -3,10 +3,12 @@ import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import {
   estimateImageOutputCost,
+  estimateMaiTokenCost,
   getBaseModelId,
   getImageSizes,
   getMaxInputImages,
   isRiverflowModel,
+  isMaiImageModel,
   MODEL_PRICING,
   toOpenRouterImageSize,
   supportsOutputModalities,
@@ -16,6 +18,7 @@ import {
   usesOpenRouterImageApi,
 } from '../config/models'
 import { useI18n } from './useI18n'
+import { prepareMaiImages } from '../maiImages'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_IMAGES_API_URL = 'https://openrouter.ai/api/v1/images'
@@ -91,7 +94,7 @@ export function useOpenRouter() {
       return parseResponse(result, config.model)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('abort')) {
+      if (msg.toLowerCase().includes('abort')) {
         throw new Error(t('generationCancelled'))
       }
       if (managed) error.value = msg
@@ -131,8 +134,15 @@ export function useOpenRouter() {
         prompt,
       }
       if (supportsImageConfiguration(config.model)) {
-        body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
+        if (!isMaiImageModel(config.model)) body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
         body.aspect_ratio = config.aspectRatio ?? '1:1'
+      }
+      const signal = externalSignal ?? abortController!.signal
+      if (isMaiImageModel(config.model)) {
+        body.n = 1
+        body.provider = { options: { azure: { web_grounding: config.webGrounding ?? false } } }
+        images = await prepareMaiImages(images, signal)
+        signal.throwIfAborted()
       }
       if (supportsImageQuality(config.model)) {
         body.n = 1
@@ -162,7 +172,7 @@ export function useOpenRouter() {
           'Content-Type': 'application/json',
         },
         body: requestBody,
-        signal: externalSignal ?? abortController!.signal,
+        signal,
       })
 
       if (!response.ok) {
@@ -171,10 +181,10 @@ export function useOpenRouter() {
         throw new Error(errMsg)
       }
 
-      return parseImageApiResponse(await response.json(), config)
+      return parseImageApiResponse(await response.json(), config, images.length > 0)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('abort')) {
+      if (msg.toLowerCase().includes('abort')) {
         throw new Error(t('generationCancelled'))
       }
       if (managed) error.value = msg
@@ -225,7 +235,7 @@ export function useOpenRouter() {
       const totalTokens = result.usage.total_tokens ?? 0
 
       const responseCost = Number(result.usage.cost)
-      const hasExactCost = Number.isFinite(responseCost)
+      const hasExactCost = result.usage.cost != null && result.usage.cost !== '' && Number.isFinite(responseCost)
       let estimatedCost = hasExactCost ? responseCost : estimateImageOutputCost(modelId, '1K')
 
       // OpenRouter doesn't break down image vs text tokens for Gemini models, so
@@ -258,14 +268,14 @@ export function useOpenRouter() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function parseImageApiResponse(result: any, config: GenerationConfig): GenerationResult {
+  function parseImageApiResponse(result: any, config: GenerationConfig, hasInputImages: boolean): GenerationResult {
     const image = result.data?.[0]
     if (!image?.b64_json) {
       throw new Error(t('noImageGenerated'))
     }
 
     const responseCost = Number(result.usage?.cost)
-    const hasExactCost = Number.isFinite(responseCost)
+    const hasExactCost = result.usage?.cost != null && result.usage.cost !== '' && Number.isFinite(responseCost)
     const promptTokens = result.usage?.prompt_tokens ?? 0
     const completionTokens = result.usage?.completion_tokens ?? 0
     const totalTokens = result.usage?.total_tokens ?? promptTokens + completionTokens
@@ -280,7 +290,10 @@ export function useOpenRouter() {
         totalTokenCount: totalTokens,
         estimatedCost: hasExactCost
           ? responseCost
-          : estimateImageOutputCost(config.model, config.imageSize ?? '1K', 1, config.imageQuality ?? 'medium'),
+          : isMaiImageModel(config.model)
+            ? estimateMaiTokenCost(config.model, promptTokens, result.usage?.completion_tokens,
+              hasInputImages ? result.usage?.prompt_tokens_details?.image_tokens : 0)
+            : estimateImageOutputCost(config.model, config.imageSize ?? '1K', 1, config.imageQuality ?? 'medium'),
         costIsExact: hasExactCost,
       },
     }
