@@ -4,6 +4,7 @@ import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import { MODEL_PRICING } from '../config/models'
 import { useI18n } from './useI18n'
+import { isAbortError } from '../abort'
 
 export function useGemini() {
   const apiKeyStore = useApiKeyStore()
@@ -74,10 +75,11 @@ export function useGemini() {
       error.value = null
       abortController = new AbortController()
     }
+    const signal = externalSignal ?? abortController!.signal
 
     try {
       const apiConfig = buildApiConfig(config)
-      apiConfig.abortSignal = externalSignal ?? abortController!.signal
+      apiConfig.abortSignal = signal
 
       const contents = [
         {
@@ -95,10 +97,10 @@ export function useGemini() {
 
       return await collectStreamResult(response, config.model)
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('abort')) {
+      if (isAbortError(e, signal)) {
         throw new Error(t('generationCancelled'))
       }
+      const msg = e instanceof Error ? e.message : String(e)
       if (managed) error.value = msg
       throw new Error(msg)
     } finally {
@@ -123,10 +125,11 @@ export function useGemini() {
       error.value = null
       abortController = new AbortController()
     }
+    const signal = externalSignal ?? abortController!.signal
 
     try {
       const apiConfig = buildApiConfig(config)
-      apiConfig.abortSignal = externalSignal ?? abortController!.signal
+      apiConfig.abortSignal = signal
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parts: any[] = images.map((img) => ({
@@ -153,10 +156,10 @@ export function useGemini() {
 
       return await collectStreamResult(response, config.model)
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('abort')) {
+      if (isAbortError(e, signal)) {
         throw new Error(t('generationCancelled'))
       }
+      const msg = e instanceof Error ? e.message : String(e)
       if (managed) error.value = msg
       throw new Error(msg)
     } finally {

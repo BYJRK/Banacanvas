@@ -21,6 +21,7 @@ import {
 } from '../config/models'
 import { useI18n } from './useI18n'
 import { prepareMaiImages } from '../maiImages'
+import { isAbortError } from '../abort'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_IMAGES_API_URL = 'https://openrouter.ai/api/v1/images'
@@ -63,6 +64,7 @@ export function useOpenRouter() {
       error.value = null
       abortController = new AbortController()
     }
+    const signal = externalSignal ?? abortController!.signal
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,7 +85,7 @@ export function useOpenRouter() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-        signal: externalSignal ?? abortController!.signal,
+        signal,
       })
 
       if (!response.ok) {
@@ -95,10 +97,10 @@ export function useOpenRouter() {
       const result = await response.json()
       return parseResponse(result, config.model)
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.toLowerCase().includes('abort')) {
+      if (isAbortError(e, signal)) {
         throw new Error(t('generationCancelled'))
       }
+      const msg = e instanceof Error ? e.message : String(e)
       if (managed) error.value = msg
       throw new Error(msg)
     } finally {
@@ -124,6 +126,7 @@ export function useOpenRouter() {
       error.value = null
       abortController = new AbortController()
     }
+    const signal = externalSignal ?? abortController!.signal
 
     try {
       const maxImages = getMaxInputImages(config.model)
@@ -139,7 +142,6 @@ export function useOpenRouter() {
         if (!isMaiImageModel(config.model) && !isGptImageModel(config.model)) body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
         body.aspect_ratio = config.aspectRatio ?? '1:1'
       }
-      const signal = externalSignal ?? abortController!.signal
       if (isMaiImageModel(config.model)) {
         body.n = 1
         body.provider = { options: { azure: { web_grounding: config.webGrounding ?? false } } }
@@ -186,10 +188,10 @@ export function useOpenRouter() {
 
       return parseImageApiResponse(await response.json(), config, images.length > 0)
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.toLowerCase().includes('abort')) {
+      if (isAbortError(e, signal)) {
         throw new Error(t('generationCancelled'))
       }
+      const msg = e instanceof Error ? e.message : String(e)
       if (managed) error.value = msg
       throw new Error(msg)
     } finally {

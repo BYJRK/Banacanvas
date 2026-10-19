@@ -4,6 +4,7 @@ import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import { estimateImageTokenCost, getBaseModelId, getMaiImageSize, getGptImageSize, getMaxInputImages, isMaiImageModel, isGptImageModel, resolveImageQuality, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
 import { prepareMaiImages } from '../maiImages'
+import { isAbortError } from '../abort'
 import { useI18n } from './useI18n'
 
 export function useVercelAI() {
@@ -34,11 +35,11 @@ export function useVercelAI() {
       error.value = null
       abortController = new AbortController()
     }
+    const signal = externalSignal ?? abortController!.signal
 
     try {
       const { generateText, generateImage: generateSdkImage, createGateway } = await import('ai')
       const gateway = createGateway({ apiKey })
-      const signal = externalSignal ?? abortController!.signal
 
       if (isMaiImageModel(config.model) || isGptImageModel(config.model)) {
         const isGptImage = isGptImageModel(config.model)
@@ -116,15 +117,15 @@ export function useVercelAI() {
             ...(Object.keys(imageConfig).length > 0 ? { imageConfig } : {}),
           },
         },
-        abortSignal: externalSignal ?? abortController!.signal,
+        abortSignal: signal,
       })
 
       return parseResult(result, config.model)
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.toLowerCase().includes('abort')) {
+      if (isAbortError(e, signal)) {
         throw new Error(t('generationCancelled'))
       }
+      const msg = e instanceof Error ? e.message : String(e)
       if (managed) error.value = msg
       throw new Error(msg)
     } finally {
