@@ -71,6 +71,7 @@ npm run dev
 ```bash
 npm run build    # 类型检查 (vue-tsc) + Vite 生产构建 → dist/
 npm run preview  # 本地预览生产构建
+npm test         # 单元测试（Vitest，API 调用全部 mock，不会发送真实请求）
 ```
 
 ## 使用方法

@@ -71,6 +71,7 @@ Opens at `http://localhost:5173` with hot reload.
 ```bash
 npm run build    # Type-check (vue-tsc) + Vite production build → dist/
 npm run preview  # Preview the production build locally
+npm test         # Unit tests (Vitest, all API calls mocked — no real requests)
 ```
 
 ## Usage

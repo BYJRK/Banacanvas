@@ -57,11 +57,18 @@ All three composables expose identical public interface: `{ loading, error, gene
 ```bash
 npm install   # npm only (package-lock.json)
 npm run dev   # Vite dev server
-npm run build # vue-tsc type check + Vite production build
+npm run build # vue-tsc type check (app + tests) + Vite production build
 npm run preview
+npm test      # Vitest unit tests (happy-dom)
 ```
 
-No test framework configured.
+## Testing
+
+- Vitest + happy-dom; tests live in `tests/` (mirroring `src/`), config in `vitest.config.ts`, type-checked via `tsconfig.test.json` as part of `npm run build`.
+- **Never call real APIs in tests** (they cost money). Mock at the network boundary: `vi.stubGlobal('fetch', …)` for OpenRouter, `vi.mock('@google/genai')` for Gemini (fake async-generator stream), `vi.mock('ai')` for Vercel.
+- History store tests use `fake-indexeddb` with a fresh `IDBFactory` per test; `createImageBitmap` is stubbed to fail so WebP re-encoding falls back to the original image.
+- `tests/setup.ts` pins the locale to `en`; assert user-facing errors via `messages.en` (`en` from `tests/helpers.ts`), not hard-coded strings.
+- Shared helpers (`jsonResponse`, `waitForAbort`, `deferred`, `inputImage`) are in `tests/helpers.ts`.
 
 ## Code Style
 
