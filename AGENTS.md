@@ -10,23 +10,25 @@ See [README.md](../README.md) for user-facing features and [README.zh.md](../REA
 - **No router** — single-page UI with modals/sidebar overlays
 - **Components**: `<script setup lang="ts">` SFC, Headless UI for accessible primitives
 - **State**: Pinia stores (`apiKey`, `history`) + component-local reactive refs
-- **Composables**: `useGemini`, `useOpenRouter`, `useVercelAI` (API calls), `useI18n` (translation), `useTheme` (theme)
+- **Composables**: `useGemini`, `useOpenRouter`, `useVercelAI` (provider API calls), `useImageGeneration` (single/batch runs + result state), `useGenerationParams` (persisted model/config + model/provider switching), `useEndNotification`, `useResizableSidebar`, `useReferenceImageResize`, `useHistoryPreferences`, `useI18n` (translation), `useTheme` (theme)
+- **App.vue** is a composition surface: it wires composables to components; keep feature logic in composables
 - **Types**: all interfaces in [src/types/index.ts](../src/types/index.ts)
 - **i18n**: custom composable in [src/i18n/messages.ts](../src/i18n/messages.ts), `MessageKey` type-constrained, supports `en`/`zh`
 - **Storage**: localStorage for API keys / theme / locale / config; **IndexedDB** (via [src/stores/history.ts](../src/stores/history.ts)) for generation history
 
 ### Multi-Provider Routing
 
-App.vue dynamically selects composable based on `selectedModel.provider`:
+`useImageGeneration` holds one instance of each provider composable in a `Record<Provider, …>` map and picks one by `config.provider`:
 
 ```ts
-const api = provider === 'vercel' ? vercelAI : provider === 'openrouter' ? openRouter : gemini
+const api = providers[request.config.provider]
 ```
 
 All three composables expose identical public interface: `{ loading, error, generateImage, editImage, cancel }`.
 
 - **useGemini**: `@google/genai` SDK with streaming (`generateContentStream`). Must iterate all chunks for final `usageMetadata`.
-- **useOpenRouter / useVercelAI**: Standard `fetch` + JSON response (no streaming). useVercelAI wraps config in `providerOptions.google.imageConfig`.
+- **useOpenRouter**: Standard `fetch` + JSON response (no streaming); chat-completions API for Gemini models, `/api/v1/images` for image-API models.
+- **useVercelAI**: Vercel AI SDK (`ai` package, `createGateway` + `generateText` / `generateImage`); Gemini config goes in `providerOptions.google.imageConfig`.
 - **Model ID mapping**: OpenRouter/Vercel use `google/` prefix (`google/gemini-3.1-flash-image`). Use `getBaseModelId()` from `src/config/models.ts` for pricing lookups.
 
 ### Component Communication
@@ -38,17 +40,17 @@ All three composables expose identical public interface: `{ loading, error, gene
 
 ### Batch Generation
 
-- Configurable `batchSize` (1–9). When `> 1`, App.vue runs N parallel requests via fresh composable instances and `Promise.allSettled`, tracking `batchControllers: AbortController[]` and `batchProgress` ref.
-- Single-generation path (`batchSize === 1`) uses the shared composable directly — do not unify the two code paths.
+- Configurable `batchSize` (1–9). When `> 1`, `useImageGeneration.runBatch` runs N parallel requests on the shared provider composable, each with its own external `AbortSignal`, via `Promise.allSettled`, tracking `batchControllers: AbortController[]` and `batchProgress` ref.
+- Single-generation path (`batchSize === 1`, `runSingle`) uses the composable's managed `loading`/abort state — do not unify it with `runBatch`.
 - Results stored in `batchResults: BatchResultItem[]`; each successful item is persisted to history independently.
 
 ### History (IndexedDB)
 
 - Object store `history` in DB `banacanvas`, keyed by `id`, indexed by `timestamp`.
-- Images stored as Blobs (re-encoded to WebP at quality 0.85 on save).
+- Images stored as base64 strings on each entry (re-encoded to WebP at quality 0.85 on save); the whole history is loaded into memory on `init()`.
 - **No entry cap** — relies on browser storage quota; UI shows usage via `navigator.storage.estimate()`.
 - Auto-migrates legacy localStorage history on first load, then removes it.
-- Import/export uses JSZip (zip contains `manifest.json` + image files).
+- Import/export uses JSZip (zip contains `metadata.json` + `images/` folder).
 
 ## Build & Dev
 
@@ -77,7 +79,7 @@ No test framework configured.
 
 - New translations must include both `en` and `zh`
 - Model config (sizes, ratios, pricing) in `src/config/models.ts`
-- History stored in IndexedDB without a hard entry cap — never reintroduce the old 50-entry localStorage trim; images must be saved as WebP Blobs, not base64 data URLs
+- History stored in IndexedDB without a hard entry cap — never reintroduce the old 50-entry localStorage trim; images are re-encoded to WebP before saving
 - Gemini streaming: iterate all chunks for final `usageMetadata` — partial collection loses cost data
 - On model/provider change: validate and reset unsupported aspect ratios/sizes via `getAspectRatios()` / `getImageSizes()`
 - Provider-specific features (thinking level, Google Search, person generation) guarded by `provider === 'gemini'`
@@ -85,12 +87,14 @@ No test framework configured.
 - Responsive layout: two copies of GenerationPanel in template — `md:hidden` (mobile) and `hidden md:flex` (desktop)
 - Deploy to Vercel; SPA rewrite in `vercel.json`
 - Tailwind v4 via `@tailwindcss/vite` plugin — no `tailwind.config.js`
+- Keep heavy dependencies out of the initial bundle: `@google/genai`, `ai` and `jszip` are loaded with dynamic `import()` at first use (type-only static imports are fine); `ApiKeyDialog` and `HistoryPanel` are `defineAsyncComponent`s, and `HistoryPanel` mounts on first open
 
 ## Key Dependencies
 
 | Package | Role |
 |---|---|
 | `@google/genai` | Gemini SDK (streaming generation + image input) |
+| `ai` | Vercel AI SDK (AI Gateway provider) |
 | `@headlessui/vue` | Accessible UI components (Dialog, Listbox, Transition) |
 | `pinia` | State management |
 | `jszip` | Pack/unpack history import/export archives |

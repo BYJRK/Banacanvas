@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import JSZip from 'jszip'
 import { getHistoryInputImages } from '../historyImages'
 import type { HistoryEntry, InputImage } from '../types'
 
@@ -166,6 +165,7 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   async function exportZip(): Promise<Blob> {
+    const { default: JSZip } = await import('jszip')
     const zip = new JSZip()
     const imgFolder = zip.folder('images')!
     const metadata: Array<Omit<HistoryEntry, 'imageBase64' | 'imageMimeType' | 'inputImages' | 'inputImageBase64' | 'inputImageMimeType'> & {
@@ -194,6 +194,7 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   async function importZip(file: File, mode: 'merge' | 'overwrite'): Promise<number> {
+    const { default: JSZip } = await import('jszip')
     const zip = await JSZip.loadAsync(file)
     const metaFile = zip.file('metadata.json')
     if (!metaFile) throw new Error('Invalid archive: metadata.json not found')

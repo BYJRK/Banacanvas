@@ -1,6 +1,7 @@
 export type Provider = 'gemini' | 'openrouter' | 'vercel'
 
 export type DownloadFormat = 'png' | 'jpg' | 'webp'
+export type ToastType = 'success' | 'error' | 'info'
 export type ImageQuality = 'auto' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 export interface ModelOption {

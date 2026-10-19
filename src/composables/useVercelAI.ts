@@ -1,6 +1,5 @@
 import { ref } from 'vue'
-import { generateText, generateImage as generateSdkImage, createGateway } from 'ai'
-import type { ModelMessage } from 'ai'
+import type { ModelMessage, generateText } from 'ai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import { estimateImageTokenCost, getBaseModelId, getMaiImageSize, getGptImageSize, getMaxInputImages, isMaiImageModel, isGptImageModel, resolveImageQuality, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
@@ -37,6 +36,7 @@ export function useVercelAI() {
     }
 
     try {
+      const { generateText, generateImage: generateSdkImage, createGateway } = await import('ai')
       const gateway = createGateway({ apiKey })
       const signal = externalSignal ?? abortController!.signal
 

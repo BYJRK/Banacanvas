@@ -1,47 +1,69 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, defineAsyncComponent } from 'vue'
 import { useApiKeyStore } from './stores/apiKey'
 import { useHistoryStore } from './stores/history'
-import { useGemini } from './composables/useGemini'
-import { useOpenRouter } from './composables/useOpenRouter'
-import { useVercelAI } from './composables/useVercelAI'
 import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
+import { useGenerationParams } from './composables/useGenerationParams'
+import { useImageGeneration } from './composables/useImageGeneration'
+import { useEndNotification } from './composables/useEndNotification'
+import { useResizableSidebar } from './composables/useResizableSidebar'
 import { getHistoryInputImages } from './historyImages'
 import { useReferenceImageResize } from './composables/useReferenceImageResize'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getThinkingLevels, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter, resolveImageQuality, isGptImageModel } from './config/models'
-import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
-import ApiKeyDialog from './components/ApiKeyDialog.vue'
+import { getAspectRatios, getMaxInputImages } from './config/models'
+import type { HistoryEntry, InputImage, ToastType } from './types'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
 import ReferenceImageResizeDialog from './components/ReferenceImageResizeDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
 import ParameterPanel from './components/ParameterPanel.vue'
 import ImageDisplay from './components/ImageDisplay.vue'
-import HistoryPanel from './components/HistoryPanel.vue'
 import Toast from './components/Toast.vue'
+
+const ApiKeyDialog = defineAsyncComponent(() => import('./components/ApiKeyDialog.vue'))
+const HistoryPanel = defineAsyncComponent(() => import('./components/HistoryPanel.vue'))
 
 const apiKeyStore = useApiKeyStore()
 const historyStore = useHistoryStore()
-const gemini = useGemini()
-const openRouter = useOpenRouter()
-const vercelAI = useVercelAI()
 const { mode: themeMode, cycle: cycleTheme } = useTheme()
 const { t, locale, toggleLocale } = useI18n()
 
-const loading = computed(() => gemini.loading.value || openRouter.loading.value || vercelAI.loading.value || batchLoading.value)
+// Toast
+const toasts = ref<{ id: number; message: string; type: ToastType }[]>([])
+let toastId = 0
 
-function cancelGeneration() {
-  userCancelled = true
-  gemini.cancel()
-  openRouter.cancel()
-  vercelAI.cancel()
-  for (const c of batchControllers) {
-    try { c.abort() } catch { /* ignore */ }
-  }
-  batchControllers = []
-  batchLoading.value = false
-  batchProgress.value = null
+function showToast(message: string, type: ToastType = 'info') {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter((t) => t.id !== id)
+  }, 5000)
 }
+
+const { notifyOnEnd, notify } = useEndNotification()
+const {
+  selectedProvider,
+  selectedModel,
+  config,
+  downloadFormat,
+  suggestAspectRatio,
+  changeModel,
+  changeProvider,
+  applyHistoryConfig,
+} = useGenerationParams()
+const {
+  loading,
+  resultImage,
+  resultMimeType,
+  resultText,
+  resultUsage,
+  errorMessage,
+  batchResults,
+  batchProgress,
+  generate,
+  cancel: cancelGeneration,
+  clearResult,
+  showHistoryEntries,
+} = useImageGeneration({ toast: showToast, notify })
 
 // Dialog state
 const showApiKeyDialog = ref(false)
@@ -79,63 +101,6 @@ function applyAspectRatioSuggestion() {
 
 // Generation state
 const prompt = ref('')
-
-// Restore persisted params
-function loadPersistedConfig(): { provider: Provider; modelId: string; config: Partial<GenerationConfig>; downloadFormat: DownloadFormat } {
-  try {
-    const raw = localStorage.getItem('banacanvas-params')
-    if (raw) return JSON.parse(raw)
-  } catch { /* ignore */ }
-  return { provider: DEFAULT_MODEL.provider, modelId: DEFAULT_MODEL.id, config: {}, downloadFormat: 'png' }
-}
-
-const persisted = loadPersistedConfig()
-// migrate legacy separate download-format key
-if (!persisted.downloadFormat) {
-  persisted.downloadFormat = (localStorage.getItem('banacanvas-download-format') as DownloadFormat) || 'png'
-  localStorage.removeItem('banacanvas-download-format')
-}
-const persistedProvider = persisted.provider as Provider
-const persistedModelOption = AVAILABLE_MODELS.find((m) => m.id === persisted.modelId && m.provider === persistedProvider) ?? DEFAULT_MODEL
-
-const selectedProvider = ref<Provider>(persistedProvider)
-const selectedModel = ref<ModelOption>(persistedModelOption)
-const config = ref<GenerationConfig>({
-  provider: persistedProvider,
-  model: persistedModelOption.id,
-  aspectRatio: persisted.config.aspectRatio ?? '1:1',
-  imageSize: persisted.config.imageSize ?? '1K',
-  imageQuality: resolveImageQuality(persistedModelOption.id, persisted.config.imageQuality),
-  imageBackground: persisted.config.imageBackground ?? 'auto',
-  seed: persisted.config.seed,
-  thinkingLevel: persisted.config.thinkingLevel ?? 'MINIMAL',
-  googleSearch: persisted.config.googleSearch ?? false,
-  webGrounding: persisted.config.webGrounding ?? false,
-  batchSize: persisted.config.batchSize ?? 1,
-})
-
-const downloadFormat = ref<DownloadFormat>(persisted.downloadFormat ?? 'png')
-
-function persistParams() {
-  localStorage.setItem('banacanvas-params', JSON.stringify({
-    provider: selectedProvider.value,
-    modelId: selectedModel.value.id,
-    downloadFormat: downloadFormat.value,
-    config: {
-      aspectRatio: config.value.aspectRatio,
-      imageSize: config.value.imageSize,
-      imageQuality: config.value.imageQuality,
-      imageBackground: config.value.imageBackground,
-      seed: config.value.seed,
-      thinkingLevel: config.value.thinkingLevel,
-      googleSearch: config.value.googleSearch,
-      webGrounding: config.value.webGrounding,
-      batchSize: config.value.batchSize,
-    },
-  }))
-}
-
-watch([selectedProvider, selectedModel, config, downloadFormat], persistParams, { deep: true })
 
 // Input images (for image-to-image, max 14)
 const inputImages = ref<InputImage[]>([])
@@ -191,33 +156,10 @@ function handlePaste(event: ClipboardEvent) {
   panel?.addClipboardFiles(files)
 }
 
-// Result
-const resultImage = ref<string | undefined>()
-const resultMimeType = ref<string | undefined>()
-const resultText = ref<string | undefined>()
-const resultUsage = ref<UsageInfo | undefined>()
-const errorMessage = ref<string | null>(null)
-
-// Batch generation
-const batchResults = ref<BatchResultItem[]>([])
-const batchProgress = ref<{ current: number; total: number } | null>(null)
-const batchLoading = ref(false)
-let batchControllers: AbortController[] = []
-let userCancelled = false
 const hasWorkspaceContent = computed(() => Boolean(
   prompt.value || inputImages.value.length || resultImage.value || resultText.value
   || resultUsage.value || errorMessage.value || batchResults.value.length || batchProgress.value,
 ))
-
-function clearResult() {
-  resultImage.value = undefined
-  resultMimeType.value = undefined
-  resultText.value = undefined
-  resultUsage.value = undefined
-  errorMessage.value = null
-  batchResults.value = []
-  batchProgress.value = null
-}
 
 function clearWorkspace() {
   if (loading.value) return
@@ -236,23 +178,15 @@ function addResultToReferences(base64: string, mimeType: string) {
   showToast(t('addedToReferences'), 'success')
 }
 
-// Toast
-const toasts = ref<{ id: number; message: string; type: 'success' | 'error' | 'info' }[]>([])
-let toastId = 0
-
-function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
-  const id = ++toastId
-  toasts.value.push({ id, message, type })
-  setTimeout(() => {
-    toasts.value = toasts.value.filter((t) => t.id !== id)
-  }, 5000)
-}
-
 // History sidebar
 const showHistory = ref(false)
+// Mount the (lazy-loaded) history panel only once it is first opened.
+const historyMounted = ref(false)
+watch(showHistory, (open) => { if (open) historyMounted.value = true })
 const historyFullPage = ref(false)
 const historyToggle = ref<HTMLButtonElement | null>(null)
 const historyContainer = ref<HTMLElement | null>(null)
+const { width: sidebarWidth, onMouseDown: onSidebarResizeStart, onTouchStart: onSidebarResizeTouchStart } = useResizableSidebar(288, 450)
 
 async function openHistoryFullPage() {
   showHistory.value = true
@@ -279,145 +213,19 @@ function handleHistoryKeydown(event: KeyboardEvent) {
   }
 }
 
-
-// Sidebar resizable width
-const SIDEBAR_MIN_W = 288   // w-72 = 18rem = 288px (current default)
-const SIDEBAR_MAX_W = 450
-const sidebarWidth = ref(Number(localStorage.getItem('banacanvas-sidebar-width')) || SIDEBAR_MIN_W)
-
-// Track active resize cleanup so we can remove listeners if component unmounts mid-drag
-let resizeCleanup: (() => void) | null = null
-
-function onResizeStart(e: MouseEvent) {
-  resizeCleanup?.()
-  const startX = e.clientX
-  const startW = sidebarWidth.value
-  const onMove = (ev: MouseEvent) => {
-    const delta = startX - ev.clientX  // dragging left = wider
-    sidebarWidth.value = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + delta))
-  }
-  const cleanup = () => {
-    document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onUp)
-    resizeCleanup = null
-  }
-  const onUp = () => {
-    cleanup()
-    localStorage.setItem('banacanvas-sidebar-width', String(sidebarWidth.value))
-  }
-  resizeCleanup = cleanup
-  document.addEventListener('mousemove', onMove)
-  document.addEventListener('mouseup', onUp)
-}
-
-function onResizeTouchStart(e: TouchEvent) {
-  resizeCleanup?.()
-  const startX = e.touches[0].clientX
-  const startW = sidebarWidth.value
-  const onMove = (ev: TouchEvent) => {
-    const delta = startX - ev.touches[0].clientX
-    sidebarWidth.value = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + delta))
-  }
-  const cleanup = () => {
-    document.removeEventListener('touchmove', onMove)
-    document.removeEventListener('touchend', onEnd)
-    resizeCleanup = null
-  }
-  const onEnd = () => {
-    cleanup()
-    localStorage.setItem('banacanvas-sidebar-width', String(sidebarWidth.value))
-  }
-  resizeCleanup = cleanup
-  document.addEventListener('touchmove', onMove)
-  document.addEventListener('touchend', onEnd)
-}
-
-onBeforeUnmount(() => {
-  document.removeEventListener('paste', handlePaste)
-  resizeCleanup?.()
-  cancelGeneration()
-})
-
-// Notification state
-const notifyOnEnd = ref(localStorage.getItem('banacanvas-notify-on-end') === 'true')
-watch(notifyOnEnd, (val) => {
-  localStorage.setItem('banacanvas-notify-on-end', String(val))
-  if (val && Notification.permission === 'default') {
-    Notification.requestPermission()
-  }
-})
-
-const suggestAspectRatio = ref(localStorage.getItem('banacanvas-suggest-aspect-ratio') !== 'false')
-watch(suggestAspectRatio, (val) => {
-  localStorage.setItem('banacanvas-suggest-aspect-ratio', String(val))
-})
-
-function sendNotification(success: boolean) {
-  if (!notifyOnEnd.value) return
-  if (Notification.permission !== 'granted') return
-  const title = success ? t('notificationSuccess') : t('notificationError')
-  new Notification(title)
-}
-
-// On mount: show API key dialog if no key set for any provider
 onMounted(() => {
   document.addEventListener('paste', handlePaste)
   historyStore.init()
+  // Show API key dialog if no key set for any provider
   if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey && !apiKeyStore.hasVercelKey) {
     showApiKeyDialog.value = true
   }
 })
 
-// Sync model selection to config
-function onModelChange(model: ModelOption) {
-  selectedModel.value = model
-  const newConfig = { ...config.value, model: model.id, provider: model.provider }
-  newConfig.imageQuality = resolveImageQuality(model.id,
-    isGptImageModel(model.id) && !isGptImageModel(config.value.model) ? undefined : newConfig.imageQuality)
-
-  // Reset thinking levels that the new model does not accept.
-  if (newConfig.thinkingLevel && !getThinkingLevels(model.id).some((level) => level.value === newConfig.thinkingLevel)) {
-    newConfig.thinkingLevel = 'MINIMAL'
-  }
-
-  // Reset imageSize if not in the new model's size list
-  const sizes = getImageSizes(model.id, model.provider)
-  const validSizes = sizes.map((s) => s.value)
-  if (newConfig.imageSize && !validSizes.includes(newConfig.imageSize as any)) {
-    newConfig.imageSize = validSizes[0] as GenerationConfig['imageSize']
-  }
-  // Reset sizes the provider can't deliver (512 on openrouter)
-  if (newConfig.imageSize && !isImageSizeSupported(model.provider, newConfig.imageSize)) {
-    const supported = sizes.find((s) => isImageSizeSupported(model.provider, s.value))
-    newConfig.imageSize = (supported?.value ?? '1K') as GenerationConfig['imageSize']
-  }
-
-  // Reset aspectRatio if not supported by new model
-  const validRatios = getAspectRatios(model.id) as readonly string[]
-  if (newConfig.aspectRatio && !validRatios.includes(newConfig.aspectRatio)) {
-    newConfig.aspectRatio = '1:1'
-  }
-
-  // Disable Google Search if the new model doesn't support it
-  if (newConfig.googleSearch && !supportsGoogleSearch(model.id)) {
-    newConfig.googleSearch = false
-  }
-
-  if (!supportsSeedParameter(model.id)) {
-    delete newConfig.seed
-  }
-
-  config.value = newConfig
-}
-
-function onProviderChange(provider: Provider) {
-  selectedProvider.value = provider
-  // Auto-select first model of the new provider
-  const models = getModelsForProvider(provider)
-  if (models.length > 0) {
-    onModelChange(models[0])
-  }
-}
+onBeforeUnmount(() => {
+  document.removeEventListener('paste', handlePaste)
+  cancelGeneration()
+})
 
 async function handleGenerate() {
   if (referenceImagesBusy.value) return
@@ -426,142 +234,11 @@ async function handleGenerate() {
     showApiKeyDialog.value = true
     return
   }
-
-  errorMessage.value = null
-  userCancelled = false
-  resultImage.value = undefined
-  resultMimeType.value = undefined
-  resultText.value = undefined
-  resultUsage.value = undefined
-  batchResults.value = []
-  batchProgress.value = null
-
-  const currentConfig: GenerationConfig = { ...config.value, model: selectedModel.value.id, provider }
-  const currentPrompt = prompt.value
-  const currentInputImages = inputImages.value.map((image) => ({ ...image }))
-  const api = provider === 'vercel' ? vercelAI : provider === 'openrouter' ? openRouter : gemini
-  const batchSize = currentConfig.batchSize ?? 1
-
-  if (batchSize <= 1) {
-    // Single generation — original path
-    try {
-      const startTime = performance.now()
-      let result
-
-      if (currentInputImages.length > 0) {
-        result = await api.editImage(currentInputImages, currentPrompt, currentConfig)
-      } else {
-        result = await api.generateImage(currentPrompt, currentConfig)
-      }
-
-      const elapsedMs = Math.round(performance.now() - startTime)
-
-      resultImage.value = result.imageBase64
-      resultMimeType.value = result.imageMimeType
-      resultText.value = result.textResponse
-      resultUsage.value = result.usage
-        ? { ...result.usage, elapsedMs }
-        : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, elapsedMs }
-
-      await historyStore.addEntry({
-        prompt: currentPrompt,
-        config: currentConfig,
-        imageBase64: result.imageBase64,
-        imageMimeType: result.imageMimeType,
-        inputImages: currentInputImages.map(({ base64, mimeType }) => ({ base64, mimeType })),
-        textResponse: result.textResponse,
-      })
-
-      showToast(t('imageGenerated'), 'success')
-      sendNotification(true)
-    } catch (e: unknown) {
-      if (userCancelled) return
-      const msg = e instanceof Error ? e.message : String(e)
-      errorMessage.value = msg
-      showToast(msg, 'error')
-      sendNotification(false)
-    }
-  } else {
-    // Batch generation
-    batchLoading.value = true
-    batchProgress.value = { current: 0, total: batchSize }
-    batchControllers = []
-    const startTime = performance.now()
-    try {
-      const tasks = Array.from({ length: batchSize }, () => async () => {
-        const ac = new AbortController()
-        batchControllers.push(ac)
-        try {
-          const result = currentInputImages.length > 0
-            ? await api.editImage(currentInputImages, currentPrompt, currentConfig, ac.signal)
-            : await api.generateImage(currentPrompt, currentConfig, ac.signal)
-
-          const item: BatchResultItem = {
-            imageBase64: result.imageBase64,
-            imageMimeType: result.imageMimeType,
-            textResponse: result.textResponse,
-            usage: result.usage,
-          }
-          batchResults.value = [...batchResults.value, item]
-
-          await historyStore.addEntry({
-            prompt: currentPrompt,
-            config: currentConfig,
-            imageBase64: result.imageBase64,
-            imageMimeType: result.imageMimeType,
-            inputImages: currentInputImages.map(({ base64, mimeType }) => ({ base64, mimeType })),
-            textResponse: result.textResponse,
-          })
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e)
-          batchResults.value = [...batchResults.value, { error: msg }]
-        } finally {
-          if (batchProgress.value) {
-            batchProgress.value = { ...batchProgress.value, current: batchProgress.value.current + 1 }
-          }
-        }
-      })
-
-      await Promise.allSettled(tasks.map((task) => task()))
-
-      const elapsedMs = Math.round(performance.now() - startTime)
-
-      // Aggregate usage for display
-      const successCount = batchResults.value.filter((r) => r.imageBase64).length
-      const aggregatedUsage: UsageInfo = { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, estimatedCost: 0, elapsedMs }
-      for (const r of batchResults.value) {
-        if (r.usage) {
-          aggregatedUsage.promptTokenCount += r.usage.promptTokenCount
-          aggregatedUsage.candidatesTokenCount += r.usage.candidatesTokenCount
-          aggregatedUsage.thoughtsTokenCount += r.usage.thoughtsTokenCount
-          aggregatedUsage.totalTokenCount += r.usage.totalTokenCount
-          aggregatedUsage.estimatedCost = aggregatedUsage.estimatedCost != null && r.usage.estimatedCost != null
-            ? aggregatedUsage.estimatedCost + r.usage.estimatedCost
-            : undefined
-        } else if (r.imageBase64) {
-          aggregatedUsage.estimatedCost = undefined
-        }
-      }
-      resultUsage.value = aggregatedUsage
-
-      if (userCancelled) return
-
-      const toastMsg = t('batchComplete').replace('{success}', String(successCount)).replace('{total}', String(batchSize))
-      if (successCount === batchSize) {
-        showToast(toastMsg, 'success')
-        sendNotification(true)
-      } else if (successCount > 0) {
-        showToast(toastMsg, 'info')
-        sendNotification(true)
-      } else {
-        showToast(toastMsg, 'error')
-        sendNotification(false)
-      }
-    } finally {
-      batchLoading.value = false
-      batchControllers = []
-    }
-  }
+  await generate({
+    prompt: prompt.value,
+    config: { ...config.value, model: selectedModel.value.id, provider },
+    inputImages: inputImages.value.map((image) => ({ ...image })),
+  })
 }
 
 function restoreHistoryReferences(entry: HistoryEntry) {
@@ -570,54 +247,18 @@ function restoreHistoryReferences(entry: HistoryEntry) {
   restoreImages(getHistoryInputImages(entry).map((image) => ({ ...image, id: crypto.randomUUID() })))
 }
 
-function handleHistorySelect(entry: HistoryEntry) {
-  prompt.value = entry.prompt
-  const entryProvider = entry.config.provider ?? 'gemini'
-  config.value = { ...entry.config, provider: entryProvider }
-  selectedProvider.value = entryProvider
-  const matchedModel = AVAILABLE_MODELS.find((m) => m.id === entry.config.model)
-  selectedModel.value = matchedModel ?? { id: entry.config.model, name: entry.config.model, description: '', provider: entryProvider }
-  resultImage.value = entry.imageBase64
-  resultMimeType.value = entry.imageMimeType
-  resultText.value = entry.textResponse
-  restoreHistoryReferences(entry)
-  errorMessage.value = null
-  batchResults.value = []
-  batchProgress.value = null
-  resultUsage.value = undefined
+function handleHistorySelectBatch(entries: HistoryEntry[]) {
+  if (entries.length === 0) return
+  const [first] = entries
+  prompt.value = first.prompt
+  applyHistoryConfig(first)
+  restoreHistoryReferences(first)
+  showHistoryEntries(entries)
   void closeHistory()
 }
 
-function handleHistorySelectBatch(entries: HistoryEntry[]) {
-  if (entries.length === 0) return
-  if (entries.length === 1) {
-    handleHistorySelect(entries[0])
-    return
-  }
-  const first = entries[0]
-  prompt.value = first.prompt
-  const entryProvider = first.config.provider ?? 'gemini'
-  config.value = { ...first.config, provider: entryProvider }
-  selectedProvider.value = entryProvider
-  const matchedModel = AVAILABLE_MODELS.find((m) => m.id === first.config.model)
-  selectedModel.value = matchedModel ?? { id: first.config.model, name: first.config.model, description: '', provider: entryProvider }
-
-  restoreHistoryReferences(first)
-
-  // Populate batch gallery; clear single-image state
-  resultImage.value = undefined
-  resultMimeType.value = undefined
-  resultText.value = undefined
-  errorMessage.value = null
-
-  batchResults.value = entries.map((e) => ({
-    imageBase64: e.imageBase64,
-    imageMimeType: e.imageMimeType,
-    textResponse: e.textResponse,
-  }))
-  batchProgress.value = null
-  resultUsage.value = undefined
-  void closeHistory()
+function handleHistorySelect(entry: HistoryEntry) {
+  handleHistorySelectBatch([entry])
 }
 </script>
 
@@ -719,8 +360,8 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
           @generate="handleGenerate"
           @cancel="cancelGeneration"
           @clear="clearWorkspace"
-          @update:model="onModelChange"
-          @provider-change="onProviderChange"
+          @update:model="changeModel"
+          @provider-change="changeProvider"
           @first-image-added="handleFirstImageAdded"
           @toast="showToast"
         />
@@ -745,8 +386,8 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
             @generate="handleGenerate"
             @cancel="cancelGeneration"
             @clear="clearWorkspace"
-            @update:model="onModelChange"
-            @provider-change="onProviderChange"
+            @update:model="changeModel"
+            @provider-change="changeProvider"
             @first-image-added="handleFirstImageAdded"
             @toast="showToast"
           />
@@ -798,10 +439,10 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
         <div
           v-if="!historyFullPage"
           class="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-violet-500/30 active:bg-violet-500/40 transition-colors"
-          @mousedown.prevent="onResizeStart"
-          @touchstart.prevent="onResizeTouchStart"
+          @mousedown.prevent="onSidebarResizeStart"
+          @touchstart.prevent="onSidebarResizeTouchStart"
         />
-        <HistoryPanel :active="showHistory" :full-page="historyFullPage" @open-full-page="openHistoryFullPage" @back="closeHistory" @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
+        <HistoryPanel v-if="historyMounted" :active="showHistory" :full-page="historyFullPage" @open-full-page="openHistoryFullPage" @back="closeHistory" @select="handleHistorySelect" @select-batch="handleHistorySelectBatch" @toast="showToast" />
       </aside>
     </div>
 

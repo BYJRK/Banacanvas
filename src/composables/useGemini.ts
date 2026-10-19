@@ -1,5 +1,5 @@
-import { ref, watch } from 'vue'
-import { GoogleGenAI } from '@google/genai'
+import { ref } from 'vue'
+import type { GoogleGenAI } from '@google/genai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import { MODEL_PRICING } from '../config/models'
@@ -11,15 +11,19 @@ export function useGemini() {
   const error = ref<string | null>(null)
   let abortController: AbortController | null = null
   let client: GoogleGenAI | null = null
+  let clientKey = ''
   const { t } = useI18n()
 
-  watch(
-    () => apiKeyStore.geminiKey,
-    (key) => {
-      client = key ? new GoogleGenAI({ apiKey: key }) : null
-    },
-    { immediate: true },
-  )
+  // The SDK is loaded on first use to keep it out of the initial bundle.
+  async function getClient(): Promise<GoogleGenAI> {
+    const key = apiKeyStore.geminiKey
+    if (!client || clientKey !== key) {
+      const { GoogleGenAI } = await import('@google/genai')
+      client = new GoogleGenAI({ apiKey: key })
+      clientKey = key
+    }
+    return client
+  }
 
   function cancel() {
     abortController?.abort()
@@ -62,7 +66,7 @@ export function useGemini() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
-    if (!client) throw new Error(t('apiKeyNotSet'))
+    if (!apiKeyStore.geminiKey) throw new Error(t('apiKeyNotSet'))
 
     const managed = !externalSignal
     if (managed) {
@@ -82,6 +86,7 @@ export function useGemini() {
         },
       ]
 
+      const client = await getClient()
       const response = await client.models.generateContentStream({
         model: config.model,
         config: apiConfig,
@@ -110,7 +115,7 @@ export function useGemini() {
     config: GenerationConfig,
     externalSignal?: AbortSignal,
   ): Promise<GenerationResult> {
-    if (!client) throw new Error(t('apiKeyNotSet'))
+    if (!apiKeyStore.geminiKey) throw new Error(t('apiKeyNotSet'))
 
     const managed = !externalSignal
     if (managed) {
@@ -139,6 +144,7 @@ export function useGemini() {
         },
       ]
 
+      const client = await getClient()
       const response = await client.models.generateContentStream({
         model: config.model,
         config: apiConfig,
