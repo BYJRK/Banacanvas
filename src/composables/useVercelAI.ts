@@ -3,7 +3,7 @@ import { generateText, generateImage as generateSdkImage, createGateway } from '
 import type { ModelMessage } from 'ai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { estimateMaiTokenCost, getBaseModelId, getMaiImageSize, getMaxInputImages, isMaiImageModel, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
+import { estimateImageTokenCost, getBaseModelId, getMaiImageSize, getGptImageSize, getMaxInputImages, isMaiImageModel, isGptImageModel, resolveImageQuality, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
 import { prepareMaiImages } from '../maiImages'
 import { useI18n } from './useI18n'
 
@@ -40,12 +40,13 @@ export function useVercelAI() {
       const gateway = createGateway({ apiKey })
       const signal = externalSignal ?? abortController!.signal
 
-      if (isMaiImageModel(config.model)) {
+      if (isMaiImageModel(config.model) || isGptImageModel(config.model)) {
+        const isGptImage = isGptImageModel(config.model)
         const maxImages = getMaxInputImages(config.model)
         if (images.length > maxImages) {
           throw new Error(t('referenceImagesLimitReached').replace('{count}', String(maxImages)))
         }
-        const references = await prepareMaiImages(images, signal)
+        const references = isGptImage ? images : await prepareMaiImages(images, signal)
         signal.throwIfAborted()
         const result = await generateSdkImage({
           model: gateway.imageModel(config.model),
@@ -53,8 +54,14 @@ export function useVercelAI() {
             ? { text: prompt, images: references.map((image) => `data:${image.mimeType};base64,${image.base64}`) }
             : prompt,
           n: 1,
-          size: getMaiImageSize(config.aspectRatio ?? '1:1', config.imageSize ?? '1K'),
-          providerOptions: {
+          size: (isGptImage ? getGptImageSize : getMaiImageSize)(config.aspectRatio ?? '1:1', config.imageSize ?? '1K'),
+          providerOptions: isGptImage ? {
+            openai: {
+              quality: resolveImageQuality(config.model, config.imageQuality),
+              background: config.imageBackground ?? 'auto',
+              outputFormat: 'png',
+            },
+          } : {
             azure: {
               autoAspectRatio: config.aspectRatio === 'auto',
               webGrounding: config.webGrounding ?? false,
@@ -66,14 +73,14 @@ export function useVercelAI() {
         if (!image) throw new Error(t('noImageGenerated'))
         const promptTokens = result.usage.inputTokens ?? 0
         const outputTokens = result.usage.outputTokens
-        const metadata = result.providerMetadata.azure?.images
+        const metadata = result.providerMetadata[isGptImage ? 'openai' : 'azure']?.images
         const imageTokenCounts = metadata?.map((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
           && typeof entry.imageTokens === 'number' ? entry.imageTokens : undefined)
         const hasImageTokenSplit = imageTokenCounts && imageTokenCounts.length > 0 && imageTokenCounts.every((count) => count != null)
         const imageTokens = images.length === 0 ? 0 : hasImageTokenSplit
           ? imageTokenCounts.reduce<number>((total, count) => total + (count ?? 0), 0)
           : undefined
-        const tokenCost = estimateMaiTokenCost(config.model, promptTokens, outputTokens, imageTokens)
+        const tokenCost = estimateImageTokenCost(config.model, promptTokens, outputTokens, imageTokens)
         return {
           imageBase64: image.base64,
           imageMimeType: image.mediaType,
@@ -82,7 +89,7 @@ export function useVercelAI() {
             candidatesTokenCount: outputTokens ?? 0,
             thoughtsTokenCount: 0,
             totalTokenCount: result.usage.totalTokens ?? promptTokens + (outputTokens ?? 0),
-            estimatedCost: tokenCost == null ? undefined : tokenCost + (config.webGrounding ? MAI_VERCEL_WEB_GROUNDING_COST : 0),
+            estimatedCost: tokenCost == null ? undefined : tokenCost + (!isGptImage && config.webGrounding ? MAI_VERCEL_WEB_GROUNDING_COST : 0),
           },
         }
       }

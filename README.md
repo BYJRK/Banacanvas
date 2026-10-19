@@ -10,7 +10,7 @@ A modern web UI for AI image generation powered by Google Gemini Image (aka. Nan
 
 - **Multi-provider support** — Google Gemini direct API, OpenRouter, and Vercel AI Gateway
 - **Text-to-image** — Describe what you want, get an image
-- **Image editing** — Upload up to 14 reference images for guided generation/editing
+- **Image editing** — Upload up to 16 reference images for guided generation/editing (limit depends on the model)
 - **Streaming generation** — Real-time feedback as the image is being created
 - **Configurable output** — Aspect ratio, image size (512 to 4K), thinking level, Google Search grounding, person generation control
 - **Token counting & cost estimation** — Live display of input/output/thinking tokens, elapsed time, and estimated USD cost
@@ -43,6 +43,8 @@ OpenRouter also supports **Meta: Muse Image** (`meta/muse-image`) for agentic im
 | **Gemini** | Direct Google Gemini API. Full feature support including thinking levels, Google Search, and person generation settings. |
 | **OpenRouter** | Routes requests through [OpenRouter](https://openrouter.ai). Useful for centralized API key management. |
 | **Vercel AI Gateway** | Routes through Vercel's AI infrastructure with optimized delivery. |
+
+**GPT Image 2.5 Flare and Sunburst** are available through OpenRouter and Vercel AI Gateway. Flare prioritizes speed; Sunburst prioritizes precise editing. Both support up to 16 reference images, six quality levels, and transparent backgrounds. Pricing is $5 text input / $8 image input / $30 image output per million tokens. Vercel offers pixel-size presets; OpenRouter currently exposes aspect ratio only. See [parameters, pricing, and integration details](./docs/gpt-image-2.5.md).
 
 ## Getting Started
 

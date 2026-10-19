@@ -1,6 +1,7 @@
 export type Provider = 'gemini' | 'openrouter' | 'vercel'
 
 export type DownloadFormat = 'png' | 'jpg' | 'webp'
+export type ImageQuality = 'auto' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 export interface ModelOption {
   id: string
@@ -28,7 +29,8 @@ export interface GenerationConfig {
   model: string
   aspectRatio?: string
   imageSize?: '512' | '1K' | '1.5K' | '2K' | '4K'
-  imageQuality?: 'low' | 'medium'
+  imageQuality?: ImageQuality
+  imageBackground?: 'auto' | 'opaque' | 'transparent'
   seed?: number
   personGeneration?: 'ALLOW_ALL' | 'ALLOW_ADULT' | 'ALLOW_NONE'
   thinkingLevel?: 'MINIMAL' | 'MEDIUM' | 'HIGH'

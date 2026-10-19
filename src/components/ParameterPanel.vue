@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, MODEL_PRICING, supportsImageSizeConfiguration } from '../config/models'
-import type { GenerationConfig, DownloadFormat, Provider } from '../types'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, isGptImageModel, getImageQualities, resolveImageQuality, MODEL_PRICING, supportsImageSizeConfiguration } from '../config/models'
+import type { GenerationConfig, DownloadFormat, ImageQuality, Provider } from '../types'
+import type { MessageKey } from '../i18n/messages'
 import { useI18n } from '../composables/useI18n'
 
 const props = defineProps<{ modelId: string; provider: Provider; notifyOnEnd: boolean; suggestAspectRatio: boolean }>()
@@ -20,13 +21,18 @@ const { t } = useI18n()
 const aspectRatios = computed(() => getAspectRatios(props.modelId))
 const imageSizes = computed(() => getImageSizes(props.modelId, props.provider))
 const resolution = computed(() => getResolution(config.value.aspectRatio ?? '1:1', config.value.imageSize ?? '1K', props.modelId, props.provider))
-const maiPricing = computed(() => isMaiImageModel(props.modelId) ? MODEL_PRICING[props.modelId] : undefined)
+const tokenPricing = computed(() => isMaiImageModel(props.modelId) || isGptImageModel(props.modelId) ? MODEL_PRICING[props.modelId] : undefined)
+const selectedImageQuality = computed(() => resolveImageQuality(props.modelId, config.value.imageQuality))
+const qualityLabelKeys: Record<ImageQuality, MessageKey> = {
+  auto: 'qualityAuto', low: 'qualityLow', medium: 'qualityMedium', high: 'qualityHigh', xhigh: 'qualityXhigh', max: 'qualityMax',
+}
 const unsupportedSizes = computed(() => getUnsupportedImageSizes(props.provider))
 function isSizeDisabled(size: string) {
   return unsupportedSizes.value.includes(size)
 }
 function sizeDisabledTitle(size: string) {
-  return isSizeDisabled(size) ? t('imageSizeNotSupported') : undefined
+  if (isSizeDisabled(size)) return t('imageSizeNotSupported')
+  return isGptImageModel(props.modelId) && size !== '1K' ? t('gptImageSizeHint') : undefined
 }
 
 function setAspectRatio(ratio: string) {
@@ -70,12 +76,14 @@ const estimatedTotalCost = computed(() =>
     props.modelId,
     isMaiImageModel(props.modelId) && config.value.aspectRatio === 'auto' ? '1K' : config.value.imageSize ?? '1K',
     config.value.batchSize ?? 1,
-    config.value.imageQuality ?? 'medium',
+    selectedImageQuality.value,
     props.provider,
+    config.value.aspectRatio ?? '1:1',
   )
 )
 
 function formatCost(cost: number): string {
+  if (isGptImageModel(props.modelId)) return cost.toFixed(3)
   if (cost < 0.001) return cost.toFixed(6)
   if (cost < 0.1) return cost.toFixed(4)
   return cost.toFixed(2)
@@ -89,7 +97,7 @@ function formatCost(cost: number): string {
     </h3>
 
     <!-- Image Size -->
-    <div v-if="supportsImageSizeConfiguration(props.modelId, props.provider) && !(isMaiImageModel(props.modelId) && config.aspectRatio === 'auto')">
+    <div v-if="supportsImageSizeConfiguration(props.modelId, props.provider) && !((isMaiImageModel(props.modelId) || isGptImageModel(props.modelId)) && config.aspectRatio === 'auto')">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('imageSize') }}
       </label>
@@ -139,24 +147,44 @@ function formatCost(cost: number): string {
       </p>
     </div>
 
-    <!-- Rendering Quality (Grok Imagine Image 2.0 only) -->
+    <!-- Rendering Quality -->
     <div v-if="supportsImageQuality(props.modelId)">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('imageQuality') }}
       </label>
-      <div class="flex gap-1.5">
+      <div class="flex flex-wrap gap-1.5">
         <button
-          v-for="quality in (['low', 'medium'] as const)"
+          v-for="quality in getImageQualities(props.modelId)"
           :key="quality"
           @click="setImageQuality(quality)"
           :class="[
             'rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer',
-            (config.imageQuality ?? 'medium') === quality
+            selectedImageQuality === quality
               ? 'bg-violet-600 text-white'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
           ]"
         >
-          {{ quality === 'low' ? t('qualityLow') : t('qualityMedium') }}
+          {{ t(qualityLabelKeys[quality]) }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="isGptImageModel(props.modelId)">
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t('imageBackground') }}</label>
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          v-for="background in (['auto', 'opaque', 'transparent'] as const)"
+          :key="background"
+          type="button"
+          @click="config = { ...config, imageBackground: background }"
+          :class="[
+            'rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer',
+            (config.imageBackground ?? 'auto') === background
+              ? 'bg-violet-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
+          ]"
+        >
+          {{ t(background === 'auto' ? 'qualityAuto' : background === 'opaque' ? 'backgroundOpaque' : 'backgroundTransparent') }}
         </button>
       </div>
     </div>
@@ -298,11 +326,24 @@ function formatCost(cost: number): string {
         />
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-6 text-center">{{ config.batchSize ?? 1 }}</span>
       </div>
-      <p v-if="estimatedTotalCost != null" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-        {{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost) }}
-      </p>
-      <p v-else-if="maiPricing" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-        {{ t('maiTokenPricing').replace('{text}', String(maiPricing.inputText)).replace('{image}', String(maiPricing.inputImage)).replace('{output}', String(maiPricing.outputImage)) }}
+      <div v-if="estimatedTotalCost != null" class="relative mt-1.5 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+        <span>{{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost) }}</span>
+        <Popover v-if="isGptImageModel(props.modelId)" class="flex">
+          <PopoverButton :aria-label="t('costEstimateInfo')" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 cursor-pointer">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <circle cx="10" cy="10" r="7.25" />
+              <path d="M10 9v5" stroke-linecap="round" />
+              <circle cx="10" cy="6" r="0.75" fill="currentColor" stroke="none" />
+            </svg>
+          </PopoverButton>
+          <PopoverPanel class="absolute left-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-3rem)] rounded-lg border border-gray-200 bg-white p-3 text-xs leading-relaxed text-gray-600 shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+            <p>{{ t('gptImageOutputCostHint') }}</p>
+            <p v-if="props.provider === 'openrouter'" class="mt-2">{{ t('gptOpenRouterCostHint') }}</p>
+          </PopoverPanel>
+        </Popover>
+      </div>
+      <p v-else-if="tokenPricing" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+        {{ t('imageTokenPricing').replace('{text}', String(tokenPricing.inputText)).replace('{image}', String(tokenPricing.inputImage)).replace('{output}', String(tokenPricing.outputImage)) }}
       </p>
     </div>
 

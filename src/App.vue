@@ -9,7 +9,7 @@ import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
 import { getHistoryInputImages } from './historyImages'
 import { useReferenceImageResize } from './composables/useReferenceImageResize'
-import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getThinkingLevels, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter } from './config/models'
+import { DEFAULT_MODEL, AVAILABLE_MODELS, getModelsForProvider, getThinkingLevels, getAspectRatios, getImageSizes, getMaxInputImages, isImageSizeSupported, supportsGoogleSearch, supportsSeedParameter, resolveImageQuality, isGptImageModel } from './config/models'
 import type { GenerationConfig, ModelOption, HistoryEntry, InputImage, UsageInfo, Provider, DownloadFormat, BatchResultItem } from './types'
 import ApiKeyDialog from './components/ApiKeyDialog.vue'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
@@ -105,7 +105,8 @@ const config = ref<GenerationConfig>({
   model: persistedModelOption.id,
   aspectRatio: persisted.config.aspectRatio ?? '1:1',
   imageSize: persisted.config.imageSize ?? '1K',
-  imageQuality: persisted.config.imageQuality ?? 'medium',
+  imageQuality: resolveImageQuality(persistedModelOption.id, persisted.config.imageQuality),
+  imageBackground: persisted.config.imageBackground ?? 'auto',
   seed: persisted.config.seed,
   thinkingLevel: persisted.config.thinkingLevel ?? 'MINIMAL',
   googleSearch: persisted.config.googleSearch ?? false,
@@ -124,6 +125,7 @@ function persistParams() {
       aspectRatio: config.value.aspectRatio,
       imageSize: config.value.imageSize,
       imageQuality: config.value.imageQuality,
+      imageBackground: config.value.imageBackground,
       seed: config.value.seed,
       thinkingLevel: config.value.thinkingLevel,
       googleSearch: config.value.googleSearch,
@@ -370,6 +372,8 @@ onMounted(() => {
 function onModelChange(model: ModelOption) {
   selectedModel.value = model
   const newConfig = { ...config.value, model: model.id, provider: model.provider }
+  newConfig.imageQuality = resolveImageQuality(model.id,
+    isGptImageModel(model.id) && !isGptImageModel(config.value.model) ? undefined : newConfig.imageQuality)
 
   // Reset thinking levels that the new model does not accept.
   if (newConfig.thinkingLevel && !getThinkingLevels(model.id).some((level) => level.value === newConfig.thinkingLevel)) {

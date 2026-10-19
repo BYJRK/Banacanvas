@@ -10,7 +10,7 @@
 
 - **多提供商支持** — Google Gemini 直连 API、OpenRouter、Vercel AI Gateway
 - **文生图** — 描述你想要的画面，AI 为你生成
-- **图生图编辑** — 上传最多 14 张参考图，引导生成/编辑
+- **图生图编辑** — 上传最多 16 张参考图，引导生成/编辑（上限取决于模型）
 - **流式生成** — 实时反馈生成进度
 - **灵活配置** — 宽高比、图片尺寸（512 到 4K）、思考级别、Google 搜索增强、人物生成控制
 - **Token 计数与费用估算** — 实时显示输入/输出/思考 Token 数、耗时及预估美元费用
@@ -43,6 +43,8 @@ OpenRouter 还支持 **Meta: Muse Image**（`meta/muse-image`），可用于智�
 | **Gemini** | 直连 Google Gemini API。完整功能支持，包括思考级别、Google 搜索和人物生成设置。 |
 | **OpenRouter** | 通过 [OpenRouter](https://openrouter.ai) 中转。适合统一管理 API 密钥。 |
 | **Vercel AI Gateway** | 通过 Vercel AI 基础设施中转，优化传输。 |
+
+OpenRouter 和 Vercel AI Gateway 均支持 **GPT Image 2.5 Flare 与 Sunburst**。Flare 偏速度，Sunburst 偏精准编辑；两款均支持最多 16 张参考图、六档质量和透明背景。每百万 Token 的文本输入 / 图像输入 / 图像输出费用为 $5 / $8 / $30。Vercel 提供像素尺寸预设，OpenRouter 当前仅开放比例控制。详见[参数、价格与接入说明](./docs/gpt-image-2.5.md)。
 
 ## 快速开始
 

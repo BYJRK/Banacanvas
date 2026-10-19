@@ -3,12 +3,14 @@ import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import {
   estimateImageOutputCost,
-  estimateMaiTokenCost,
+  estimateImageTokenCost,
   getBaseModelId,
   getImageSizes,
   getMaxInputImages,
   isRiverflowModel,
   isMaiImageModel,
+  isGptImageModel,
+  resolveImageQuality,
   MODEL_PRICING,
   toOpenRouterImageSize,
   supportsOutputModalities,
@@ -134,7 +136,7 @@ export function useOpenRouter() {
         prompt,
       }
       if (supportsImageConfiguration(config.model)) {
-        if (!isMaiImageModel(config.model)) body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
+        if (!isMaiImageModel(config.model) && !isGptImageModel(config.model)) body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
         body.aspect_ratio = config.aspectRatio ?? '1:1'
       }
       const signal = externalSignal ?? abortController!.signal
@@ -146,8 +148,9 @@ export function useOpenRouter() {
       }
       if (supportsImageQuality(config.model)) {
         body.n = 1
-        body.quality = config.imageQuality ?? 'medium'
+        body.quality = resolveImageQuality(config.model, config.imageQuality)
       }
+      if (isGptImageModel(config.model)) body.background = config.imageBackground ?? 'auto'
       if (supportsSeedParameter(config.model)) {
         body.n = 1
         if (Number.isSafeInteger(config.seed)) body.seed = config.seed
@@ -290,8 +293,8 @@ export function useOpenRouter() {
         totalTokenCount: totalTokens,
         estimatedCost: hasExactCost
           ? responseCost
-          : isMaiImageModel(config.model)
-            ? estimateMaiTokenCost(config.model, promptTokens, result.usage?.completion_tokens,
+          : isMaiImageModel(config.model) || isGptImageModel(config.model)
+            ? estimateImageTokenCost(config.model, promptTokens, result.usage?.completion_tokens,
               hasInputImages ? result.usage?.prompt_tokens_details?.image_tokens : 0)
             : estimateImageOutputCost(config.model, config.imageSize ?? '1K', 1, config.imageQuality ?? 'medium'),
         costIsExact: hasExactCost,

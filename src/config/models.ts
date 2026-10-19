@@ -1,4 +1,4 @@
-import type { ModelOption, Provider } from '../types'
+import type { ImageQuality, ModelOption, Provider } from '../types'
 
 // Canonical model IDs — avoid scattering magic strings across capability helpers
 export const GEMINI_NANO_BANANA_2_1_MODEL = 'gemini-nano-banana-2.1'
@@ -15,6 +15,12 @@ export const MUSE_IMAGE_MODEL = 'meta/muse-image'
 export const MAI_IMAGE_2_6_MODEL = 'microsoft/mai-image-2.6'
 export const MAI_IMAGE_2_6_FLASH_MODEL = 'microsoft/mai-image-2.6-flash'
 export const MAI_VERCEL_WEB_GROUNDING_COST = 0.014
+export const GPT_IMAGE_2_5_FLARE_MODEL = 'openai/gpt-image-2.5-flare'
+export const GPT_IMAGE_2_5_SUNBURST_MODEL = 'openai/gpt-image-2.5-sunburst'
+
+export function isGptImageModel(modelId: string): boolean {
+  return modelId === GPT_IMAGE_2_5_FLARE_MODEL || modelId === GPT_IMAGE_2_5_SUNBURST_MODEL
+}
 
 export function isMaiImageModel(modelId: string): boolean {
   return modelId === MAI_IMAGE_2_6_MODEL || modelId === MAI_IMAGE_2_6_FLASH_MODEL
@@ -127,6 +133,11 @@ export const AVAILABLE_MODELS: ModelOption[] = [
       description: 'Faster, lower-cost Microsoft generation & editing. Up to 5 reference images.',
       provider,
     },
+  ]),
+  // GPT Image, available through both image gateways
+  ...(['openrouter', 'vercel'] as const).flatMap((provider): ModelOption[] => [
+    { id: GPT_IMAGE_2_5_FLARE_MODEL, name: 'GPT Image 2.5 Flare', description: 'Fast generation & editing. Six quality levels, transparent backgrounds, up to 16 references.', provider },
+    { id: GPT_IMAGE_2_5_SUNBURST_MODEL, name: 'GPT Image 2.5 Sunburst', description: 'Precise editing & detailed generation. Six quality levels, transparent backgrounds, up to 16 references.', provider },
   ]),
   // Vercel AI Gateway
   {
@@ -245,6 +256,47 @@ const MAI_IMAGE_SIZES = [
   { value: '1.5K', label: '1.5K' },
 ] as const
 
+const GPT_IMAGE_ASPECT_RATIOS = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', '21:9', 'auto'] as const
+const GPT_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+  { value: '2K', label: '2K' },
+  { value: '4K', label: '4K' },
+] as const
+
+/** GPT Image pixel budgets, rounded down to 16px and capped at 3840px per edge. */
+export function getGptImageSize(aspectRatio: string, imageSize: string): `${number}x${number}` | undefined {
+  if (aspectRatio === 'auto' || !(GPT_IMAGE_ASPECT_RATIOS as readonly string[]).includes(aspectRatio)) return undefined
+  const [w, h] = aspectRatio.split(':').map(Number)
+  const pixels = imageSize === '4K' ? 3840 * 2160 : imageSize === '2K' ? 2048 ** 2 : 1024 ** 2
+  const width = Math.sqrt(pixels * w / h)
+  const height = width * h / w
+  const scale = Math.min(1, 3840 / Math.max(width, height))
+  return `${Math.floor(width * scale / 16 + 1e-9) * 16}x${Math.floor(height * scale / 16 + 1e-9) * 16}`
+}
+
+export function getImageQualities(modelId: string): readonly ImageQuality[] {
+  return isGptImageModel(modelId) ? ['auto', 'low', 'medium', 'high', 'xhigh', 'max'] : ['low', 'medium']
+}
+
+export function resolveImageQuality(modelId: string, quality?: ImageQuality): ImageQuality {
+  return quality && getImageQualities(modelId).includes(quality) ? quality : isGptImageModel(modelId) ? 'high' : 'medium'
+}
+
+/** OpenAI's GPT Image 2.5 calculator formula. Image output only; input tokens are extra. */
+export function estimateGptImageOutputCost(width: number, height: number, quality: ImageQuality): number | undefined {
+  const pixels = width * height
+  const ratio = Math.max(width, height) / Math.min(width, height)
+  if (quality === 'auto' || width <= 0 || height <= 0 || width % 16 !== 0 || height % 16 !== 0
+    || pixels < 655_360 || pixels > 8_294_400 || Math.max(width, height) > 3840 || ratio > 3) return undefined
+  const longGrid = { low: 16, medium: 24, high: 48, xhigh: 64, max: 96 }[quality]
+  const shortGridValue = longGrid / ratio
+  const floor = Math.floor(shortGridValue)
+  // The official calculator rounds exact .5 ties to the nearest even integer.
+  const shortGrid = shortGridValue - floor === 0.5 ? floor + floor % 2 : Math.round(shortGridValue)
+  const tokens = Math.ceil(longGrid * shortGrid * (2_000_000 + pixels) / 4_000_000)
+  return tokens * MODEL_PRICING[GPT_IMAGE_2_5_FLARE_MODEL].outputImage / 1_000_000
+}
+
 /** MAI uses a pixel budget; follow Azure's 16px rounding and 768px minimum side. */
 export function getMaiImageSize(aspectRatio: string, imageSize: string): `${number}x${number}` | undefined {
   if (aspectRatio === 'auto') return undefined
@@ -261,12 +313,13 @@ export function getMaiImageSize(aspectRatio: string, imageSize: string): `${numb
   return `${floor16(width)}x${floor16(height)}`
 }
 
-/** OpenRouter exposes MAI aspect ratio, but no resolution control. */
+/** OpenRouter exposes MAI/GPT Image aspect ratio, but no resolution control. */
 export function supportsImageSizeConfiguration(modelId: string, provider: Provider): boolean {
-  return supportsImageConfiguration(modelId) && !(isMaiImageModel(modelId) && provider === 'openrouter')
+  return supportsImageConfiguration(modelId) && !((isMaiImageModel(modelId) || isGptImageModel(modelId)) && provider === 'openrouter')
 }
 
 export function getAspectRatios(modelId: string) {
+  if (isGptImageModel(modelId)) return GPT_IMAGE_ASPECT_RATIOS
   if (isMaiImageModel(modelId)) return MAI_ASPECT_RATIOS
   if (modelId === GROK_IMAGE_2_MODEL) return GROK_2_ASPECT_RATIOS
   if (modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL) return SEEDREAM_ASPECT_RATIOS
@@ -279,6 +332,7 @@ export function getAspectRatios(modelId: string) {
 }
 
 export function getImageSizes(modelId: string, provider?: Provider) {
+  if (isGptImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : GPT_IMAGE_SIZES
   if (isMaiImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : MAI_IMAGE_SIZES
   if (modelId === GROK_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL) return GROK_IMAGE_SIZES
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return SEEDREAM_IMAGE_SIZES
@@ -356,6 +410,9 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
 }
 
 export function getResolution(aspectRatio: string, imageSize: string, modelId?: string, provider?: Provider): string | undefined {
+  if (modelId && isGptImageModel(modelId)) {
+    return provider === 'openrouter' ? undefined : getGptImageSize(aspectRatio, imageSize)?.replace('x', '×')
+  }
   if (modelId && isMaiImageModel(modelId)) {
     return provider === 'openrouter' ? undefined : getMaiImageSize(aspectRatio, imageSize)?.replace('x', '×')
   }
@@ -368,6 +425,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 
 /** Maximum reference images accepted by the selected model. */
 export function getMaxInputImages(modelId: string): number {
+  if (isGptImageModel(modelId)) return 16
   if (isMaiImageModel(modelId)) return 5
   if (modelId === MUSE_IMAGE_MODEL) return 4
   if (modelId === GROK_IMAGE_2_MODEL) return 3
@@ -380,12 +438,12 @@ export function getMaxInputImages(modelId: string): number {
 
 /** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
-  if (isMaiImageModel(modelId)) return true
+  if (isMaiImageModel(modelId) || isGptImageModel(modelId)) return true
   return modelId === MUSE_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
 }
 
 export function supportsImageQuality(modelId: string): boolean {
-  return modelId === GROK_IMAGE_2_MODEL
+  return modelId === GROK_IMAGE_2_MODEL || isGptImageModel(modelId)
 }
 
 export function supportsSeedParameter(modelId: string): boolean {
@@ -421,6 +479,9 @@ export const MODEL_PRICING: Record<string, {
   outputText: number
   outputImage: number
 }> = {
+  // OpenAI / gateway standard Images API token pricing, verified 2026-10-16.
+  [GPT_IMAGE_2_5_FLARE_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
+  [GPT_IMAGE_2_5_SUNBURST_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
   // OpenRouter Image endpoint pricing / Vercel AI Gateway, verified 2026-10-15.
   [MAI_IMAGE_2_6_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 38 },
   [MAI_IMAGE_2_6_FLASH_MODEL]: { inputText: 1.75, inputImage: 2.5, outputText: 0, outputImage: 19 },
@@ -519,9 +580,19 @@ export function estimateImageOutputCost(
   modelId: string,
   imageSize: string,
   batchSize: number = 1,
-  imageQuality: 'low' | 'medium' = 'medium',
+  imageQuality?: ImageQuality,
   provider?: Provider,
+  aspectRatio: string = '1:1',
 ): number | undefined {
+  if (isGptImageModel(modelId)) {
+    if (aspectRatio === 'auto') return undefined
+    // OpenRouter does not expose output size: use a labelled square reference estimate.
+    const size = provider === 'openrouter' ? '1024x1024' : getGptImageSize(aspectRatio, imageSize)
+    if (!size) return undefined
+    const [width, height] = size.split('x').map(Number)
+    const cost = estimateGptImageOutputCost(width, height, resolveImageQuality(modelId, imageQuality))
+    return cost == null ? undefined : cost * batchSize
+  }
   // User-provided planning estimates; completed MAI jobs still use returned billing/usage.
   if (isMaiImageModel(modelId)) {
     const price = modelId === MAI_IMAGE_2_6_FLASH_MODEL ? 0.02 : 0.04
@@ -549,8 +620,8 @@ export function estimateImageOutputCost(
   return (tokens / 1_000_000) * pricing.outputImage * batchSize
 }
 
-/** Estimate MAI cost from returned usage; unknown input splits use the higher image rate. */
-export function estimateMaiTokenCost(
+/** Estimate image-model cost from returned usage; unknown input splits use the higher image rate. */
+export function estimateImageTokenCost(
   modelId: string,
   inputTokens: number,
   outputTokens: number | undefined,
