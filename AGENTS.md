@@ -88,7 +88,8 @@ npm test      # Vitest unit tests (happy-dom)
 - Model config (sizes, ratios, pricing) in `src/config/models.ts`
 - History stored in IndexedDB without a hard entry cap — never reintroduce the old 50-entry localStorage trim; images are re-encoded to WebP before saving
 - Gemini streaming: iterate all chunks for final `usageMetadata` — partial collection loses cost data
-- On model/provider change: validate and reset unsupported aspect ratios/sizes via `getAspectRatios()` / `getImageSizes()`
+- On model/provider change: validate and reset unsupported aspect ratios/sizes via `getAspectRatios()` / `getImageSizes()` — all paths (model switch, page load, history restore) go through `normalizeConfig()` in `useGenerationParams`
+- Look up models by **id + provider** (several providers share ids like `google/gemini-3.1-flash-image`). A removed model restored from storage/history falls back to the provider's first model (else `DEFAULT_MODEL`); history restores show a `modelUnavailableFallback` toast
 - Provider-specific features (thinking level, Google Search, person generation) guarded by `provider === 'gemini'`
 - AbortController must be set to `null` in finally block to avoid interference with next request
 - Responsive layout: two copies of GenerationPanel in template — `md:hidden` (mobile) and `hidden md:flex` (desktop)

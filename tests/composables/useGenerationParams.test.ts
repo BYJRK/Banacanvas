@@ -76,10 +76,25 @@ describe('loading persisted params', () => {
     expect(params.downloadFormat.value).toBe('webp')
   })
 
-  it('falls back to the default model when the stored one no longer exists', () => {
-    persist({ provider: 'openrouter', modelId: 'retired/model', config: {} })
+  it('falls back to the provider\'s first model when the stored one no longer exists', () => {
+    persist({ provider: 'openrouter', modelId: 'retired/model', config: { aspectRatio: '9:20', imageSize: '512' } })
 
-    expect(useGenerationParams().selectedModel.value).toEqual(DEFAULT_MODEL)
+    const params = useGenerationParams()
+
+    const first = getModelsForProvider('openrouter')[0]
+    expect(params.selectedProvider.value).toBe('openrouter')
+    expect(params.selectedModel.value).toEqual(first)
+    expect(params.config.value).toMatchObject({ provider: 'openrouter', model: first.id, aspectRatio: '1:1', imageSize: '1K' })
+  })
+
+  it('falls back to the default model for an unknown provider', () => {
+    persist({ provider: 'retired-provider', modelId: 'x', config: {} })
+
+    const params = useGenerationParams()
+
+    expect(params.selectedModel.value).toEqual(DEFAULT_MODEL)
+    expect(params.selectedProvider.value).toBe(DEFAULT_MODEL.provider)
+    expect(params.config.value.provider).toBe(DEFAULT_MODEL.provider)
   })
 
   it('ignores corrupted storage', () => {
@@ -251,27 +266,65 @@ describe('applyHistoryConfig', () => {
   it('restores the stored model and config', () => {
     const params = useGenerationParams()
 
-    params.applyHistoryConfig(entry({ provider: 'openrouter', model: SEEDREAM_5_0_LITE_MODEL, aspectRatio: '21:9', seed: 9 }))
+    const fallback = params.applyHistoryConfig(entry({ provider: 'openrouter', model: SEEDREAM_5_0_LITE_MODEL, aspectRatio: '21:9', seed: 9 }))
 
+    expect(fallback).toBeUndefined()
     expect(params.selectedProvider.value).toBe('openrouter')
     expect(params.selectedModel.value).toEqual(model(SEEDREAM_5_0_LITE_MODEL, 'openrouter'))
     expect(params.config.value).toMatchObject({ aspectRatio: '21:9', seed: 9 })
   })
 
+  it('matches the model on its provider when several providers share an id', () => {
+    const params = useGenerationParams()
+    const id = `google/${GEMINI_FLASH_IMAGE_MODEL}`
+
+    const fallback = params.applyHistoryConfig(entry({ provider: 'vercel', model: id }))
+
+    expect(fallback).toBeUndefined()
+    expect(params.selectedModel.value).toEqual(model(id, 'vercel'))
+    expect(params.selectedProvider.value).toBe('vercel')
+    expect(params.config.value.provider).toBe('vercel')
+  })
+
   it('defaults legacy entries without a provider to Gemini', () => {
     const params = useGenerationParams()
 
-    params.applyHistoryConfig(entry({ provider: undefined }))
+    const fallback = params.applyHistoryConfig(entry({ provider: undefined }))
 
+    expect(fallback).toBeUndefined()
     expect(params.selectedProvider.value).toBe('gemini')
+    expect(params.selectedModel.value).toEqual(model(GEMINI_FLASH_IMAGE_MODEL, 'gemini'))
     expect(params.config.value.provider).toBe('gemini')
   })
 
-  it('keeps unknown models usable by building a placeholder option', () => {
+  it('resets options the model no longer supports', () => {
     const params = useGenerationParams()
 
-    params.applyHistoryConfig(entry({ provider: 'openrouter', model: 'retired/model' }))
+    params.applyHistoryConfig(entry({ model: GEMINI_FLASH_LITE_IMAGE_MODEL, googleSearch: true, aspectRatio: '8:1', imageSize: '4K' }))
 
-    expect(params.selectedModel.value).toEqual({ id: 'retired/model', name: 'retired/model', description: '', provider: 'openrouter' })
+    expect(params.config.value).toMatchObject({ googleSearch: false, aspectRatio: '1:1', imageSize: '1K' })
+  })
+
+  it('falls back to the provider\'s first model when the model was removed', () => {
+    const params = useGenerationParams()
+
+    const fallback = params.applyHistoryConfig(entry({ provider: 'openrouter', model: 'retired/model', aspectRatio: '9:20', imageSize: '512', seed: 3 }))
+
+    const first = getModelsForProvider('openrouter')[0]
+    expect(fallback).toEqual({ unavailableModel: 'retired/model', fallback: first })
+    expect(params.selectedModel.value).toEqual(first)
+    expect(params.selectedProvider.value).toBe('openrouter')
+    expect(params.config.value).toMatchObject({ model: first.id, provider: 'openrouter', aspectRatio: '1:1', imageSize: '1K' })
+    expect(params.config.value).not.toHaveProperty('seed')
+  })
+
+  it('falls back to the default model when the provider was removed', () => {
+    const params = useGenerationParams()
+
+    const fallback = params.applyHistoryConfig(entry({ provider: 'retired-provider' as Provider, model: 'x' }))
+
+    expect(fallback).toEqual({ unavailableModel: 'x', fallback: DEFAULT_MODEL })
+    expect(params.selectedProvider.value).toBe(DEFAULT_MODEL.provider)
+    expect(params.config.value).toMatchObject({ model: DEFAULT_MODEL.id, provider: DEFAULT_MODEL.provider })
   })
 })

@@ -251,7 +251,12 @@ function handleHistorySelectBatch(entries: HistoryEntry[]) {
   if (entries.length === 0) return
   const [first] = entries
   prompt.value = first.prompt
-  applyHistoryConfig(first)
+  const fallback = applyHistoryConfig(first)
+  if (fallback) {
+    showToast(t('modelUnavailableFallback')
+      .replace('{model}', fallback.unavailableModel)
+      .replace('{fallback}', fallback.fallback.name), 'info')
+  }
   restoreHistoryReferences(first)
   showHistoryEntries(entries)
   void closeHistory()

@@ -167,6 +167,7 @@ const messages = {
     // Errors
     apiKeyNotSet: 'API Key not set',
     generationCancelled: 'Generation cancelled',
+    modelUnavailableFallback: 'Model "{model}" is no longer available. Switched to {fallback}.',
     noImageGenerated: 'No image was generated. Try a different prompt.',
     sourcefulRequestTooLarge: 'Riverflow accepts requests up to 4.5 MB. Remove or reduce reference images and try again.',
 
@@ -389,6 +390,7 @@ const messages = {
     // Errors
     apiKeyNotSet: '未设置 API 密钥',
     generationCancelled: '生成已取消',
+    modelUnavailableFallback: '模型「{model}」已不可用，已切换为 {fallback}。',
     noImageGenerated: '未生成图片，请尝试不同的提示词。',
     sourcefulRequestTooLarge: 'Riverflow 的请求上限为 4.5 MB。请移除或缩小参考图片后重试。',
 
