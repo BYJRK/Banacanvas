@@ -146,6 +146,9 @@ function onKeydown(e: KeyboardEvent) {
   } else if (e.key === 'ArrowRight' && canNavigate.value) {
     e.preventDefault()
     navigate(1)
+  } else if (e.key === '0' && isViewTransformed.value) {
+    e.preventDefault()
+    resetView()
   }
 }
 
@@ -166,6 +169,14 @@ const ZOOM_STEP = 0.15
 
 const fullscreenImgRef = ref<HTMLImageElement | null>(null)
 const fullscreenContainerRef = ref<HTMLDivElement | null>(null)
+
+const isViewTransformed = computed(() => zoomLevel.value !== 1 || panX.value !== 0 || panY.value !== 0)
+
+function resetView() {
+  zoomLevel.value = 1
+  panX.value = 0
+  panY.value = 0
+}
 
 const imageTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoomLevel.value})`)
 
@@ -226,41 +237,59 @@ function onImagePointerUp() {
 const MINIMAP_SIZE = 160
 const isMinimapDragging = ref(false)
 
-const minimapViewport = computed(() => {
-  if (!fullscreenImgRef.value || !fullscreenContainerRef.value) return { x: 0, y: 0, w: MINIMAP_SIZE, h: MINIMAP_SIZE }
+// Bumped on image load / window resize so layout-dependent geometry recomputes
+const layoutTick = ref(0)
+function bumpLayout() {
+  layoutTick.value++
+}
+window.addEventListener('resize', bumpLayout)
+onUnmounted(() => window.removeEventListener('resize', bumpLayout))
 
+function getMinimapGeometry() {
+  void layoutTick.value
   const img = fullscreenImgRef.value
-  const imgW = img.naturalWidth
-  const imgH = img.naturalHeight
-  if (!imgW || !imgH) return { x: 0, y: 0, w: MINIMAP_SIZE, h: MINIMAP_SIZE }
+  const container = fullscreenContainerRef.value
+  if (!img || !container) return null
 
-  // Compute displayed image size at zoom=1 (fit within 95vw/95vh)
-  const containerW = window.innerWidth * 0.95
-  const containerH = window.innerHeight * 0.95
-  const fitScale = Math.min(containerW / imgW, containerH / imgH, 1)
-  const displayedW = imgW * fitScale
-  const displayedH = imgH * fitScale
+  // Layout size of the image at zoom=1 (offsetWidth/Height ignore CSS transforms)
+  const displayedW = img.offsetWidth
+  const displayedH = img.offsetHeight
+  const containerW = container.clientWidth
+  const containerH = container.clientHeight
+  if (!displayedW || !displayedH || !containerW || !containerH) return null
 
-  // Minimap scale: fit image into minimap box
   const minimapScale = Math.min(MINIMAP_SIZE / displayedW, MINIMAP_SIZE / displayedH)
   const minimapImgW = displayedW * minimapScale
   const minimapImgH = displayedH * minimapScale
+  // Minimap image is centered inside the square minimap box
+  const offsetX = (MINIMAP_SIZE - minimapImgW) / 2
+  const offsetY = (MINIMAP_SIZE - minimapImgH) / 2
 
-  // Viewport rect in minimap coords
-  const viewW = (containerW / (displayedW * zoomLevel.value)) * minimapImgW
-  const viewH = (containerH / (displayedH * zoomLevel.value)) * minimapImgH
+  return { displayedW, displayedH, containerW, containerH, minimapImgW, minimapImgH, offsetX, offsetY }
+}
 
-  // Pan offset to minimap coords
-  const viewX = (minimapImgW - viewW) / 2 - (panX.value / (displayedW * zoomLevel.value)) * minimapImgW
-  const viewY = (minimapImgH - viewH) / 2 - (panY.value / (displayedH * zoomLevel.value)) * minimapImgH
+const minimapViewport = computed(() => {
+  const g = getMinimapGeometry()
+  if (!g) return { x: 0, y: 0, w: MINIMAP_SIZE, h: MINIMAP_SIZE, imgW: MINIMAP_SIZE, imgH: MINIMAP_SIZE, imgX: 0, imgY: 0 }
+
+  const scaledW = g.displayedW * zoomLevel.value
+  const scaledH = g.displayedH * zoomLevel.value
+
+  const viewW = (g.containerW / scaledW) * g.minimapImgW
+  const viewH = (g.containerH / scaledH) * g.minimapImgH
+
+  const viewX = g.offsetX + (g.minimapImgW - viewW) / 2 - (panX.value / scaledW) * g.minimapImgW
+  const viewY = g.offsetY + (g.minimapImgH - viewH) / 2 - (panY.value / scaledH) * g.minimapImgH
 
   return {
     x: viewX,
     y: viewY,
     w: viewW,
     h: viewH,
-    imgW: minimapImgW,
-    imgH: minimapImgH,
+    imgW: g.minimapImgW,
+    imgH: g.minimapImgH,
+    imgX: g.offsetX,
+    imgY: g.offsetY,
   }
 })
 
@@ -281,36 +310,21 @@ function onMinimapPointerUp() {
 }
 
 function updatePanFromMinimap(e: PointerEvent) {
-  if (!fullscreenImgRef.value || !fullscreenContainerRef.value) return
+  const g = getMinimapGeometry()
+  if (!g) return
 
-  const minimapEl = (e.currentTarget as HTMLElement)
+  const minimapEl = e.currentTarget as HTMLElement
   const rect = minimapEl.getBoundingClientRect()
-  const clickX = e.clientX - rect.left
-  const clickY = e.clientY - rect.top
+  // Exclude the border so coords are relative to the MINIMAP_SIZE content box
+  const clickX = e.clientX - rect.left - minimapEl.clientLeft
+  const clickY = e.clientY - rect.top - minimapEl.clientTop
 
-  const img = fullscreenImgRef.value
-  const imgW = img.naturalWidth
-  const imgH = img.naturalHeight
-  if (!imgW || !imgH) return
+  // Click position relative to the center of the minimap image (-0.5..0.5)
+  const relX = (clickX - g.offsetX) / g.minimapImgW - 0.5
+  const relY = (clickY - g.offsetY) / g.minimapImgH - 0.5
 
-  const containerW = window.innerWidth * 0.95
-  const containerH = window.innerHeight * 0.95
-  const fitScale = Math.min(containerW / imgW, containerH / imgH, 1)
-  const displayedW = imgW * fitScale
-  const displayedH = imgH * fitScale
-
-  const minimapScale = Math.min(MINIMAP_SIZE / displayedW, MINIMAP_SIZE / displayedH)
-  const minimapImgW = displayedW * minimapScale
-  const minimapImgH = displayedH * minimapScale
-
-  // Where the user clicked relative to center of minimap image
-  const offsetX = (minimapImgW - MINIMAP_SIZE) / 2
-  const offsetY = (minimapImgH - MINIMAP_SIZE) / 2
-  const relX = (clickX + offsetX) / minimapImgW - 0.5
-  const relY = (clickY + offsetY) / minimapImgH - 0.5
-
-  panX.value = -relX * displayedW * zoomLevel.value
-  panY.value = -relY * displayedH * zoomLevel.value
+  panX.value = -relX * g.displayedW * zoomLevel.value
+  panY.value = -relY * g.displayedH * zoomLevel.value
 }
 
 const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchProgress != null && props.batchProgress.total > 1)
@@ -567,6 +581,7 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
         alt="Generated image fullscreen"
         class="max-w-[95vw] max-h-[95vh] object-contain select-none"
         decoding="async"
+        @load="bumpLayout"
         :class="{ 'cursor-grabbing': isDragging, 'cursor-grab': zoomLevel > 1 && !isDragging }"
         :style="{ transform: imageTransform, transformOrigin: 'center center', transition: isDragging ? 'none' : 'transform 0.1s ease-out' }"
         draggable="false"
@@ -615,19 +630,23 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
         {{ fullscreenIndex + 1 }} / {{ navigableResults.length }}
       </div>
 
-      <!-- Zoom level indicator (click to reset) -->
+      <!-- Zoom level indicator (click to reset view) -->
       <button
-        v-if="zoomLevel !== 1"
-        class="absolute bottom-4 left-4 rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-sm text-white font-medium select-none hover:bg-white/20 transition-colors cursor-pointer z-10"
-        @click.stop="zoomLevel = 1; panX = 0; panY = 0"
+        v-if="isViewTransformed"
+        class="absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg bg-black/60 backdrop-blur-sm px-3 py-1.5 text-sm text-white font-medium select-none hover:bg-white/20 transition-colors cursor-pointer z-10"
+        :title="`${t('resetView')} (0)`"
+        @click.stop="resetView"
       >
         {{ Math.round(zoomLevel * 100) }}%
+        <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
       </button>
 
       <!-- Minimap -->
       <div
         v-if="showMinimap"
-        class="absolute bottom-4 right-4 rounded-lg overflow-hidden border border-white/20 bg-black/60 backdrop-blur-sm select-none"
+        class="absolute bottom-4 right-4 box-content rounded-lg overflow-hidden border border-white/20 bg-black/60 backdrop-blur-sm select-none"
         :style="{ width: MINIMAP_SIZE + 'px', height: MINIMAP_SIZE + 'px' }"
         @pointerdown="onMinimapPointerDown"
         @pointermove="onMinimapPointerMove"
@@ -638,8 +657,13 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
         <img
           :src="`data:${fullscreenImage.mimeType};base64,${fullscreenImage.base64}`"
           alt="Minimap"
-          class="absolute inset-0 m-auto object-contain pointer-events-none"
-          :style="{ maxWidth: MINIMAP_SIZE + 'px', maxHeight: MINIMAP_SIZE + 'px' }"
+          class="absolute max-w-none pointer-events-none"
+          :style="{
+            left: minimapViewport.imgX + 'px',
+            top: minimapViewport.imgY + 'px',
+            width: minimapViewport.imgW + 'px',
+            height: minimapViewport.imgH + 'px',
+          }"
           draggable="false"
         />
         <!-- Viewport indicator -->
