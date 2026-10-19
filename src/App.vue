@@ -398,6 +398,7 @@ function handleHistorySelect(entry: HistoryEntry) {
               :download-format="downloadFormat"
               :batch-results="batchResults"
               :batch-progress="batchProgress"
+              v-model:batch-size="config.batchSize"
               :can-add-reference="inputImages.length < maxReferenceImages"
               :reference-limit="maxReferenceImages"
               @clear="clearResult"

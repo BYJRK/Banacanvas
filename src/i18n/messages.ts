@@ -157,6 +157,9 @@ const messages = {
 
     // Batch
     batchSize: 'Batch Size',
+    batchPickerHint: 'Choose how many images to generate',
+    selectBatchCount: 'Generate {count} images',
+    changeBatchCount: 'Generate {count} images — click to change',
     batchProgress: 'Generating {current}/{total}...',
 
     // Notifications
@@ -380,6 +383,9 @@ const messages = {
 
     // Batch
     batchSize: '批量数量',
+    batchPickerHint: '选择要生成的图片数量',
+    selectBatchCount: '生成 {count} 张图片',
+    changeBatchCount: '生成 {count} 张图片，点击修改数量',
     batchProgress: '正在生成 {current}/{total}...',
 
     // Notifications
