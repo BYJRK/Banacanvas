@@ -331,6 +331,23 @@ export function getAspectRatios(modelId: string) {
   return FLASH_ASPECT_RATIOS
 }
 
+/** The `w:h` ratio closest to width/height; non-numeric entries such as `auto` are skipped. */
+export function closestAspectRatio(width: number, height: number, ratios: readonly string[]): string {
+  const imgRatio = width / height
+  let closest = ratios[0]
+  let minDiff = Infinity
+  for (const r of ratios) {
+    const [w, h] = r.split(':').map(Number)
+    if (!Number.isFinite(w) || !Number.isFinite(h) || h === 0) continue
+    const diff = Math.abs(imgRatio - w / h)
+    if (diff < minDiff) {
+      minDiff = diff
+      closest = r
+    }
+  }
+  return closest
+}
+
 export function getImageSizes(modelId: string, provider?: Provider) {
   if (isGptImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : GPT_IMAGE_SIZES
   if (isMaiImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : MAI_IMAGE_SIZES

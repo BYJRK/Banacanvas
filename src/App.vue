@@ -10,7 +10,7 @@ import { useEndNotification } from './composables/useEndNotification'
 import { useResizableSidebar } from './composables/useResizableSidebar'
 import { getHistoryInputImages } from './historyImages'
 import { useReferenceImageResize } from './composables/useReferenceImageResize'
-import { getAspectRatios, getMaxInputImages } from './config/models'
+import { closestAspectRatio, getAspectRatios, getMaxInputImages } from './config/models'
 import type { HistoryEntry, InputImage, ToastType } from './types'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
 import ReferenceImageResizeDialog from './components/ReferenceImageResizeDialog.vue'
@@ -77,20 +77,8 @@ function handleFirstImageAdded(id: string) {
 
 function suggestImageAspectRatio(width: number, height: number) {
   if (!suggestAspectRatio.value) return
-  const ratios = getAspectRatios(selectedModel.value.id) as readonly string[]
-  const imgRatio = width / height
-  let closest = ratios[0]
-  let minDiff = Infinity
-  for (const r of ratios) {
-    const [w, h] = r.split(':').map(Number)
-    if (!Number.isFinite(w) || !Number.isFinite(h) || h === 0) continue
-    const diff = Math.abs(imgRatio - w / h)
-    if (diff < minDiff) {
-      minDiff = diff
-      closest = r
-    }
-  }
-  aspectRatioSuggestion.value = { width, height, ratio: closest }
+  const ratio = closestAspectRatio(width, height, getAspectRatios(selectedModel.value.id))
+  aspectRatioSuggestion.value = { width, height, ratio }
   showAspectRatioDialog.value = true
 }
 

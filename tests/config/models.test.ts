@@ -15,6 +15,7 @@ import {
   RIVERFLOW_V2_5_PRO_MODEL,
   SEEDREAM_5_0_LITE_MODEL,
   SEEDREAM_5_0_PRO_MODEL,
+  closestAspectRatio,
   estimateGptImageOutputCost,
   estimateImageOutputCost,
   estimateImageTokenCost,
@@ -237,6 +238,37 @@ describe('getResolution', () => {
   it('returns undefined for models without a fixed pixel matrix', () => {
     expect(getResolution('1:1', '1K', SEEDREAM_5_0_PRO_MODEL)).toBeUndefined()
     expect(getResolution('1:1', '1K', RIVERFLOW_V2_5_PRO_MODEL)).toBeUndefined()
+  })
+})
+
+describe('closestAspectRatio', () => {
+  it('picks the nearest supported ratio', () => {
+    expect(closestAspectRatio(1920, 1080, getAspectRatios(GEMINI_FLASH_IMAGE_MODEL))).toBe('16:9')
+    expect(closestAspectRatio(1000, 1000, getAspectRatios(GEMINI_FLASH_IMAGE_MODEL))).toBe('1:1')
+    expect(closestAspectRatio(3000, 4000, getAspectRatios(GEMINI_FLASH_IMAGE_MODEL))).toBe('3:4')
+  })
+
+  it('depends on the ratios the model offers', () => {
+    // 1:3 is nearest 1:4 for Flash, but Pro has no ultra-tall ratios.
+    expect(closestAspectRatio(1000, 3000, getAspectRatios(GEMINI_FLASH_IMAGE_MODEL))).toBe('1:4')
+    expect(closestAspectRatio(1000, 3000, getAspectRatios(GEMINI_PRO_IMAGE_MODEL))).toBe('9:16')
+  })
+
+  it('handles decimal ratios', () => {
+    expect(closestAspectRatio(900, 1950, getAspectRatios(GROK_IMAGE_MODEL))).toBe('9:19.5')
+  })
+
+  it('skips auto and malformed entries', () => {
+    expect(closestAspectRatio(1600, 900, ['auto', '1:1', '16:9'])).toBe('16:9')
+    expect(closestAspectRatio(1600, 900, ['bad', '4:0', '1:1'])).toBe('1:1')
+  })
+
+  it('keeps the first of equally close ratios', () => {
+    expect(closestAspectRatio(1000, 1000, ['2:2', '1:1'])).toBe('2:2')
+  })
+
+  it('falls back to the first entry when nothing is numeric', () => {
+    expect(closestAspectRatio(100, 100, ['auto'])).toBe('auto')
   })
 })
 

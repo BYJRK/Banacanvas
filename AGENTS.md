@@ -84,8 +84,10 @@ npm test      # Vitest unit tests (happy-dom)
 
 ## Conventions
 
-- New translations must include both `en` and `zh`
+- New translations must include both `en` and `zh` with the same `{placeholders}` (enforced by `tests/i18n.test.ts`)
 - Model config (sizes, ratios, pricing) in `src/config/models.ts`
+- Every `AVAILABLE_MODELS` entry needs a `provider:id` → `MessageKey` entry in `src/config/modelDescriptions.ts` (enforced by `tests/i18n.test.ts`)
+- Keep non-trivial logic out of components as pure functions so it can be unit-tested (e.g. `src/historyGroups.ts`, `closestAspectRatio()` in `models.ts`)
 - History stored in IndexedDB without a hard entry cap — never reintroduce the old 50-entry localStorage trim; images are re-encoded to WebP before saving
 - Gemini streaming: iterate all chunks for final `usageMetadata` — partial collection loses cost data
 - On model/provider change: validate and reset unsupported aspect ratios/sizes via `getAspectRatios()` / `getImageSizes()` — all paths (model switch, page load, history restore) go through `normalizeConfig()` in `useGenerationParams`
