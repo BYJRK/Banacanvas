@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, estimateImageOutputCost, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, isGptImageModel, getImageQualities, resolveImageQuality, MODEL_PRICING, supportsImageSizeConfiguration } from '../config/models'
+import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, isGptImageModel, getImageQualities, resolveImageQuality, MODEL_PRICING } from '../config/models'
+import { estimateConfigCost, formatCost, isImageSizeConfigurable } from '../generationSpec'
 import type { GenerationConfig, DownloadFormat, ImageQuality, Provider } from '../types'
 import type { MessageKey } from '../i18n/messages'
 import { useI18n } from '../composables/useI18n'
@@ -71,23 +72,7 @@ function setBatchSize(size: number) {
   config.value = { ...config.value, batchSize: Math.max(1, Math.min(9, size)) }
 }
 
-const estimatedTotalCost = computed(() =>
-  estimateImageOutputCost(
-    props.modelId,
-    isMaiImageModel(props.modelId) && config.value.aspectRatio === 'auto' ? '1K' : config.value.imageSize ?? '1K',
-    config.value.batchSize ?? 1,
-    selectedImageQuality.value,
-    props.provider,
-    config.value.aspectRatio ?? '1:1',
-  )
-)
-
-function formatCost(cost: number): string {
-  if (isGptImageModel(props.modelId)) return cost.toFixed(3)
-  if (cost < 0.001) return cost.toFixed(6)
-  if (cost < 0.1) return cost.toFixed(4)
-  return cost.toFixed(2)
-}
+const estimatedTotalCost = computed(() => estimateConfigCost(props.modelId, props.provider, config.value, config.value.batchSize ?? 1))
 </script>
 
 <template>
@@ -97,7 +82,7 @@ function formatCost(cost: number): string {
     </h3>
 
     <!-- Image Size -->
-    <div v-if="supportsImageSizeConfiguration(props.modelId, props.provider) && !((isMaiImageModel(props.modelId) || isGptImageModel(props.modelId)) && config.aspectRatio === 'auto')">
+    <div v-if="isImageSizeConfigurable(props.modelId, props.provider, config.aspectRatio)">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('imageSize') }}
       </label>
@@ -327,7 +312,7 @@ function formatCost(cost: number): string {
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-6 text-center">{{ config.batchSize ?? 1 }}</span>
       </div>
       <div v-if="estimatedTotalCost != null" class="relative mt-1.5 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
-        <span>{{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost) }}</span>
+        <span>{{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost, props.modelId) }}</span>
         <Popover v-if="isGptImageModel(props.modelId)" class="flex">
           <PopoverButton :aria-label="t('costEstimateInfo')" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 cursor-pointer">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">

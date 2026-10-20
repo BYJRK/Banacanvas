@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import type { UsageInfo, DownloadFormat, BatchResultItem } from '../types'
+import type { UsageInfo, DownloadFormat, BatchResultItem, GenerationConfig, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 import BatchSizePreview from './BatchSizePreview.vue'
 
@@ -16,6 +16,9 @@ const props = defineProps<{
   batchProgress?: { current: number; total: number } | null
   canAddReference: boolean
   referenceLimit: number
+  modelId?: string
+  provider?: Provider
+  generationConfig?: GenerationConfig
 }>()
 
 const batchSize = defineModel<number>('batchSize', { default: 1 })
@@ -556,7 +559,7 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
   </div>
 
   <!-- Empty state -->
-  <BatchSizePreview v-else v-model="batchSize" />
+  <BatchSizePreview v-else v-model="batchSize" :model-id="modelId" :provider="provider" :config="generationConfig" />
 
   <!-- Fullscreen overlay with zoom & minimap -->
   <Teleport to="body">

@@ -1,13 +1,27 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import type { GenerationConfig, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
+import { formatCost, getGenerationSpec, ratioGlyphSize } from '../generationSpec'
 
+const props = defineProps<{
+  modelId?: string
+  provider?: Provider
+  config?: Pick<GenerationConfig, 'aspectRatio' | 'imageSize' | 'imageQuality'>
+}>()
 const batchSize = defineModel<number>({ default: 1 })
 const { t } = useI18n()
 const choosing = ref(false)
 const previewCount = ref<number | null>(null)
 const container = ref<HTMLDivElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
+
+// While choosing, the cost follows the hovered/focused count so users see the price before committing.
+const spec = computed(() => props.modelId && props.provider && props.config
+  ? getGenerationSpec(props.modelId, props.provider, props.config, previewCount.value ?? batchSize.value)
+  : undefined)
+const glyph = computed(() => spec.value ? ratioGlyphSize(spec.value.aspectRatio) : undefined)
+const costCount = computed(() => previewCount.value ?? batchSize.value)
 
 async function openPicker() {
   choosing.value = true
@@ -106,6 +120,39 @@ async function closePicker(count?: number) {
         </span>
       </span>
     </button>
+    <p
+      v-if="spec"
+      class="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400 tabular-nums"
+      data-spec
+    >
+      <span class="inline-flex items-center gap-1.5" data-spec-ratio>
+        <span class="inline-flex h-3.5 w-3.5 items-center justify-center" aria-hidden="true">
+          <span
+            class="block rounded-[2px] border border-dashed border-current opacity-70"
+            :style="{ width: `${glyph!.width}px`, height: `${glyph!.height}px` }"
+            data-ratio-glyph
+          />
+        </span>
+        {{ spec.aspectRatio === 'auto' ? t('aspectRatioAuto') : spec.aspectRatio }}
+      </span>
+      <template v-if="spec.imageSize">
+        <span aria-hidden="true">·</span>
+        <span data-spec-size>{{ spec.imageSize }}</span>
+      </template>
+      <template v-if="spec.resolution">
+        <span aria-hidden="true">·</span>
+        <span data-spec-resolution>{{ spec.resolution }}</span>
+      </template>
+      <template v-if="spec.totalCost != null && modelId">
+        <span aria-hidden="true">·</span>
+        <span data-spec-cost>
+          {{ t('estCostTotal') }} ~${{ formatCost(spec.totalCost, modelId) }}
+          <span v-if="costCount > 1 && spec.unitCost != null" class="text-gray-400 dark:text-gray-500">
+            ({{ costCount }} × ~${{ formatCost(spec.unitCost, modelId) }})
+          </span>
+        </span>
+      </template>
+    </p>
   </div>
 </template>
 

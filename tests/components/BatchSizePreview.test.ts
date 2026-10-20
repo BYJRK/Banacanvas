@@ -1,23 +1,28 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref, type App } from 'vue'
 import BatchSizePreview from '../../src/components/BatchSizePreview.vue'
+import { GEMINI_FLASH_IMAGE_MODEL, getResolution } from '../../src/config/models'
+import { estimateConfigCost, formatCost } from '../../src/generationSpec'
+import type { GenerationConfig } from '../../src/types'
 import { en } from '../helpers'
 
 let app: App | undefined
 let host: HTMLDivElement
 
-function mount(initial: number) {
+function mount(initial: number, specConfig?: Pick<GenerationConfig, 'aspectRatio' | 'imageSize'>) {
   const count = ref(initial)
+  const config = ref(specConfig)
   host = document.createElement('div')
   document.body.append(host)
   app = createApp({
     setup: () => () => h(BatchSizePreview, {
       modelValue: count.value,
       'onUpdate:modelValue': (value: number) => { count.value = value },
+      ...(config.value ? { modelId: GEMINI_FLASH_IMAGE_MODEL, provider: 'gemini' as const, config: config.value } : {}),
     }),
   })
   app.mount(host)
-  return count
+  return Object.assign(count, { config })
 }
 
 function trigger() {
@@ -125,5 +130,42 @@ describe('batch preview quantity picker', () => {
       expect(count.value).toBe(n)
       expect(placeholders()).toHaveLength(n)
     }
+  })
+})
+
+describe('preview spec line', () => {
+  const cost = (n: number) => formatCost(estimateConfigCost(GEMINI_FLASH_IMAGE_MODEL, 'gemini', { aspectRatio: '16:9', imageSize: '2K' }, n)!, GEMINI_FLASH_IMAGE_MODEL)
+  const text = (sel: string) => host.querySelector(sel)?.textContent?.replace(/\s+/g, ' ').trim()
+
+  it('is hidden without model information', () => {
+    mount(2)
+    expect(host.querySelector('[data-spec]')).toBeNull()
+  })
+
+  it('shows ratio glyph, size, resolution and cost, following the previewed count', async () => {
+    const count = mount(2, { aspectRatio: '16:9', imageSize: '2K' })
+    expect(text('[data-spec-ratio]')).toBe('16:9')
+    const glyph = host.querySelector<HTMLElement>('[data-ratio-glyph]')!
+    expect([glyph.style.width, glyph.style.height]).toEqual(['14px', '8px'])
+    expect(text('[data-spec-size]')).toBe('2K')
+    expect(text('[data-spec-resolution]')).toBe(getResolution('16:9', '2K', GEMINI_FLASH_IMAGE_MODEL, 'gemini'))
+    expect(text('[data-spec-cost]')).toBe(`${en.estCostTotal} ~$${cost(2)} (2 × ~$${cost(1)})`)
+
+    trigger().click()
+    await nextTick()
+    cell(7).dispatchEvent(new MouseEvent('mouseenter'))
+    await nextTick()
+    expect(text('[data-spec-cost]')).toContain(`~$${cost(7)} (7 × `)
+    expect(count.value).toBe(2)
+  })
+
+  it('updates when the config or count changes externally', async () => {
+    const count = mount(2, { aspectRatio: '16:9', imageSize: '2K' })
+    count.config.value = { aspectRatio: '1:1', imageSize: '1K' }
+    count.value = 1
+    await nextTick()
+    expect(text('[data-spec-ratio]')).toBe('1:1')
+    expect(text('[data-spec-size]')).toBe('1K')
+    expect(text('[data-spec-cost]')).not.toContain('×')
   })
 })
