@@ -17,8 +17,10 @@ watchEffect(() => {
 })
 
 export function useI18n() {
-  function t(key: MessageKey): string {
-    return messages[locale.value][key] ?? messages.en[key] ?? key
+  function t(key: MessageKey, params?: Record<string, string | number>): string {
+    const text: string = messages[locale.value][key] ?? messages.en[key] ?? key
+    if (!params) return text
+    return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match))
   }
 
   function setLocale(l: Locale) {

@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import messages from '../src/i18n/messages'
+import { useI18n } from '../src/composables/useI18n'
 import { AVAILABLE_MODELS } from '../src/config/models'
 import { MODEL_DESCRIPTION_KEYS, getModelDescriptionKey } from '../src/config/modelDescriptions'
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
+
+describe('t()', () => {
+  const { t } = useI18n()
+
+  it('interpolates every occurrence of the given params', () => {
+    expect(t('batchProgress', { current: 2, total: 5 })).toBe(messages.en.batchProgress.replace('{current}', '2').replace('{total}', '5'))
+  })
+
+  it('leaves unknown placeholders untouched and returns raw text without params', () => {
+    expect(t('batchProgress', { current: 1 })).toContain('{total}')
+    expect(t('batchProgress')).toBe(messages.en.batchProgress)
+  })
+})
 
 describe('i18n messages', () => {
   const enKeys = Object.keys(messages.en).sort()

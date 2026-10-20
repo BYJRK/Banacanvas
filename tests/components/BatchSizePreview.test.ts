@@ -29,7 +29,7 @@ function cell(n: number) {
 }
 
 function placeholders() {
-  return Array.from(host.querySelectorAll('span.block.text-sm')).filter((el) => el.textContent === en.emptyState)
+  return host.querySelectorAll('[data-placeholder]')
 }
 
 afterEach(() => {
@@ -73,6 +73,42 @@ describe('batch preview quantity picker', () => {
     await nextTick()
     expect(count.value).toBe(3)
     expect(placeholders()).toHaveLength(3)
+  })
+
+  it('lets Escape propagate when the picker is closed', async () => {
+    mount(3)
+    let reached = false
+    const listener = (event: KeyboardEvent) => { reached = event.key === 'Escape' && !event.defaultPrevented }
+    document.addEventListener('keydown', listener)
+    try {
+      trigger().focus()
+      trigger().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      expect(reached).toBe(true)
+
+      reached = false
+      trigger().click()
+      await nextTick()
+      cell(4).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      expect(reached).toBe(false)
+    } finally {
+      document.removeEventListener('keydown', listener)
+    }
+  })
+
+  it('keeps previewing the focused cell when the mouse leaves the grid', async () => {
+    mount(2)
+    trigger().click()
+    await nextTick()
+    cell(6).focus()
+    cell(8).dispatchEvent(new MouseEvent('mouseenter'))
+    await nextTick()
+    expect(host.querySelectorAll('[data-count].bg-violet-50')).toHaveLength(8)
+    host.querySelector('[role="group"]')!.dispatchEvent(new MouseEvent('mouseleave'))
+    await nextTick()
+    expect(host.querySelectorAll('[data-count].bg-violet-50')).toHaveLength(6)
+    cell(6).blur()
+    await nextTick()
+    expect(host.querySelectorAll('[data-count].bg-violet-50')).toHaveLength(2)
   })
 
   it('reflects external changes and supports selecting both limits', async () => {

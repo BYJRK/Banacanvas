@@ -16,6 +16,19 @@ async function openPicker() {
   container.value?.querySelector<HTMLButtonElement>(`[data-count="${batchSize.value}"]`)?.focus()
 }
 
+function onEscape(event: KeyboardEvent) {
+  if (!choosing.value) return
+  event.stopPropagation()
+  event.preventDefault()
+  closePicker()
+}
+
+function onGridMouseLeave() {
+  const focused = document.activeElement
+  const focusedCount = focused instanceof HTMLElement && container.value?.contains(focused) ? Number(focused.dataset.count) : NaN
+  previewCount.value = Number.isNaN(focusedCount) ? null : focusedCount
+}
+
 async function closePicker(count?: number) {
   if (count !== undefined) batchSize.value = count
   choosing.value = false
@@ -26,7 +39,7 @@ async function closePicker(count?: number) {
 </script>
 
 <template>
-  <div ref="container" class="select-none" @keydown.esc.stop.prevent="closePicker()">
+  <div ref="container" class="select-none" @keydown.esc="onEscape">
     <div v-if="choosing" class="batch-size-picker mx-auto flex w-full max-w-xs flex-col gap-3">
       <div class="flex items-center justify-between gap-3">
         <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('batchPickerHint') }}</p>
@@ -42,13 +55,13 @@ async function closePicker(count?: number) {
           </svg>
         </button>
       </div>
-      <div class="grid grid-cols-3 gap-2" :aria-label="t('batchSize')" role="group" @mouseleave="previewCount = null">
+      <div class="grid grid-cols-3 gap-2" :aria-label="t('batchSize')" role="group" @mouseleave="onGridMouseLeave">
         <button
           v-for="n in 9"
           :key="n"
           type="button"
           :data-count="n"
-          :aria-label="t('selectBatchCount').replace('{count}', String(n))"
+          :aria-label="t('selectBatchCount', { count: n })"
           :aria-pressed="batchSize === n"
           class="flex aspect-square items-center justify-center rounded-xl border-2 text-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 cursor-pointer"
           :class="n <= (previewCount ?? batchSize)
@@ -67,8 +80,8 @@ async function closePicker(count?: number) {
       v-else
       ref="trigger"
       type="button"
-      :aria-label="t('changeBatchCount').replace('{count}', String(batchSize))"
-      :title="t('changeBatchCount').replace('{count}', String(batchSize))"
+      :aria-label="t('changeBatchCount', { count: batchSize })"
+      :title="t('changeBatchCount', { count: batchSize })"
       class="group block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 cursor-pointer"
       @click="openPicker"
     >
@@ -80,6 +93,7 @@ async function closePicker(count?: number) {
           :key="n"
           class="relative flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 transition-colors group-hover:border-violet-300 group-hover:bg-violet-50/40 dark:group-hover:border-violet-700 dark:group-hover:bg-violet-950/20"
           :class="batchSize > 1 ? 'aspect-square p-3' : 'p-12'"
+          data-placeholder
           aria-hidden="true"
         >
           <span v-if="batchSize > 1" class="absolute bottom-2 left-2 text-xs font-medium text-gray-400 dark:text-gray-600">#{{ n }}</span>
