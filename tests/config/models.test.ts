@@ -324,6 +324,12 @@ describe('estimateImageOutputCost', () => {
     expect(estimateImageOutputCost(MAI_IMAGE_2_6_FLASH_MODEL, '1K')).toBeCloseTo(0.02, 6)
   })
 
+  it.each(['1K', '1.5K'])('prices Vercel MAI auto aspect ratio at 1.5K regardless of saved size %s', (size) => {
+    expect(estimateImageOutputCost(MAI_IMAGE_2_6_FLASH_MODEL, size, 1, undefined, 'vercel', 'auto')).toBeCloseTo(0.04, 6)
+    expect(estimateImageOutputCost(MAI_IMAGE_2_6_MODEL, size, 3, undefined, 'vercel', 'auto')).toBeCloseTo(0.24, 6)
+    expect(estimateImageOutputCost(MAI_IMAGE_2_6_FLASH_MODEL, size, 3, undefined, 'openrouter', 'auto')).toBeCloseTo(0.06, 6)
+  })
+
   it('uses a square reference size for GPT Image on OpenRouter', () => {
     expect(estimateImageOutputCost(GPT_IMAGE_2_5_FLARE_MODEL, '4K', 1, 'high', 'openrouter'))
       .toBeCloseTo(estimateGptImageOutputCost(1024, 1024, 'high')!, 9)

@@ -29,9 +29,9 @@ describe('getGenerationSpec', () => {
 })
 
 describe('estimateConfigCost', () => {
-  it('prices MAI auto-ratio jobs at 1K regardless of the stored size', () => {
-    expect(estimateConfigCost(MAI_IMAGE_2_6_MODEL, 'vercel', { aspectRatio: 'auto', imageSize: '1.5K' }, 2))
-      .toBe(estimateImageOutputCost(MAI_IMAGE_2_6_MODEL, '1K', 2, undefined, 'vercel', 'auto'))
+  it.each(['1K', '1.5K'] as const)('prices Vercel MAI auto-ratio jobs at 1.5K regardless of stored size %s', (imageSize) => {
+    expect(estimateConfigCost(MAI_IMAGE_2_6_MODEL, 'vercel', { aspectRatio: 'auto', imageSize }, 2))
+      .toBeCloseTo(0.16, 6)
   })
 })
 

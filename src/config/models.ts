@@ -649,7 +649,8 @@ export function estimateImageOutputCost(
   // User-provided planning estimates; completed MAI jobs still use returned billing/usage.
   if (isMaiImageModel(modelId)) {
     const price = modelId === MAI_IMAGE_2_6_FLASH_MODEL ? 0.02 : 0.04
-    const sizeMultiplier = provider === 'vercel' && imageSize === '1.5K' ? 2 : 1
+    // Auto aspect ratio omits the request size; Vercel defaults to the 1.5K budget.
+    const sizeMultiplier = provider === 'vercel' && (aspectRatio === 'auto' || imageSize === '1.5K') ? 2 : 1
     return price * sizeMultiplier * batchSize
   }
   // OpenRouter endpoint pricing variants: low_1k $0.04, low_2k $0.06,

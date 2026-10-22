@@ -24,7 +24,7 @@ export function estimateConfigCost(
   const aspectRatio = config.aspectRatio ?? '1:1'
   return estimateImageOutputCost(
     modelId,
-    isMaiImageModel(modelId) && aspectRatio === 'auto' ? '1K' : config.imageSize ?? '1K',
+    config.imageSize ?? '1K',
     batchSize,
     resolveImageQuality(modelId, config.imageQuality),
     provider,
