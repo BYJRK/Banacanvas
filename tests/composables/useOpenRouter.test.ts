@@ -8,6 +8,8 @@ import {
   GROK_IMAGE_MODEL,
   MAI_IMAGE_2_6_MODEL,
   MUSE_IMAGE_MODEL,
+  QWEN_IMAGE_2_1_PRO_MODEL,
+  QWEN_IMAGE_2_1_TURBO_MODEL,
   RIVERFLOW_V2_5_FAST_MODEL,
   SEEDREAM_5_0_LITE_MODEL,
 } from '../../src/config/models'
@@ -134,6 +136,41 @@ describe('chat completions models', () => {
 describe('image API models', () => {
   const imageResponse = (usage?: Record<string, unknown>) =>
     jsonResponse({ data: [{ b64_json: IMAGE_B64, media_type: 'image/png' }], ...(usage && { usage }) })
+
+  describe.each([
+    [QWEN_IMAGE_2_1_PRO_MODEL, 0.046],
+    [QWEN_IMAGE_2_1_TURBO_MODEL, 0.0184],
+  ] as const)('%s', (model, price) => {
+    it('generates via the Image API and estimates its own flat price', async () => {
+      fetchMock.mockResolvedValue(imageResponse())
+      const result = await useOpenRouter().generateImage('a cat', config({ model }))
+      expect(lastRequest().url).toBe(IMAGES_URL)
+      expect(lastRequest().body).toEqual({ model, prompt: 'a cat', resolution: '1K', aspect_ratio: '1:1', n: 1 })
+      expect(result.imageBase64).toBe(IMAGE_B64)
+      expect(result.usage?.estimatedCost).toBeCloseTo(price, 9)
+      expect(result.usage?.costIsExact).toBe(false)
+    })
+
+    it('edits with four references, resolution and seed, preserving billed cost', async () => {
+      fetchMock.mockResolvedValue(imageResponse({ cost: 0.123 }))
+      const images = [0, 1, 2, 3].map((i) => inputImage(i))
+      const result = await useOpenRouter().editImage(images, 'restyle', config({
+        model, imageSize: '2K', aspectRatio: '1:4', seed: 42,
+        imageQuality: 'max', imageBackground: 'transparent',
+      }))
+      expect(lastRequest().body).toEqual({
+        model, prompt: 'restyle', resolution: '2K', aspect_ratio: '1:4', n: 1, seed: 42,
+        input_references: images.map((image) => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${image.base64}` } })),
+      })
+      expect(result.usage).toMatchObject({ estimatedCost: 0.123, costIsExact: true })
+    })
+
+    it('rejects more than four references before making a request', async () => {
+      await expect(useOpenRouter().editImage([0, 1, 2, 3, 4].map((i) => inputImage(i)), 'edit', config({ model })))
+        .rejects.toThrow(en.referenceImagesLimitReached.replace('{count}', '4'))
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+  })
 
   it('sends GPT Image quality and background without a resolution', async () => {
     fetchMock.mockResolvedValue(imageResponse({ cost: 0.05 }))

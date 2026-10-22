@@ -38,6 +38,8 @@ Nano Banana 2 Lite（据 Nano Banana 官方推文）最快 4 秒即可出图，�
 
 OpenRouter 还支持 **Meta: Muse Image**（`meta/muse-image`），可用于智能体图像生成、参考图编辑、多参考图合成和精准文字渲染。价格为 $0.01/张，输出尺寸由模型自动选择。
 
+OpenRouter 还通过 Image API 提供 **Qwen Image 2.1 Pro**（`qwen/qwen-image-2.1-pro`）与 **Qwen Image 2.1 Turbo**（`qwen/qwen-image-2.1-turbo`）。两款均支持生成与编辑、1K / 2K 输出、13 种宽高比、种子控制，以及最多 4 张参考图。两种分辨率的输出费用均按 Pro $0.046/张、Turbo $0.0184/张估算；生成后优先使用接口返回的实际账单。来源：[Pro](https://openrouter.ai/qwen/qwen-image-2.1-pro)、[Turbo](https://openrouter.ai/qwen/qwen-image-2.1-turbo)（核实于 2026-10-22）。
+
 | 提供商 | 说明 |
 |---|---|
 | **Gemini** | 直连 Google Gemini API。完整功能支持，包括思考级别、Google 搜索和人物生成设置。 |

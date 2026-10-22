@@ -12,6 +12,8 @@ export const SEEDREAM_5_0_LITE_MODEL = 'bytedance-seed/seedream-5-0-lite'
 export const RIVERFLOW_V2_5_PRO_MODEL = 'sourceful/riverflow-v2.5-pro'
 export const RIVERFLOW_V2_5_FAST_MODEL = 'sourceful/riverflow-v2.5-fast'
 export const MUSE_IMAGE_MODEL = 'meta/muse-image'
+export const QWEN_IMAGE_2_1_PRO_MODEL = 'qwen/qwen-image-2.1-pro'
+export const QWEN_IMAGE_2_1_TURBO_MODEL = 'qwen/qwen-image-2.1-turbo'
 export const MAI_IMAGE_2_6_MODEL = 'microsoft/mai-image-2.6'
 export const MAI_IMAGE_2_6_FLASH_MODEL = 'microsoft/mai-image-2.6-flash'
 export const MAI_VERCEL_WEB_GROUNDING_COST = 0.014
@@ -24,6 +26,10 @@ export function isGptImageModel(modelId: string): boolean {
 
 export function isMaiImageModel(modelId: string): boolean {
   return modelId === MAI_IMAGE_2_6_MODEL || modelId === MAI_IMAGE_2_6_FLASH_MODEL
+}
+
+export function isQwenImageModel(modelId: string): boolean {
+  return modelId === QWEN_IMAGE_2_1_PRO_MODEL || modelId === QWEN_IMAGE_2_1_TURBO_MODEL
 }
 
 export const AVAILABLE_MODELS: ModelOption[] = [
@@ -117,6 +123,18 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: MUSE_IMAGE_MODEL,
     name: 'Muse Image',
     description: 'Meta Superintelligence Labs\' first image model. Multi-reference & text rendering; ~$0.01/image. No size or ratio controls.',
+    provider: 'openrouter',
+  },
+  {
+    id: QWEN_IMAGE_2_1_PRO_MODEL,
+    name: 'Qwen Image 2.1 Pro',
+    description: 'High-fidelity generation & editing. 1K–2K, seed control, up to 4 references.',
+    provider: 'openrouter',
+  },
+  {
+    id: QWEN_IMAGE_2_1_TURBO_MODEL,
+    name: 'Qwen Image 2.1 Turbo',
+    description: 'Fast, lower-cost generation & editing. 1K–2K, seed control, up to 4 references.',
     provider: 'openrouter',
   },
   // Microsoft MAI, available through both image gateways
@@ -213,6 +231,16 @@ const GROK_ASPECT_RATIOS = [
 ] as const
 
 const GROK_2_ASPECT_RATIOS = [...GROK_ASPECT_RATIOS, 'auto'] as const
+
+// OpenRouter Qwen Image 2.1 Pro/Turbo capabilities, verified 2026-10-22.
+const QWEN_ASPECT_RATIOS = [
+  '1:1', '1:2', '1:4', '2:1', '2:3', '3:2', '3:4', '4:1', '4:3', '4:5', '5:4', '9:16', '16:9',
+] as const
+
+const QWEN_IMAGE_SIZES = [
+  { value: '1K', label: '1K' },
+  { value: '2K', label: '2K' },
+] as const
 
 const SEEDREAM_ASPECT_RATIOS = [
   '1:1', '1:2', '2:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '9:19.5', '19.5:9', '9:20', '20:9', '9:21', '21:9', 'auto',
@@ -319,6 +347,7 @@ export function supportsImageSizeConfiguration(modelId: string, provider: Provid
 }
 
 export function getAspectRatios(modelId: string) {
+  if (isQwenImageModel(modelId)) return QWEN_ASPECT_RATIOS
   if (isGptImageModel(modelId)) return GPT_IMAGE_ASPECT_RATIOS
   if (isMaiImageModel(modelId)) return MAI_ASPECT_RATIOS
   if (modelId === GROK_IMAGE_2_MODEL) return GROK_2_ASPECT_RATIOS
@@ -349,6 +378,7 @@ export function closestAspectRatio(width: number, height: number, ratios: readon
 }
 
 export function getImageSizes(modelId: string, provider?: Provider) {
+  if (isQwenImageModel(modelId)) return QWEN_IMAGE_SIZES
   if (isGptImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : GPT_IMAGE_SIZES
   if (isMaiImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : MAI_IMAGE_SIZES
   if (modelId === GROK_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL) return GROK_IMAGE_SIZES
@@ -427,6 +457,7 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
 }
 
 export function getResolution(aspectRatio: string, imageSize: string, modelId?: string, provider?: Provider): string | undefined {
+  if (modelId && isQwenImageModel(modelId)) return undefined
   if (modelId && isGptImageModel(modelId)) {
     return provider === 'openrouter' ? undefined : getGptImageSize(aspectRatio, imageSize)?.replace('x', '×')
   }
@@ -442,6 +473,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 
 /** Maximum reference images accepted by the selected model. */
 export function getMaxInputImages(modelId: string): number {
+  if (isQwenImageModel(modelId)) return 4
   if (isGptImageModel(modelId)) return 16
   if (isMaiImageModel(modelId)) return 5
   if (modelId === MUSE_IMAGE_MODEL) return 4
@@ -455,6 +487,7 @@ export function getMaxInputImages(modelId: string): number {
 
 /** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
+  if (isQwenImageModel(modelId)) return true
   if (isMaiImageModel(modelId) || isGptImageModel(modelId)) return true
   return modelId === MUSE_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
 }
@@ -464,7 +497,7 @@ export function supportsImageQuality(modelId: string): boolean {
 }
 
 export function supportsSeedParameter(modelId: string): boolean {
-  return modelId === SEEDREAM_5_0_LITE_MODEL
+  return modelId === SEEDREAM_5_0_LITE_MODEL || isQwenImageModel(modelId)
 }
 
 export function isRiverflowModel(modelId: string): boolean {
@@ -535,6 +568,9 @@ export function supportsOutputModalities(modelId: string): boolean {
 
 /** Flat per-image pricing (USD) for models not using token-based pricing */
 const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
+  // https://openrouter.ai/qwen/qwen-image-2.1-pro (and Turbo), verified 2026-10-22.
+  [QWEN_IMAGE_2_1_PRO_MODEL]: { '1K': 0.046, '2K': 0.046 },
+  [QWEN_IMAGE_2_1_TURBO_MODEL]: { '1K': 0.0184, '2K': 0.0184 },
   [MUSE_IMAGE_MODEL]: {
     '1K': 0.01,
   },

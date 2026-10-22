@@ -174,7 +174,7 @@ const estimatedTotalCost = computed(() => estimateConfigCost(props.modelId, prop
       </div>
     </div>
 
-    <!-- Seed (Seedream 5.0 Lite only) -->
+    <!-- Seed (supported image models) -->
     <div v-if="supportsSeedParameter(props.modelId)">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="generation-seed">
         {{ t('seed') }}

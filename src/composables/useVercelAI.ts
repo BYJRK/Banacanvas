@@ -76,7 +76,7 @@ export function useVercelAI() {
         const outputTokens = result.usage.outputTokens
         const metadata = result.providerMetadata[isGptImage ? 'openai' : 'azure']?.images
         const imageTokenCounts = metadata?.map((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
-          && typeof entry.imageTokens === 'number' ? entry.imageTokens : undefined)
+          && 'imageTokens' in entry && typeof entry.imageTokens === 'number' ? entry.imageTokens : undefined)
         const hasImageTokenSplit = imageTokenCounts && imageTokenCounts.length > 0 && imageTokenCounts.every((count) => count != null)
         const imageTokens = images.length === 0 ? 0 : hasImageTokenSplit
           ? imageTokenCounts.reduce<number>((total, count) => total + (count ?? 0), 0)

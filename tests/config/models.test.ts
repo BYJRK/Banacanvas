@@ -12,6 +12,8 @@ import {
   MAI_IMAGE_2_6_FLASH_MODEL,
   MAI_IMAGE_2_6_MODEL,
   MUSE_IMAGE_MODEL,
+  QWEN_IMAGE_2_1_PRO_MODEL,
+  QWEN_IMAGE_2_1_TURBO_MODEL,
   RIVERFLOW_V2_5_PRO_MODEL,
   SEEDREAM_5_0_LITE_MODEL,
   SEEDREAM_5_0_PRO_MODEL,
@@ -41,6 +43,29 @@ import {
 
 const sizeValues = (modelId: string, provider?: Parameters<typeof getImageSizes>[1]) =>
   getImageSizes(modelId, provider).map((s) => s.value)
+
+describe.each([
+  [QWEN_IMAGE_2_1_PRO_MODEL, 0.046],
+  [QWEN_IMAGE_2_1_TURBO_MODEL, 0.0184],
+] as const)('Qwen Image 2.1 %s', (model, price) => {
+  it('exposes supported controls and routes through the Image API', () => {
+    expect(getModelsForProvider('openrouter').some((m) => m.id === model)).toBe(true)
+    expect(getModelsForProvider('vercel').some((m) => m.id === model)).toBe(false)
+    expect(sizeValues(model)).toEqual(['1K', '2K'])
+    expect(getAspectRatios(model)).toEqual([
+      '1:1', '1:2', '1:4', '2:1', '2:3', '3:2', '3:4', '4:1', '4:3', '4:5', '5:4', '9:16', '16:9',
+    ])
+    expect(getMaxInputImages(model)).toBe(4)
+    expect(supportsSeedParameter(model)).toBe(true)
+    expect(usesOpenRouterImageApi(model)).toBe(true)
+    expect(getResolution('16:9', '2K', model, 'openrouter')).toBeUndefined()
+  })
+
+  it('uses flat pricing at either resolution, including batch counts', () => {
+    expect(estimateImageOutputCost(model, '1K')).toBeCloseTo(price, 9)
+    expect(estimateImageOutputCost(model, '2K', 3)).toBeCloseTo(price * 3, 9)
+  })
+})
 
 describe('model catalogue', () => {
   it('has unique model ids per provider', () => {
@@ -152,7 +177,7 @@ describe('capability flags', () => {
     expect(getThinkingLevels(GEMINI_FLASH_IMAGE_MODEL).map((l) => l.value)).toEqual(['MINIMAL', 'HIGH'])
   })
 
-  it('accepts a seed only for Seedream Lite', () => {
+  it('accepts a seed for Seedream Lite', () => {
     expect(supportsSeedParameter(SEEDREAM_5_0_LITE_MODEL)).toBe(true)
     expect(supportsSeedParameter(SEEDREAM_5_0_PRO_MODEL)).toBe(false)
   })

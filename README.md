@@ -38,6 +38,8 @@ Nano Banana 2 Lite generates images in as fast as 4 seconds (per Nano Banana's o
 
 OpenRouter also supports **Meta: Muse Image** (`meta/muse-image`) for agentic image generation, reference-image editing, multi-reference composition, and precise text rendering. It costs $0.01 per generated image; output dimensions are selected automatically by the model.
 
+OpenRouter also offers **Qwen Image 2.1 Pro** (`qwen/qwen-image-2.1-pro`) and **Qwen Image 2.1 Turbo** (`qwen/qwen-image-2.1-turbo`) through the Image API. Both support generation and editing, 1K / 2K output, 13 aspect ratios, seed control, and up to 4 reference images. Output estimates are $0.046/image for Pro and $0.0184/image for Turbo at either resolution; completed jobs use returned billing when available. Sources: [Pro](https://openrouter.ai/qwen/qwen-image-2.1-pro), [Turbo](https://openrouter.ai/qwen/qwen-image-2.1-turbo) (verified October 22, 2026).
+
 | Provider | Description |
 |---|---|
 | **Gemini** | Direct Google Gemini API. Full feature support including thinking levels, Google Search, and person generation settings. |
