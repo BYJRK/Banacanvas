@@ -11,6 +11,7 @@ import { getModelDescriptionKey } from '../config/modelDescriptions'
 import type { ModelOption, InputImage, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 import type { MessageKey } from '../i18n/messages'
+import GroupedModelSelector from './GroupedModelSelector.vue'
 
 const { t } = useI18n()
 
@@ -228,7 +229,8 @@ function onThumbDragEnd() {
     <!-- Model selector -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('model') }}</label>
-      <Listbox v-model="selectedModel">
+      <GroupedModelSelector v-if="selectedProvider === 'openrouter' || selectedProvider === 'vercel'" :key="selectedProvider" v-model="selectedModel" :models="filteredModels" />
+      <Listbox v-else v-model="selectedModel">
         <div class="relative">
           <ListboxButton
             class="relative w-full cursor-pointer rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 py-2 pl-3 pr-10 text-left text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"

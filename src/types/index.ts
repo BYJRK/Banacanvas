@@ -11,6 +11,12 @@ export interface ModelOption {
   provider: Provider
 }
 
+export interface ModelGroup {
+  id: string
+  name: string
+  models: ModelOption[]
+}
+
 export interface InputImage {
   id: string
   base64: string

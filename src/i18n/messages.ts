@@ -12,6 +12,8 @@ const messages = {
     // GenerationPanel
     provider: 'Provider',
     model: 'Model',
+    chooseModelAuthor: 'Choose a model author',
+    backToModelAuthors: 'Back to authors',
     prompt: 'Prompt',
     promptPlaceholder: 'Describe the image you want to generate...',
     clearPrompt: 'Clear prompt',
@@ -240,6 +242,8 @@ const messages = {
     // GenerationPanel
     provider: '服务商',
     model: '模型',
+    chooseModelAuthor: '选择模型厂商',
+    backToModelAuthors: '返回厂商列表',
     prompt: '提示词',
     promptPlaceholder: '描述你想要生成的图片...',
     clearPrompt: '清空提示词',
