@@ -305,6 +305,15 @@ describe('applyHistoryConfig', () => {
     expect(params.config.value).toMatchObject({ googleSearch: false, aspectRatio: '1:1', imageSize: '1K' })
   })
 
+  it('drops unsupported person generation from legacy history', () => {
+    const params = useGenerationParams()
+
+    params.applyHistoryConfig(entry({ model: GEMINI_NANO_BANANA_2_1_MODEL, personGeneration: 'ALLOW_ADULT' }))
+
+    expect(params.selectedModel.value.id).toBe(GEMINI_NANO_BANANA_2_1_MODEL)
+    expect(params.config.value).not.toHaveProperty('personGeneration')
+  })
+
   it('falls back to the provider\'s first model when the model was removed', () => {
     const params = useGenerationParams()
 

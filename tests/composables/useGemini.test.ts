@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useGemini } from '../../src/composables/useGemini'
 import { useApiKeyStore } from '../../src/stores/apiKey'
-import { GEMINI_FLASH_IMAGE_MODEL } from '../../src/config/models'
+import { AVAILABLE_MODELS, GEMINI_FLASH_IMAGE_MODEL } from '../../src/config/models'
 import type { GenerationConfig } from '../../src/types'
 import { IMAGE_B64, en, inputImage, waitForAbort } from '../helpers'
 
@@ -50,7 +50,6 @@ describe('request building', () => {
       thinkingLevel: 'HIGH',
       aspectRatio: '3:2',
       imageSize: '2K',
-      personGeneration: 'ALLOW_ADULT',
       googleSearch: true,
     }))
 
@@ -61,7 +60,7 @@ describe('request building', () => {
     expect(call.config).toMatchObject({
       responseModalities: ['IMAGE', 'TEXT'],
       thinkingConfig: { thinkingLevel: 'HIGH' },
-      imageConfig: { aspectRatio: '3:2', imageSize: '2K', personGeneration: 'ALLOW_ADULT' },
+      imageConfig: { aspectRatio: '3:2', imageSize: '2K' },
       tools: [{ googleSearch: {} }],
     })
     expect(call.config.abortSignal).toBeInstanceOf(AbortSignal)
@@ -75,6 +74,20 @@ describe('request building', () => {
     expect(lastCall().config).not.toHaveProperty('imageConfig')
     expect(lastCall().config).not.toHaveProperty('tools')
     expect(lastCall().config).not.toHaveProperty('thinkingConfig')
+  })
+
+  describe.each(AVAILABLE_MODELS.filter((model) => model.provider === 'gemini'))('$id legacy person generation', ({ id }) => {
+    it.each(['ALLOW_ALL', 'ALLOW_ADULT', 'ALLOW_NONE'] as const)('omits %s from generation and editing requests', async (personGeneration) => {
+      sdk.generateContentStream.mockImplementation(async () => stream(chunkWith(imagePart(IMAGE_B64))))
+      const api = useGemini()
+      const legacyConfig = config({ model: id, personGeneration, aspectRatio: '3:2', imageSize: '2K' })
+
+      await api.generateImage('a portrait', legacyConfig)
+      expect(lastCall().config.imageConfig).toEqual({ aspectRatio: '3:2', imageSize: '2K' })
+
+      await api.editImage([inputImage(0)], 'edit the portrait', legacyConfig)
+      expect(lastCall().config.imageConfig).toEqual({ aspectRatio: '3:2', imageSize: '2K' })
+    })
   })
 
   it('sends reference images as inline data before the prompt', async () => {

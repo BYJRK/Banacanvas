@@ -56,6 +56,8 @@ function resolveModel(modelId: string, provider: Provider): ModelOption {
  */
 function normalizeConfig(base: GenerationConfig, model: ModelOption, previousModelId: string): GenerationConfig {
   const newConfig = { ...base, model: model.id, provider: model.provider }
+  // Legacy history may contain this Enterprise-only image option.
+  delete newConfig.personGeneration
   newConfig.imageQuality = resolveImageQuality(model.id,
     isGptImageModel(model.id) && !isGptImageModel(previousModelId) ? undefined : newConfig.imageQuality)
 

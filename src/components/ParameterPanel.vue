@@ -279,22 +279,6 @@ const estimatedTotalCost = computed(() => estimateConfigCost(props.modelId, prop
       </button>
     </div>
 
-    <!-- Person Generation (Gemini only) -->
-    <div v-if="props.provider === 'gemini'">
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        {{ t('personGeneration') }}
-      </label>
-      <select
-        :value="config.personGeneration ?? 'ALLOW_ALL'"
-        @change="config = { ...config, personGeneration: ($event.target as HTMLSelectElement).value as GenerationConfig['personGeneration'] }"
-        class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      >
-        <option value="ALLOW_ALL">{{ t('personAllowAll') }}</option>
-        <option value="ALLOW_ADULT">{{ t('personAdultOnly') }}</option>
-        <option value="ALLOW_NONE">{{ t('personNone') }}</option>
-      </select>
-    </div>
-
     <!-- Batch Size -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

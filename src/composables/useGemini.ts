@@ -49,7 +49,7 @@ export function useGemini() {
     const imageConfig: Record<string, string> = {}
     if (config.aspectRatio) imageConfig.aspectRatio = config.aspectRatio
     if (config.imageSize) imageConfig.imageSize = config.imageSize
-    if (config.personGeneration) imageConfig.personGeneration = config.personGeneration
+    // Developer API rejects personGeneration, including values from legacy history.
     if (Object.keys(imageConfig).length > 0) {
       apiConfig.imageConfig = imageConfig
     }

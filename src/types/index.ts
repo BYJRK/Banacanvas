@@ -39,6 +39,7 @@ export interface GenerationConfig {
   imageQuality?: ImageQuality
   imageBackground?: 'auto' | 'opaque' | 'transparent'
   seed?: number
+  /** Legacy history only; unsupported by the Gemini Developer API. */
   personGeneration?: 'ALLOW_ALL' | 'ALLOW_ADULT' | 'ALLOW_NONE'
   thinkingLevel?: 'MINIMAL' | 'MEDIUM' | 'HIGH'
   googleSearch?: boolean
