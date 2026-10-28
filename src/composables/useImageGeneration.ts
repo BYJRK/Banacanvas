@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import { useHistoryStore } from '../stores/history'
 import { useGemini } from './useGemini'
 import { useOpenRouter } from './useOpenRouter'
@@ -38,8 +38,16 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
   const batchLoading = ref(false)
   let batchControllers: AbortController[] = []
   let userCancelled = false
+  const singleRunning = shallowRef(false)
+  const historyWrites = shallowRef(0)
+  const unsavedHistory = shallowRef<Omit<HistoryEntry, 'id' | 'timestamp'>[]>([])
+  const lastSaveError = shallowRef('')
+  const savingHistory = computed(() => historyWrites.value > 0)
+  const historySaveError = computed(() => unsavedHistory.value.length > 0
+    ? t('historySaveFailed', { count: unsavedHistory.value.length, error: lastSaveError.value })
+    : null)
 
-  const loading = computed(() => batchLoading.value
+  const loading = computed(() => singleRunning.value || savingHistory.value || batchLoading.value
     || Object.values(providers).some((api) => api.loading.value))
 
   function clearResult() {
@@ -50,6 +58,8 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
     errorMessage.value = null
     batchResults.value = []
     batchProgress.value = null
+    unsavedHistory.value = []
+    lastSaveError.value = ''
   }
 
   function cancel() {
@@ -63,15 +73,49 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
     batchProgress.value = null
   }
 
-  function saveToHistory(request: GenerationRequest, result: { imageBase64: string; imageMimeType: string; textResponse?: string }) {
-    return historyStore.addEntry({
+  function describeSaveError(e: unknown) {
+    return e instanceof Error && e.name === 'QuotaExceededError'
+      ? t('historyStorageFull')
+      : e instanceof Error ? e.message : String(e)
+  }
+
+  async function saveToHistory(request: GenerationRequest, result: { imageBase64: string; imageMimeType: string; textResponse?: string }) {
+    const entry = {
       prompt: request.prompt,
-      config: request.config,
+      config: { ...request.config },
       imageBase64: result.imageBase64,
       imageMimeType: result.imageMimeType,
       inputImages: request.inputImages.map(({ base64, mimeType }) => ({ base64, mimeType })),
       textResponse: result.textResponse,
-    })
+    }
+    historyWrites.value++
+    try {
+      await historyStore.addEntry(entry)
+    } catch (e: unknown) {
+      unsavedHistory.value = [...unsavedHistory.value, entry]
+      lastSaveError.value = describeSaveError(e)
+    } finally {
+      historyWrites.value--
+    }
+  }
+
+  /** Retry persistence only; generated images must never trigger another paid API call. */
+  async function retrySaveHistory() {
+    if (loading.value || unsavedHistory.value.length === 0) return
+    historyWrites.value++
+    try {
+      for (const entry of unsavedHistory.value) {
+        try {
+          await historyStore.addEntry(entry)
+          unsavedHistory.value = unsavedHistory.value.filter((pending) => pending !== entry)
+        } catch (e: unknown) {
+          lastSaveError.value = describeSaveError(e)
+        }
+      }
+      toast(historySaveError.value ?? t('historySaveSuccess'), historySaveError.value ? 'error' : 'success')
+    } finally {
+      historyWrites.value--
+    }
   }
 
   async function generate(request: GenerationRequest) {
@@ -83,6 +127,7 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
   }
 
   async function runSingle(request: GenerationRequest) {
+    singleRunning.value = true
     const api = providers[request.config.provider]
     try {
       const startTime = performance.now()
@@ -100,7 +145,8 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
 
       await saveToHistory(request, result)
 
-      toast(t('imageGenerated'), 'success')
+      if (userCancelled) return
+      toast(historySaveError.value ?? t('imageGenerated'), historySaveError.value ? 'info' : 'success')
       notify(true)
     } catch (e: unknown) {
       if (userCancelled) return
@@ -108,6 +154,8 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
       errorMessage.value = msg
       toast(msg, 'error')
       notify(false)
+    } finally {
+      singleRunning.value = false
     }
   }
 
@@ -152,6 +200,7 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
 
       const successCount = batchResults.value.filter((r) => r.imageBase64).length
       const message = t('batchComplete').replace('{success}', String(successCount)).replace('{total}', String(batchSize))
+      if (historySaveError.value) toast(historySaveError.value, 'error')
       if (successCount === batchSize) {
         toast(message, 'success')
         notify(true)
@@ -192,6 +241,9 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
     resultText,
     resultUsage,
     errorMessage,
+    historySaveError,
+    savingHistory,
+    retrySaveHistory,
     batchResults,
     batchProgress,
     generate,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { IDBFactory } from 'fake-indexeddb'
+import { IDBFactory, IDBObjectStore, IDBIndex } from 'fake-indexeddb'
 import JSZip from 'jszip'
 import { useHistoryStore } from '../../src/stores/history'
 import type { HistoryEntry } from '../../src/types'
@@ -227,5 +227,157 @@ describe('export and import', () => {
       .rejects.toThrow('image x.png not found')
     expect(store.entries.map((e) => e.id)).toEqual([kept.id])
     expect((await freshStore()).entries.map((e) => e.id)).toEqual([kept.id])
+  })
+})
+
+describe('initialization and transaction failures', () => {
+  it('shares initialization, waits before saving and does not reload initialized state', async () => {
+    const open = vi.spyOn(indexedDB, 'open')
+    setActivePinia(createPinia())
+    const store = useHistoryStore()
+    const first = store.init()
+    const second = store.init()
+    expect(store.initializing).toBe(true)
+    const saving = store.addEntry(newEntry(1))
+    await Promise.all([first, second, saving])
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(store.ready).toBe(true)
+    expect(store.initializing).toBe(false)
+    expect(store.initError).toBeNull()
+    await store.init()
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(store.entries).toHaveLength(1)
+    expect((await freshStore()).entries).toEqual(store.entries)
+  })
+
+  it('exposes initialization errors, rejects writes and allows retry', async () => {
+    setActivePinia(createPinia())
+    const store = useHistoryStore()
+    const open = vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new DOMException('Storage unavailable', 'SecurityError')
+    })
+    await expect(store.addEntry(newEntry(1))).rejects.toThrow('Storage unavailable')
+    expect(store.ready).toBe(false)
+    expect(store.initializing).toBe(false)
+    expect(store.initError).toBe('Storage unavailable')
+    expect(store.entries).toEqual([])
+    open.mockRestore()
+    await store.addEntry(newEntry(1))
+    expect(store.ready).toBe(true)
+    expect(store.initError).toBeNull()
+    expect((await freshStore()).entries).toHaveLength(1)
+  })
+
+  it('closes a connection when reading history fails and retries cleanly', async () => {
+    const loaded = await freshStore()
+    await loaded.addEntry(newEntry(1))
+    const read = vi.spyOn(IDBIndex.prototype, 'getAll').mockImplementationOnce(() => {
+      throw new Error('Read failed')
+    })
+    setActivePinia(createPinia())
+    const store = useHistoryStore()
+    await expect(store.init()).rejects.toThrow('Read failed')
+    expect(store.ready).toBe(false)
+    expect(store.entries).toEqual([])
+    read.mockRestore()
+    await store.init()
+    expect(store.entries).toEqual(loaded.entries)
+  })
+
+  it('keeps legacy history when migration fails and migrates it on retry', async () => {
+    const legacy = [{ ...newEntry(1), id: 'legacy', timestamp: 1 }]
+    const raw = JSON.stringify(legacy)
+    localStorage.setItem('banacanvas-history', raw)
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementationOnce(() => {
+      throw new DOMException('Full', 'QuotaExceededError')
+    })
+    setActivePinia(createPinia())
+    const store = useHistoryStore()
+    await expect(store.init()).rejects.toMatchObject({ name: 'QuotaExceededError' })
+    expect(localStorage.getItem('banacanvas-history')).toBe(raw)
+    expect(store.ready).toBe(false)
+    put.mockRestore()
+    await store.init()
+    expect(store.entries).toEqual(legacy)
+    expect(localStorage.getItem('banacanvas-history')).toBeNull()
+  })
+
+  it('does not add phantom entries when storage quota is exceeded', async () => {
+    const store = await freshStore()
+    const kept = await store.addEntry(newEntry(1))
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementationOnce(() => {
+      throw new DOMException('Full', 'QuotaExceededError')
+    })
+    await expect(store.addEntry(newEntry(2))).rejects.toMatchObject({ name: 'QuotaExceededError' })
+    expect(store.entries).toEqual([kept])
+    put.mockRestore()
+    expect((await freshStore()).entries).toEqual([kept])
+  })
+
+  it.each(['put', 'clear', 'delete'] as const)('rejects aborted %s transactions without changing memory or storage', async (method) => {
+    const store = await freshStore()
+    const kept = await store.addEntry(newEntry(1))
+    const original = IDBObjectStore.prototype[method]
+    const operation = vi.spyOn(IDBObjectStore.prototype, method).mockImplementation(function (this: IDBObjectStore, ...args: unknown[]) {
+      const req = (original as (...args: unknown[]) => IDBRequest).apply(this, args)
+      this.transaction.abort()
+      return req
+    })
+    const action = method === 'put' ? store.addEntry(newEntry(2))
+      : method === 'clear' ? store.clearAll() : store.removeEntry(kept.id)
+    await expect(action).rejects.toBeDefined()
+    expect(store.entries).toEqual([kept])
+    operation.mockRestore()
+    expect((await freshStore()).entries).toEqual([kept])
+  })
+
+  it('rejects asynchronous request errors with the transaction failure reason', async () => {
+    const store = await freshStore()
+    const kept = await store.addEntry(newEntry(1))
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementationOnce(function (this: IDBObjectStore) {
+      return this.add({ ...kept })
+    })
+    await expect(store.addEntry(newEntry(2))).rejects.toMatchObject({ name: 'ConstraintError' })
+    expect(store.entries).toEqual([kept])
+    put.mockRestore()
+    expect((await freshStore()).entries).toEqual([kept])
+  })
+
+  it('rolls back overwrite import if writing fails after clearing', async () => {
+    const zip = new JSZip()
+    zip.file('metadata.json', JSON.stringify([{ id: 'new', timestamp: 1, prompt: 'p', config: {}, imageFile: 'new.png' }]))
+    zip.file('images/new.png', b64('new'), { base64: true })
+    const file = new File([await zip.generateAsync({ type: 'blob' })], 'history.zip')
+    const store = await freshStore()
+    const kept = await store.addEntry(newEntry(1))
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementationOnce(() => {
+      throw new DOMException('Full', 'QuotaExceededError')
+    })
+    await expect(store.importZip(file, 'overwrite')).rejects.toMatchObject({ name: 'QuotaExceededError' })
+    expect(store.entries).toEqual([kept])
+    put.mockRestore()
+    expect((await freshStore()).entries).toEqual([kept])
+  })
+
+  it('resolves encoding fallback when FileReader fails instead of hanging', async () => {
+    const store = await freshStore()
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 1, height: 1, close: vi.fn() }))
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['webp'], { type: 'image/webp' })))
+    vi.spyOn(FileReader.prototype, 'readAsDataURL').mockImplementation(function (this: FileReader) {
+      this.dispatchEvent(new ProgressEvent('error'))
+    })
+    const entry = await store.addEntry(newEntry(1))
+    expect(entry.imageBase64).toBe(b64('image 1'))
+    expect(entry.imageMimeType).toBe('image/png')
+  })
+
+  it('exports existing data even when called before initialization', async () => {
+    const initial = await freshStore()
+    await initial.addEntry(newEntry(1))
+    setActivePinia(createPinia())
+    const store = useHistoryStore()
+    const zip = await JSZip.loadAsync(await store.exportZip())
+    expect(JSON.parse(await zip.file('metadata.json')!.async('string'))).toHaveLength(1)
   })
 })

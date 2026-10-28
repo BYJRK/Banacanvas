@@ -63,6 +63,9 @@ const {
   cancel: cancelGeneration,
   clearResult,
   showHistoryEntries,
+  historySaveError,
+  savingHistory,
+  retrySaveHistory,
 } = useImageGeneration({ toast: showToast, notify })
 
 // Dialog state
@@ -203,7 +206,9 @@ function handleHistoryKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener('paste', handlePaste)
-  historyStore.init()
+  void historyStore.init().catch((e: unknown) => {
+    showToast(t('historyLoadFailed', { error: e instanceof Error ? e.message : String(e) }), 'error')
+  })
   // Show API key dialog if no key set for any provider
   if (!apiKeyStore.hasGeminiKey && !apiKeyStore.hasOpenRouterKey && !apiKeyStore.hasVercelKey) {
     showApiKeyDialog.value = true
@@ -388,6 +393,12 @@ function handleHistorySelect(entry: HistoryEntry) {
 
         <div class="flex-1 flex items-start justify-center">
           <div class="w-full max-w-2xl">
+            <div v-if="historySaveError" role="status" class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              <p>{{ historySaveError }}</p>
+              <button type="button" :disabled="loading" class="mt-3 rounded-lg border border-amber-300 px-3 py-1.5 font-medium hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:hover:bg-amber-900/40" @click="retrySaveHistory">
+                {{ t(savingHistory ? 'historySaving' : 'historyRetrySave') }}
+              </button>
+            </div>
             <ImageDisplay
               :image-base64="resultImage"
               :image-mime-type="resultMimeType"

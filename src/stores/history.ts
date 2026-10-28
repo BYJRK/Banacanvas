@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import { getHistoryInputImages } from '../historyImages'
 import type { HistoryEntry, InputImage } from '../types'
 
@@ -33,24 +33,15 @@ function idbGetAll(db: IDBDatabase): Promise<HistoryEntry[]> {
   })
 }
 
-function idbPut(db: IDBDatabase, entry: HistoryEntry): Promise<void> {
+function idbWrite(db: IDBDatabase, write: (store: IDBObjectStore) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite')
-    tx.objectStore(STORE_NAME).put(entry)
+    let requestError: DOMException | null = null
     tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-  })
-}
-
-function idbDeleteEntries(db: IDBDatabase, ids: ReadonlySet<string>): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    tx.oncomplete = () => resolve()
-    tx.onabort = () => reject(tx.error ?? new Error('History deletion failed'))
-    tx.onerror = () => reject(tx.error)
-    const store = tx.objectStore(STORE_NAME)
+    tx.onabort = () => reject(tx.error ?? requestError ?? new Error('History transaction aborted'))
+    tx.onerror = (event) => { requestError = (event.target as IDBRequest).error }
     try {
-      for (const id of ids) store.delete(id)
+      write(tx.objectStore(STORE_NAME))
     } catch (e: unknown) {
       tx.abort()
       reject(e)
@@ -58,27 +49,20 @@ function idbDeleteEntries(db: IDBDatabase, ids: ReadonlySet<string>): Promise<vo
   })
 }
 
-function idbClear(db: IDBDatabase): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    tx.objectStore(STORE_NAME).clear()
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-  })
-}
-
 // Migrate existing localStorage history into IndexedDB then remove it
 async function migrateFromLocalStorage(db: IDBDatabase): Promise<void> {
-  const raw = localStorage.getItem('banacanvas-history')
-  if (!raw) return
+  let raw: string | null
+  let entries: HistoryEntry[]
   try {
-    const entries: HistoryEntry[] = JSON.parse(raw)
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    const store = tx.objectStore(STORE_NAME)
+    raw = localStorage.getItem('banacanvas-history')
+    if (!raw) return
+    entries = JSON.parse(raw)
+    if (!Array.isArray(entries)) return
+  } catch { return }
+  await idbWrite(db, (store) => {
     for (const entry of entries) store.put(entry)
-    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error) })
-    localStorage.removeItem('banacanvas-history')
-  } catch { /* ignore */ }
+  })
+  try { localStorage.removeItem('banacanvas-history') } catch { /* migration is safe to repeat */ }
 }
 
 async function toWebP(base64: string, mimeType: string): Promise<{ base64: string; mimeType: string }> {
@@ -100,8 +84,9 @@ async function toWebP(base64: string, mimeType: string): Promise<{ base64: strin
           const reader = new FileReader()
           reader.onload = () => {
             const b64 = (reader.result as string).split(',')[1]
-            resolve({ base64: b64, mimeType: 'image/webp' })
+            resolve({ base64: b64, mimeType: webpBlob.type })
           }
+          reader.onerror = reader.onabort = () => resolve({ base64, mimeType })
           reader.readAsDataURL(webpBlob)
         },
         'image/webp',
@@ -115,15 +100,41 @@ async function toWebP(base64: string, mimeType: string): Promise<{ base64: strin
 
 export const useHistoryStore = defineStore('history', () => {
   const entries = ref<HistoryEntry[]>([])
+  const initializing = shallowRef(false)
+  const ready = shallowRef(false)
+  const initError = shallowRef<string | null>(null)
   let db: IDBDatabase | null = null
+  let initPromise: Promise<IDBDatabase> | null = null
 
-  async function init() {
-    db = await openDB()
-    await migrateFromLocalStorage(db)
-    entries.value = await idbGetAll(db)
+  function init(): Promise<IDBDatabase> {
+    if (db && ready.value) return Promise.resolve(db)
+    if (initPromise) return initPromise
+    initializing.value = true
+    initError.value = null
+    initPromise = (async () => {
+      let opened: IDBDatabase | null = null
+      try {
+        opened = await openDB()
+        await migrateFromLocalStorage(opened)
+        const saved = await idbGetAll(opened)
+        db = opened
+        entries.value = saved
+        ready.value = true
+        return opened
+      } catch (e: unknown) {
+        opened?.close()
+        initError.value = e instanceof Error ? e.message : String(e)
+        throw e
+      } finally {
+        initializing.value = false
+        initPromise = null
+      }
+    })()
+    return initPromise
   }
 
   async function addEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'>) {
+    const database = await init()
     const [main, inputs] = await Promise.all([
       toWebP(entry.imageBase64, entry.imageMimeType),
       Promise.all(getHistoryInputImages(entry).map((image) => toWebP(image.base64, image.mimeType))),
@@ -139,11 +150,8 @@ export const useHistoryStore = defineStore('history', () => {
       inputImages: inputs,
     }
 
+    await idbWrite(database, (store) => store.put(newEntry))
     entries.value.unshift(newEntry)
-
-    if (db) {
-      await idbPut(db, newEntry)
-    }
 
     return newEntry
   }
@@ -151,7 +159,10 @@ export const useHistoryStore = defineStore('history', () => {
   async function removeEntries(ids: readonly string[]) {
     const idsToRemove = new Set(ids)
     if (idsToRemove.size === 0) return
-    if (db) await idbDeleteEntries(db, idsToRemove)
+    const database = await init()
+    await idbWrite(database, (store) => {
+      for (const id of idsToRemove) store.delete(id)
+    })
     entries.value = entries.value.filter((entry) => !idsToRemove.has(entry.id))
   }
 
@@ -160,11 +171,13 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   async function clearAll() {
+    const database = await init()
+    await idbWrite(database, (store) => store.clear())
     entries.value = []
-    if (db) await idbClear(db)
   }
 
   async function exportZip(): Promise<Blob> {
+    await init()
     const { default: JSZip } = await import('jszip')
     const zip = new JSZip()
     const imgFolder = zip.folder('images')!
@@ -194,6 +207,7 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   async function importZip(file: File, mode: 'merge' | 'overwrite'): Promise<number> {
+    const database = await init()
     const { default: JSZip } = await import('jszip')
     const zip = await JSZip.loadAsync(file)
     const metaFile = zip.file('metadata.json')
@@ -242,23 +256,16 @@ export const useHistoryStore = defineStore('history', () => {
       importedEntries.push(entry)
     }
 
-    if (db) {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db!.transaction(STORE_NAME, 'readwrite')
-        const store = tx.objectStore(STORE_NAME)
-        if (mode === 'overwrite') store.clear()
-        for (const entry of importedEntries) store.put(entry)
-        tx.oncomplete = () => resolve()
-        tx.onabort = () => reject(tx.error ?? new Error('History import failed'))
-        tx.onerror = () => reject(tx.error)
-      })
-    }
+    await idbWrite(database, (store) => {
+      if (mode === 'overwrite') store.clear()
+      for (const entry of importedEntries) store.put(entry)
+    })
 
     entries.value = (mode === 'overwrite' ? importedEntries : [...entries.value, ...importedEntries])
       .sort((a, b) => b.timestamp - a.timestamp)
     return importedEntries.length
   }
 
-  return { entries, init, addEntry, removeEntry, removeEntries, clearAll, exportZip, importZip }
+  return { entries, initializing, ready, initError, init, addEntry, removeEntry, removeEntries, clearAll, exportZip, importZip }
 })
 

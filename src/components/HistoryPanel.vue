@@ -7,6 +7,7 @@ import { useI18n } from '../composables/useI18n'
 import { useHistoryPreferences } from '../composables/useHistoryPreferences'
 import HistoryGroupCard from './history/HistoryGroupCard.vue'
 import HistoryBatchPopover from './history/HistoryBatchPopover.vue'
+import ClearHistoryDialog from './history/ClearHistoryDialog.vue'
 
 const props = withDefaults(defineProps<{ fullPage?: boolean; active?: boolean }>(), { fullPage: false, active: true })
 const emit = defineEmits<{
@@ -137,10 +138,25 @@ async function handleRemoveGroup(group: HistoryGroup) {
     emit('toast', e instanceof Error ? e.message : String(e), 'error')
   }
 }
+const showClearDialog = shallowRef(false)
+const clearing = shallowRef(false)
+watch(() => props.active, (active) => {
+  if (!active && !clearing.value) showClearDialog.value = false
+})
 async function handleClear() {
-  try { await historyStore.clearAll() } catch (e: unknown) {
+  if (clearing.value) return
+  clearing.value = true
+  try {
+    await historyStore.clearAll()
+    showClearDialog.value = false
+  } catch (e: unknown) {
     emit('toast', e instanceof Error ? e.message : String(e), 'error')
+  } finally {
+    clearing.value = false
   }
+}
+async function retryInit() {
+  try { await historyStore.init() } catch { /* the store exposes the error for retry */ }
 }
 
 const exporting = ref(false)
@@ -264,7 +280,7 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
             </div>
           </div>
           <!-- Export button -->
-          <button v-if="historyStore.entries.length > 0" type="button" @click="handleExport" :disabled="exporting" class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" :title="t('exportHistory')" :aria-label="t('exportHistory')">
+          <button v-if="historyStore.entries.length > 0" type="button" @click="handleExport" :disabled="exporting || clearing || !historyStore.ready" class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" :title="t('exportHistory')" :aria-label="t('exportHistory')">
             <svg v-if="exporting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -274,13 +290,13 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
             </svg>
           </button>
           <!-- Import button -->
-          <button type="button" @click="importFileInput?.click()" class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer" :title="t('importHistory')" :aria-label="t('importHistory')">
+          <button type="button" @click="importFileInput?.click()" :disabled="clearing || !historyStore.ready" class="text-gray-400 hover:text-violet-500 transition-colors cursor-pointer" :title="t('importHistory')" :aria-label="t('importHistory')">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
           </button>
           <input ref="importFileInput" type="file" accept=".zip" class="hidden" @change="onImportFileSelected" />
-          <button v-if="historyStore.entries.length > 0" type="button" @click="handleClear" class="text-gray-400 hover:text-red-500 transition-colors cursor-pointer" :title="t('clearAll')" :aria-label="t('clearAll')">
+          <button v-if="historyStore.entries.length > 0" type="button" @click="showClearDialog = true" :disabled="clearing || !historyStore.ready" class="text-gray-400 hover:text-red-500 transition-colors cursor-pointer" :title="t('clearAll')" :aria-label="t('clearAll')">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
@@ -288,7 +304,12 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
         </div>
       </div>
     </div>
-    <div v-if="!historyStore.entries.length" class="flex-1 flex items-center justify-center rounded-xl border border-dashed border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400 p-8">{{ t('noHistory') }}</div>
+    <div v-if="historyStore.initializing" role="status" class="flex-1 flex items-center justify-center p-8 text-sm text-gray-500 dark:text-gray-400">{{ t('historyLoading') }}</div>
+    <div v-else-if="historyStore.initError" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+      <p>{{ t('historyLoadFailed', { error: historyStore.initError }) }}</p>
+      <button type="button" class="mt-3 rounded-lg border border-red-300 px-3 py-1.5 font-medium hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:border-red-800 dark:hover:bg-red-900/40" @click="retryInit">{{ t('historyRetry') }}</button>
+    </div>
+    <div v-else-if="!historyStore.entries.length" class="flex-1 flex items-center justify-center rounded-xl border border-dashed border-gray-200 dark:border-gray-800 text-sm text-gray-500 dark:text-gray-400 p-8">{{ t('noHistory') }}</div>
     <div v-else-if="viewMode === 'waterfall'" data-history-scroll class="flex items-start gap-3 overflow-y-auto flex-1 min-h-0 p-1">
       <div v-for="(col, index) in waterfallColumns" :key="index" class="flex flex-col gap-3 flex-1 min-w-0">
         <HistoryGroupCard v-for="group in col" :key="group.key" :group="group" :view-mode="viewMode" :full-page="fullPage" :expanded="openBatch?.key === group.key" :time-label="formatTime(group.representative.timestamp)" @select-group="handleSelectGroup" @remove="handleRemoveGroup" @toggle="toggleGroup" />
@@ -298,6 +319,7 @@ async function confirmImport(mode: 'merge' | 'overwrite') {
       <HistoryGroupCard v-for="group in historyGroups" :key="group.key" :group="group" :view-mode="viewMode" :full-page="fullPage" :expanded="openBatch?.key === group.key" :time-label="formatTime(group.representative.timestamp)" @select-group="handleSelectGroup" @remove="handleRemoveGroup" @toggle="toggleGroup" />
     </div>
     <HistoryBatchPopover v-if="active && openBatch && activeGroup" :key="openBatch.id" :group="activeGroup" :anchor="openBatch.anchor" :id="openBatch.id" @close="closeBatch" @select="handleBatchImageSelect" />
+    <ClearHistoryDialog :open="showClearDialog" :busy="clearing" :count="historyStore.entries.length" @close="showClearDialog = false" @confirm="handleClear" />
     <Teleport to="body">
       <div v-if="showImportDialog" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" @click.self="showImportDialog = false; pendingImportFile = null">
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-80 p-5">
