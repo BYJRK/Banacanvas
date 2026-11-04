@@ -302,7 +302,6 @@ function onThumbDragEnd() {
         rows="4"
         :placeholder="t('promptPlaceholder')"
         class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
-        @keydown.ctrl.enter="canGenerate && !loading && $emit('generate')"
       />
     </div>
 

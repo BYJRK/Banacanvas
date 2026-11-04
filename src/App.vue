@@ -6,6 +6,7 @@ import { useTheme } from './composables/useTheme'
 import { useI18n } from './composables/useI18n'
 import { useGenerationParams } from './composables/useGenerationParams'
 import { useImageGeneration } from './composables/useImageGeneration'
+import { useGenerationShortcut } from './composables/useGenerationShortcut'
 import { useEndNotification } from './composables/useEndNotification'
 import { useResizableSidebar } from './composables/useResizableSidebar'
 import { getHistoryInputImages } from './historyImages'
@@ -100,6 +101,10 @@ const { resizeAsPng, request: resizeRequest, resizingIds, busy: referenceImagesB
   (message) => showToast(message, 'error'),
 )
 const maxReferenceImages = computed(() => getMaxInputImages(selectedModel.value.id))
+useGenerationShortcut(
+  () => prompt.value.trim().length > 0 && !loading.value && !referenceImagesBusy.value,
+  handleGenerate,
+)
 const desktopGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
 const mobileGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
 
