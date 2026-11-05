@@ -4,6 +4,8 @@ import { useOpenRouter } from '../../src/composables/useOpenRouter'
 import {
   GEMINI_FLASH_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
+  GPT_IMAGE_2_6_FLARE_MODEL,
+  GPT_IMAGE_2_6_SUNBURST_MODEL,
   GROK_IMAGE_2_MODEL,
   GROK_IMAGE_MODEL,
   MAI_IMAGE_2_6_MODEL,
@@ -172,11 +174,11 @@ describe('image API models', () => {
     })
   })
 
-  it('sends GPT Image quality and background without a resolution', async () => {
+  it.each([GPT_IMAGE_2_5_FLARE_MODEL, GPT_IMAGE_2_6_FLARE_MODEL, GPT_IMAGE_2_6_SUNBURST_MODEL])('sends %s quality and background without a resolution', async (model) => {
     fetchMock.mockResolvedValue(imageResponse({ cost: 0.05 }))
 
     const result = await useOpenRouter().generateImage('a logo', config({
-      model: GPT_IMAGE_2_5_FLARE_MODEL,
+      model,
       aspectRatio: '3:2',
       imageSize: '1K',
       imageQuality: 'max',
@@ -186,7 +188,7 @@ describe('image API models', () => {
     const { url, body } = lastRequest()
     expect(url).toBe(IMAGES_URL)
     expect(body).toEqual({
-      model: GPT_IMAGE_2_5_FLARE_MODEL,
+      model,
       prompt: 'a logo',
       aspect_ratio: '3:2',
       n: 1,
@@ -196,15 +198,42 @@ describe('image API models', () => {
     expect(result.usage).toMatchObject({ estimatedCost: 0.05, costIsExact: true })
   })
 
-  it('estimates GPT Image cost from tokens without input images', async () => {
+  it.each([GPT_IMAGE_2_5_FLARE_MODEL, GPT_IMAGE_2_6_FLARE_MODEL, GPT_IMAGE_2_6_SUNBURST_MODEL])('estimates %s cost from tokens without input images', async (model) => {
     fetchMock.mockResolvedValue(imageResponse({ prompt_tokens: 100, completion_tokens: 1000 }))
 
-    const { usage } = await useOpenRouter().generateImage('a logo', config({ model: GPT_IMAGE_2_5_FLARE_MODEL }))
+    const { usage } = await useOpenRouter().generateImage('a logo', config({ model }))
 
     // 100 text tokens at $5/M + 1000 output tokens at $30/M
     expect(usage?.estimatedCost).toBeCloseTo(0.0305, 9)
     expect(usage?.totalTokenCount).toBe(1100)
     expect(usage?.costIsExact).toBe(false)
+  })
+
+  describe.each([GPT_IMAGE_2_6_FLARE_MODEL, GPT_IMAGE_2_6_SUNBURST_MODEL])('%s editing', (model) => {
+    it('sends up to 16 references and estimates cost using image input tokens', async () => {
+      fetchMock.mockResolvedValue(imageResponse({
+        prompt_tokens: 1000, completion_tokens: 2000, prompt_tokens_details: { image_tokens: 400 },
+      }))
+      const images = Array.from({ length: 16 }, (_, i) => inputImage(i))
+
+      const result = await useOpenRouter().editImage(images, 'restyle', config({ model, aspectRatio: 'auto' }))
+
+      expect(lastRequest().url).toBe(IMAGES_URL)
+      expect(lastRequest().body).toEqual({
+        model, prompt: 'restyle', aspect_ratio: 'auto', n: 1, quality: 'high', background: 'auto',
+        input_references: images.map((image) => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${image.base64}` } })),
+      })
+      expect(result.imageBase64).toBe(IMAGE_B64)
+      expect(result.usage?.estimatedCost).toBeCloseTo(0.0662, 9)
+      expect(result.usage?.costIsExact).toBe(false)
+    })
+
+    it('rejects more than 16 references before making a request', async () => {
+      const images = Array.from({ length: 17 }, (_, i) => inputImage(i))
+      await expect(useOpenRouter().editImage(images, 'edit', config({ model })))
+        .rejects.toThrow(en.referenceImagesLimitReached.replace('{count}', '16'))
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
   })
 
   it('sends resolution, integer seeds and reference images for Seedream Lite', async () => {

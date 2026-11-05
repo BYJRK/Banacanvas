@@ -7,6 +7,8 @@ import {
   GEMINI_NANO_BANANA_2_1_MODEL,
   GEMINI_PRO_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
+  GPT_IMAGE_2_6_FLARE_MODEL,
+  GPT_IMAGE_2_6_SUNBURST_MODEL,
   GROK_IMAGE_2_MODEL,
   GROK_IMAGE_MODEL,
   MAI_IMAGE_2_6_FLASH_MODEL,
@@ -24,6 +26,7 @@ import {
   getAspectRatios,
   getBaseModelId,
   getGptImageSize,
+  getImageQualities,
   getImageSizes,
   getMaiImageSize,
   getMaxInputImages,
@@ -34,6 +37,7 @@ import {
   resolveImageQuality,
   supportsGoogleSearch,
   supportsImageConfiguration,
+  supportsImageQuality,
   supportsImageSizeConfiguration,
   supportsOutputModalities,
   supportsSeedParameter,
@@ -64,6 +68,41 @@ describe.each([
   it('uses flat pricing at either resolution, including batch counts', () => {
     expect(estimateImageOutputCost(model, '1K')).toBeCloseTo(price, 9)
     expect(estimateImageOutputCost(model, '2K', 3)).toBeCloseTo(price * 3, 9)
+  })
+})
+
+describe.each([GPT_IMAGE_2_6_FLARE_MODEL, GPT_IMAGE_2_6_SUNBURST_MODEL])('GPT Image 2.6 %s', (model) => {
+  it('offers OpenRouter and Vercel generation and editing with the supported controls', () => {
+    expect(getModelsForProvider('openrouter').some((m) => m.id === model)).toBe(true)
+    expect(getModelsForProvider('vercel').some((m) => m.id === model)).toBe(true)
+    expect(getModelsForProvider('gemini').some((m) => m.id === model)).toBe(false)
+    expect(usesOpenRouterImageApi(model)).toBe(true)
+    expect(getMaxInputImages(model)).toBe(16)
+    expect(getAspectRatios(model)).toEqual(['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', '21:9', 'auto'])
+    expect(supportsImageQuality(model)).toBe(true)
+    expect(getImageQualities(model)).toEqual(['auto', 'low', 'medium', 'high', 'xhigh', 'max'])
+    expect(resolveImageQuality(model)).toBe('high')
+    expect(supportsImageSizeConfiguration(model, 'openrouter')).toBe(false)
+    expect(supportsImageSizeConfiguration(model, 'vercel')).toBe(true)
+    expect(sizeValues(model, 'vercel')).toEqual(['1K', '2K', '4K'])
+    expect(getResolution('16:9', '2K', model, 'vercel')).toBe('2720×1536')
+    expect(getResolution('16:9', '1K', model, 'openrouter')).toBeUndefined()
+    expect(supportsSeedParameter(model)).toBe(false)
+  })
+
+  it('uses GPT Image 2.6 token rates for text, image input, and output', () => {
+    expect(estimateImageTokenCost(model, 1000, 2000, 400)).toBeCloseTo(0.0662, 9)
+    expect(estimateImageTokenCost(model, 1000, 2000)).toBeCloseTo(0.068, 9)
+    expect(estimateImageTokenCost(model, 1000, undefined)).toBeUndefined()
+  })
+
+  it('matches the official 1024-square output estimates, including 2.6 quality adjustments', () => {
+    expect(estimateGptImageOutputCost(1024, 1024, 'low', model)).toBeCloseTo(0.02469, 9)
+    expect(estimateGptImageOutputCost(1024, 1024, 'medium', model)).toBeCloseTo(0.04347, 9)
+    expect(estimateGptImageOutputCost(1024, 1024, 'high', model)).toBeCloseTo(0.05268, 9)
+    expect(estimateImageOutputCost(model, '1K', 3, 'low', 'openrouter')).toBeCloseTo(0.07407, 9)
+    expect(estimateImageOutputCost(model, '1K', 1, 'auto', 'openrouter')).toBeUndefined()
+    expect(estimateImageOutputCost(model, '1K', 1, 'high', 'openrouter', 'auto')).toBeUndefined()
   })
 })
 

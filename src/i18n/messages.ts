@@ -64,6 +64,8 @@ const messages = {
     costEstimateInfo: 'About the cost estimate',
     gptImageOutputCostHint: 'Image output estimate from OpenAI’s calculator. Prompt and reference-image input costs are extra; final cost uses returned billing or token usage.',
     gptOpenRouterCostHint: 'OpenRouter does not expose output size. This estimate uses a 1024×1024 reference; the actual image dimensions may differ.',
+    gptImageReferenceCostHint: 'Based on a 1024×1024 reference image; input costs are extra.',
+    gptImageAutoQualityCostHint: 'Auto quality is estimated using high quality.',
     seed: 'Seed',
     seedRandom: 'Random',
     seedHint: 'Optional integer. Leave blank for a random result.',
@@ -223,6 +225,8 @@ const messages = {
     imageTokenPricing: 'USD / 1M tokens: text input ${text} · image input ${image} · image output ${output}.',
     modelGptImage25FlareDesc: 'Fast generation & editing. Six quality levels, transparent backgrounds, up to 16 references.',
     modelGptImage25SunburstDesc: 'Precise editing & detailed generation. Six quality levels, transparent backgrounds, up to 16 references.',
+    modelGptImage26FlareDesc: 'Fast generation & consistent editing. Six quality levels, transparent backgrounds, up to 16 references.',
+    modelGptImage26SunburstDesc: 'Detailed generation & precise, consistent editing. Six quality levels, transparent backgrounds, up to 16 references.',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: 'Aspect Ratio Suggestion',
@@ -302,6 +306,8 @@ const messages = {
     costEstimateInfo: '查看预估费用说明',
     gptImageOutputCostHint: '按 OpenAI 官方计算器估算图像输出费。提示词和参考图输入另计，最终费用以返回账单或 Token 用量为准。',
     gptOpenRouterCostHint: 'OpenRouter 未开放输出尺寸控制，此处按 1024×1024 参考尺寸估算，实际图片尺寸可能不同。',
+    gptImageReferenceCostHint: '按 1024×1024 参考尺寸估算，输入费用另计。',
+    gptImageAutoQualityCostHint: '自动质量按高质量参考估算。',
     seed: '随机种子',
     seedRandom: '随机',
     seedHint: '可选整数；留空则每次随机生成。',
@@ -461,6 +467,8 @@ const messages = {
     imageTokenPricing: '美元 / 百万 Token：文本输入 ${text} · 图像输入 ${image} · 图像输出 ${output}。',
     modelGptImage25FlareDesc: '快速生成与编辑。六档质量、透明背景，最多 16 张参考图。',
     modelGptImage25SunburstDesc: '精准编辑与精细生成。六档质量、透明背景，最多 16 张参考图。',
+    modelGptImage26FlareDesc: '快速生成与一致性编辑。六档质量、透明背景，最多 16 张参考图。',
+    modelGptImage26SunburstDesc: '精细生成与精准编辑，保持细节一致。六档质量、透明背景，最多 16 张参考图。',
 
     // AspectRatioSuggestionDialog
     aspectRatioSuggestionTitle: '长宽比建议',

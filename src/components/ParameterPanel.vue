@@ -73,6 +73,7 @@ function setBatchSize(size: number) {
 }
 
 const estimatedTotalCost = computed(() => estimateConfigCost(props.modelId, props.provider, config.value, config.value.batchSize ?? 1))
+const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || config.value.aspectRatio === 'auto')
 </script>
 
 <template>
@@ -295,7 +296,7 @@ const estimatedTotalCost = computed(() => estimateConfigCost(props.modelId, prop
         />
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-6 text-center">{{ config.batchSize ?? 1 }}</span>
       </div>
-      <div v-if="estimatedTotalCost != null" class="relative mt-1.5 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+      <div v-if="estimatedTotalCost != null" class="relative mt-1.5 flex flex-wrap items-center gap-1 text-xs text-gray-400 dark:text-gray-500" data-cost-estimate aria-live="polite" aria-atomic="true">
         <span>{{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost, props.modelId) }}</span>
         <Popover v-if="isGptImageModel(props.modelId)" class="flex">
           <PopoverButton :aria-label="t('costEstimateInfo')" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 cursor-pointer">
@@ -307,7 +308,8 @@ const estimatedTotalCost = computed(() => estimateConfigCost(props.modelId, prop
           </PopoverButton>
           <PopoverPanel class="absolute left-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-3rem)] rounded-lg border border-gray-200 bg-white p-3 text-xs leading-relaxed text-gray-600 shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             <p>{{ t('gptImageOutputCostHint') }}</p>
-            <p v-if="props.provider === 'openrouter'" class="mt-2">{{ t('gptOpenRouterCostHint') }}</p>
+            <p v-if="referenceSizeEstimate" class="mt-2">{{ t(props.provider === 'openrouter' ? 'gptOpenRouterCostHint' : 'gptImageReferenceCostHint') }}</p>
+            <p v-if="selectedImageQuality === 'auto'" class="mt-2">{{ t('gptImageAutoQualityCostHint') }}</p>
           </PopoverPanel>
         </Popover>
       </div>

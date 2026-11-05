@@ -19,9 +19,12 @@ export const MAI_IMAGE_2_6_FLASH_MODEL = 'microsoft/mai-image-2.6-flash'
 export const MAI_VERCEL_WEB_GROUNDING_COST = 0.014
 export const GPT_IMAGE_2_5_FLARE_MODEL = 'openai/gpt-image-2.5-flare'
 export const GPT_IMAGE_2_5_SUNBURST_MODEL = 'openai/gpt-image-2.5-sunburst'
+export const GPT_IMAGE_2_6_FLARE_MODEL = 'openai/gpt-image-2.6-flare'
+export const GPT_IMAGE_2_6_SUNBURST_MODEL = 'openai/gpt-image-2.6-sunburst'
 
 export function isGptImageModel(modelId: string): boolean {
   return modelId === GPT_IMAGE_2_5_FLARE_MODEL || modelId === GPT_IMAGE_2_5_SUNBURST_MODEL
+    || modelId === GPT_IMAGE_2_6_FLARE_MODEL || modelId === GPT_IMAGE_2_6_SUNBURST_MODEL
 }
 
 export function isMaiImageModel(modelId: string): boolean {
@@ -152,8 +155,10 @@ export const AVAILABLE_MODELS: ModelOption[] = [
       provider,
     },
   ]),
-  // GPT Image, available through both image gateways
+  // GPT Image 2.6 and 2.5, available through both image gateways
   ...(['openrouter', 'vercel'] as const).flatMap((provider): ModelOption[] => [
+    { id: GPT_IMAGE_2_6_FLARE_MODEL, name: 'GPT Image 2.6 Flare', description: 'Fast generation & consistent editing. Six quality levels, transparent backgrounds, up to 16 references.', provider },
+    { id: GPT_IMAGE_2_6_SUNBURST_MODEL, name: 'GPT Image 2.6 Sunburst', description: 'Detailed generation & precise, consistent editing. Six quality levels, transparent backgrounds, up to 16 references.', provider },
     { id: GPT_IMAGE_2_5_FLARE_MODEL, name: 'GPT Image 2.5 Flare', description: 'Fast generation & editing. Six quality levels, transparent backgrounds, up to 16 references.', provider },
     { id: GPT_IMAGE_2_5_SUNBURST_MODEL, name: 'GPT Image 2.5 Sunburst', description: 'Precise editing & detailed generation. Six quality levels, transparent backgrounds, up to 16 references.', provider },
   ]),
@@ -310,8 +315,15 @@ export function resolveImageQuality(modelId: string, quality?: ImageQuality): Im
   return quality && getImageQualities(modelId).includes(quality) ? quality : isGptImageModel(modelId) ? 'high' : 'medium'
 }
 
-/** OpenAI's GPT Image 2.5 calculator formula. Image output only; input tokens are extra. */
-export function estimateGptImageOutputCost(width: number, height: number, quality: ImageQuality): number | undefined {
+/** OpenAI's GPT Image calculator formula. Image output only; input tokens are extra.
+ * Source: https://developers.openai.com/api/docs/guides/image-generation#calculating-costs
+ */
+export function estimateGptImageOutputCost(
+  width: number,
+  height: number,
+  quality: ImageQuality,
+  modelId: string = GPT_IMAGE_2_5_FLARE_MODEL,
+): number | undefined {
   const pixels = width * height
   const ratio = Math.max(width, height) / Math.min(width, height)
   if (quality === 'auto' || width <= 0 || height <= 0 || width % 16 !== 0 || height % 16 !== 0
@@ -321,8 +333,12 @@ export function estimateGptImageOutputCost(width: number, height: number, qualit
   const floor = Math.floor(shortGridValue)
   // The official calculator rounds exact .5 ties to the nearest even integer.
   const shortGrid = shortGridValue - floor === 0.5 ? floor + floor % 2 : Math.round(shortGridValue)
-  const tokens = Math.ceil(longGrid * shortGrid * (2_000_000 + pixels) / 4_000_000)
-  return tokens * MODEL_PRICING[GPT_IMAGE_2_5_FLARE_MODEL].outputImage / 1_000_000
+  let tokens = Math.ceil(longGrid * shortGrid * (2_000_000 + pixels) / 4_000_000)
+  // GPT Image 2.6 uses more output tokens at low/medium quality than 2.5.
+  if (modelId === GPT_IMAGE_2_6_FLARE_MODEL || modelId === GPT_IMAGE_2_6_SUNBURST_MODEL) {
+    tokens = Math.round(tokens * ({ low: 4.2, medium: 3.3, high: 1, xhigh: 1, max: 1 }[quality]))
+  }
+  return tokens * MODEL_PRICING[modelId].outputImage / 1_000_000
 }
 
 /** MAI uses a pixel budget; follow Azure's 16px rounding and 768px minimum side. */
@@ -532,6 +548,9 @@ export const MODEL_PRICING: Record<string, {
   // OpenAI / gateway standard Images API token pricing, verified 2026-10-16.
   [GPT_IMAGE_2_5_FLARE_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
   [GPT_IMAGE_2_5_SUNBURST_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
+  // OpenRouter / Vercel GPT Image 2.6 token pricing, verified 2026-11-05.
+  [GPT_IMAGE_2_6_FLARE_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
+  [GPT_IMAGE_2_6_SUNBURST_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
   // OpenRouter Image endpoint pricing / Vercel AI Gateway, verified 2026-10-15.
   [MAI_IMAGE_2_6_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 38 },
   [MAI_IMAGE_2_6_FLASH_MODEL]: { inputText: 1.75, inputImage: 2.5, outputText: 0, outputImage: 19 },
@@ -643,7 +662,7 @@ export function estimateImageOutputCost(
     const size = provider === 'openrouter' ? '1024x1024' : getGptImageSize(aspectRatio, imageSize)
     if (!size) return undefined
     const [width, height] = size.split('x').map(Number)
-    const cost = estimateGptImageOutputCost(width, height, resolveImageQuality(modelId, imageQuality))
+    const cost = estimateGptImageOutputCost(width, height, resolveImageQuality(modelId, imageQuality), modelId)
     return cost == null ? undefined : cost * batchSize
   }
   // User-provided planning estimates; completed MAI jobs still use returned billing/usage.

@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue'
 import type { GenerationConfig, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 import { formatCost, getGenerationSpec, ratioGlyphSize } from '../generationSpec'
+import { isGptImageModel } from '../config/models'
 
 const props = defineProps<{
   modelId?: string
@@ -22,6 +23,13 @@ const spec = computed(() => props.modelId && props.provider && props.config
   : undefined)
 const glyph = computed(() => spec.value ? ratioGlyphSize(spec.value.aspectRatio) : undefined)
 const costCount = computed(() => previewCount.value ?? batchSize.value)
+const costHint = computed(() => {
+  if (!props.modelId || !isGptImageModel(props.modelId)) return undefined
+  const hints = [t('gptImageOutputCostHint')]
+  if (props.provider === 'openrouter' || props.config?.aspectRatio === 'auto') hints.push(t('gptImageReferenceCostHint'))
+  if (props.config?.imageQuality === 'auto') hints.push(t('gptImageAutoQualityCostHint'))
+  return hints.join(' ')
+})
 
 async function openPicker() {
   choosing.value = true
@@ -145,7 +153,7 @@ async function closePicker(count?: number) {
       </template>
       <template v-if="spec.totalCost != null && modelId">
         <span aria-hidden="true">·</span>
-        <span data-spec-cost>
+        <span data-spec-cost :title="costHint">
           {{ t('estCostTotal') }} ~${{ formatCost(spec.totalCost, modelId) }}
           <span v-if="costCount > 1 && spec.unitCost != null" class="text-gray-400 dark:text-gray-500">
             ({{ costCount }} × ~${{ formatCost(spec.unitCost, modelId) }})

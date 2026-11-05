@@ -14,19 +14,23 @@ export function isImageSizeConfigurable(modelId: string, provider: Provider, asp
   return !((isMaiImageModel(modelId) || isGptImageModel(modelId)) && aspectRatio === 'auto')
 }
 
-/** Estimated output cost (USD) for `batchSize` images with the given config. */
+/** Estimated output cost (USD). GPT auto settings use a labelled high-quality / 1K square reference. */
 export function estimateConfigCost(
   modelId: string,
   provider: Provider,
   config: Pick<GenerationConfig, 'aspectRatio' | 'imageSize' | 'imageQuality'>,
   batchSize: number,
 ): number | undefined {
-  const aspectRatio = config.aspectRatio ?? '1:1'
+  const gptImage = isGptImageModel(modelId)
+  const autoRatio = config.aspectRatio === 'auto'
+  const aspectRatio = gptImage && autoRatio ? '1:1' : config.aspectRatio ?? '1:1'
+  const imageSize = gptImage && autoRatio ? '1K' : config.imageSize ?? '1K'
+  const quality = resolveImageQuality(modelId, config.imageQuality)
   return estimateImageOutputCost(
     modelId,
-    config.imageSize ?? '1K',
+    imageSize,
     batchSize,
-    resolveImageQuality(modelId, config.imageQuality),
+    gptImage && quality === 'auto' ? 'high' : quality,
     provider,
     aspectRatio,
   )

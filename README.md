@@ -48,6 +48,8 @@ OpenRouter also offers **Qwen Image 2.1 Pro** (`qwen/qwen-image-2.1-pro`) and **
 
 **GPT Image 2.5 Flare and Sunburst** are available through OpenRouter and Vercel AI Gateway. Flare prioritizes speed; Sunburst prioritizes precise editing. Both support up to 16 reference images, six quality levels, and transparent backgrounds. Pricing is $5 text input / $8 image input / $30 image output per million tokens. Vercel offers pixel-size presets; OpenRouter currently exposes aspect ratio only. See [parameters, pricing, and integration details](./docs/gpt-image-2.5.md).
 
+**GPT Image 2.6 Flare and Sunburst** are also available through OpenRouter and Vercel AI Gateway. Flare prioritizes fast iteration; Sunburst prioritizes detail and consistency across edits. Both support generation and editing, up to 16 reference images, six quality settings, transparent backgrounds, and aspect-ratio control. Vercel offers 1K / 2K / 4K pixel-budget presets; OpenRouter currently exposes aspect ratio only. Token rates are $5 text input / $8 image input / $30 image output per million tokens; output estimates account for 2.6's different low/medium quality token counts. SVG, animated GIF, and markup-guided edits are not currently exposed through OpenRouter. Sources: [OpenRouter Flare](https://openrouter.ai/openai/gpt-image-2.6-flare), [OpenRouter Sunburst](https://openrouter.ai/openai/gpt-image-2.6-sunburst), [Vercel Flare](https://vercel.com/ai-gateway/models/gpt-image-2.6-flare), [Vercel Sunburst](https://vercel.com/ai-gateway/models/gpt-image-2.6-sunburst), [output cost calculator](https://developers.openai.com/api/docs/guides/image-generation#calculating-costs) (verified November 5, 2026).
+
 ## Getting Started
 
 ### Prerequisites

@@ -4,6 +4,9 @@ import { useVercelAI } from '../../src/composables/useVercelAI'
 import {
   GEMINI_PRO_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
+  GPT_IMAGE_2_5_SUNBURST_MODEL,
+  GPT_IMAGE_2_6_FLARE_MODEL,
+  GPT_IMAGE_2_6_SUNBURST_MODEL,
   MAI_IMAGE_2_6_MODEL,
 } from '../../src/config/models'
 import type { GenerationConfig } from '../../src/types'
@@ -14,6 +17,8 @@ const sdk = vi.hoisted(() => ({
   generateText: vi.fn(),
   generateImage: vi.fn(),
 }))
+
+const GPT_IMAGE_MODELS = [GPT_IMAGE_2_5_FLARE_MODEL, GPT_IMAGE_2_5_SUNBURST_MODEL, GPT_IMAGE_2_6_FLARE_MODEL, GPT_IMAGE_2_6_SUNBURST_MODEL]
 
 vi.mock('ai', () => ({
   createGateway: sdk.createGateway,
@@ -108,17 +113,17 @@ describe('Gemini models via generateText', () => {
 })
 
 describe('image models via generateImage', () => {
-  it('sends GPT Image size and OpenAI options', async () => {
+  it.each(GPT_IMAGE_MODELS)('sends %s size and OpenAI options', async (model) => {
     sdk.generateImage.mockResolvedValue(imageResult({ providerMetadata: { openai: { images: [{ imageTokens: 0 }] } } }))
 
     const result = await useVercelAI().generateImage('a logo', config({
-      model: GPT_IMAGE_2_5_FLARE_MODEL,
+      model,
       aspectRatio: '16:9',
       imageSize: '2K',
     }))
 
     const args = sdk.generateImage.mock.calls[0][0]
-    expect(args.model).toEqual({ kind: 'image', id: GPT_IMAGE_2_5_FLARE_MODEL })
+    expect(args.model).toEqual({ kind: 'image', id: model })
     expect(args.prompt).toBe('a logo')
     expect(args.n).toBe(1)
     expect(args.size).toBe('2720x1536')
@@ -150,13 +155,43 @@ describe('image models via generateImage', () => {
     expect(result.usage?.estimatedCost).toBeCloseTo(0.03965 + 0.014, 9)
   })
 
-  it('bills all input at the image rate when per-image token metadata is missing', async () => {
+  it.each(GPT_IMAGE_MODELS)('bills %s input at the image rate when per-image token metadata is missing', async (model) => {
     sdk.generateImage.mockResolvedValue(imageResult())
 
-    const result = await useVercelAI().editImage([inputImage()], 'edit', config({ model: GPT_IMAGE_2_5_FLARE_MODEL }))
+    const result = await useVercelAI().editImage([inputImage()], 'edit', config({ model }))
 
     // 100 input at $8/M + 1000 output at $30/M
     expect(result.usage?.estimatedCost).toBeCloseTo(0.0308, 9)
+  })
+
+  describe.each([GPT_IMAGE_2_6_FLARE_MODEL, GPT_IMAGE_2_6_SUNBURST_MODEL])('%s editing', (model) => {
+    it('sends references and OpenAI options with auto sizing and itemized input cost', async () => {
+      sdk.generateImage.mockResolvedValue(imageResult({
+        usage: { inputTokens: 1000, outputTokens: 2000 },
+        providerMetadata: { openai: { images: [{ imageTokens: 400 }] } },
+      }))
+      const images = Array.from({ length: 16 }, (_, i) => inputImage(i))
+
+      const result = await useVercelAI().editImage(images, 'restyle', config({
+        model, aspectRatio: 'auto', imageSize: '4K', imageQuality: 'max', imageBackground: 'transparent',
+      }))
+
+      const args = sdk.generateImage.mock.calls[0][0]
+      expect(args.model).toEqual({ kind: 'image', id: model })
+      expect(args.prompt).toEqual({ text: 'restyle', images: images.map((image) => `data:${image.mimeType};base64,${image.base64}`) })
+      expect(args.size).toBeUndefined()
+      expect(args.providerOptions).toEqual({ openai: { quality: 'max', background: 'transparent', outputFormat: 'png' } })
+      expect(sdk.generateText).not.toHaveBeenCalled()
+      expect(result.imageBase64).toBe(IMAGE_B64)
+      expect(result.usage?.estimatedCost).toBeCloseTo(0.0662, 9)
+    })
+
+    it('rejects more than 16 references without calling the SDK', async () => {
+      const images = Array.from({ length: 17 }, (_, i) => inputImage(i))
+      await expect(useVercelAI().editImage(images, 'edit', config({ model })))
+        .rejects.toThrow(en.referenceImagesLimitReached.replace('{count}', '16'))
+      expect(sdk.generateImage).not.toHaveBeenCalled()
+    })
   })
 
   it('rejects too many reference images without calling the SDK', async () => {

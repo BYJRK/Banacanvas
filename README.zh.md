@@ -48,6 +48,8 @@ OpenRouter 还通过 Image API 提供 **Qwen Image 2.1 Pro**（`qwen/qwen-image-
 
 OpenRouter 和 Vercel AI Gateway 均支持 **GPT Image 2.5 Flare 与 Sunburst**。Flare 偏速度，Sunburst 偏精准编辑；两款均支持最多 16 张参考图、六档质量和透明背景。每百万 Token 的文本输入 / 图像输入 / 图像输出费用为 $5 / $8 / $30。Vercel 提供像素尺寸预设，OpenRouter 当前仅开放比例控制。详见[参数、价格与接入说明](./docs/gpt-image-2.5.md)。
 
+OpenRouter 和 Vercel AI Gateway 还支持 **GPT Image 2.6 Flare 与 Sunburst**。Flare 偏快速迭代，Sunburst 偏精细生成与多轮编辑的一致性。两款均支持生成与编辑、最多 16 张参考图、六档质量、透明背景和宽高比控制。Vercel 提供 1K / 2K / 4K 像素预算预设，OpenRouter 当前仅开放比例控制。每百万 Token 的文本输入 / 图像输入 / 图像输出费用为 $5 / $8 / $30；输出费用估算已考虑 2.6 在低、中质量下不同的 Token 用量。OpenRouter 当前尚未开放 SVG、动画 GIF 和标注引导编辑。来源：[OpenRouter Flare](https://openrouter.ai/openai/gpt-image-2.6-flare)、[OpenRouter Sunburst](https://openrouter.ai/openai/gpt-image-2.6-sunburst)、[Vercel Flare](https://vercel.com/ai-gateway/models/gpt-image-2.6-flare)、[Vercel Sunburst](https://vercel.com/ai-gateway/models/gpt-image-2.6-sunburst)、[输出费用计算器](https://developers.openai.com/api/docs/guides/image-generation#calculating-costs)（核实于 2026-11-05）。
+
 ## 快速开始
 
 ### 前置要求

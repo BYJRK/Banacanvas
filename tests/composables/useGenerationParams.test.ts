@@ -9,6 +9,8 @@ import {
   GEMINI_NANO_BANANA_2_1_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
   GPT_IMAGE_2_5_SUNBURST_MODEL,
+  GPT_IMAGE_2_6_FLARE_MODEL,
+  GPT_IMAGE_2_6_SUNBURST_MODEL,
   SEEDREAM_5_0_LITE_MODEL,
   SEEDREAM_5_0_PRO_MODEL,
   getModelsForProvider,
@@ -54,20 +56,21 @@ describe('loading persisted params', () => {
     expect(params.suggestAspectRatio.value).toBe(true)
   })
 
-  it('restores the stored provider, model and config', () => {
+  it.each([GPT_IMAGE_2_5_FLARE_MODEL, GPT_IMAGE_2_6_FLARE_MODEL, GPT_IMAGE_2_6_SUNBURST_MODEL]
+    .flatMap((modelId) => (['openrouter', 'vercel'] as const).map((provider) => [modelId, provider] as const)))('restores the stored model and config for %s via %s', (modelId, provider) => {
     persist({
-      provider: 'openrouter',
-      modelId: GPT_IMAGE_2_5_FLARE_MODEL,
+      provider,
+      modelId,
       downloadFormat: 'webp',
       config: { aspectRatio: '3:2', imageQuality: 'max', imageBackground: 'transparent', batchSize: 3 },
     })
 
     const params = useGenerationParams()
 
-    expect(params.selectedModel.value).toEqual(model(GPT_IMAGE_2_5_FLARE_MODEL, 'openrouter'))
+    expect(params.selectedModel.value).toEqual(model(modelId, provider))
     expect(params.config.value).toMatchObject({
-      provider: 'openrouter',
-      model: GPT_IMAGE_2_5_FLARE_MODEL,
+      provider,
+      model: modelId,
       aspectRatio: '3:2',
       imageQuality: 'max',
       imageBackground: 'transparent',
@@ -233,6 +236,12 @@ describe('changeModel', () => {
 
     params.config.value = { ...params.config.value, imageQuality: 'max' }
     params.changeModel(model(GPT_IMAGE_2_5_SUNBURST_MODEL, 'vercel'))
+    expect(params.config.value.imageQuality).toBe('max')
+
+    params.changeModel(model(GPT_IMAGE_2_6_FLARE_MODEL, 'openrouter'))
+    expect(params.config.value.imageQuality).toBe('max')
+
+    params.changeModel(model(GPT_IMAGE_2_6_SUNBURST_MODEL, 'openrouter'))
     expect(params.config.value.imageQuality).toBe('max')
 
     params.changeModel(model(GEMINI_FLASH_IMAGE_MODEL, 'gemini'))
