@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useOpenRouter } from '../../src/composables/useOpenRouter'
 import {
+  MINIMAX_H3_IMAGE_MODEL,
   GEMINI_FLASH_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
   GPT_IMAGE_2_6_FLARE_MODEL,
@@ -369,5 +370,36 @@ describe('errors and cancellation', () => {
 
     await expect(pending).rejects.toThrow(en.generationCancelled)
     expect(lastRequest().init.signal).toBe(controller.signal)
+  })
+})
+
+
+describe('MiniMax text-to-image', () => {
+  it.each(['1K', '2K', '4K'] as const)('sends %s through the image API and preserves billed cost', async (imageSize) => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: [{ b64_json: IMAGE_B64, media_type: 'image/png' }], usage: { cost: 0.0123 } }))
+    const result = await useOpenRouter().generateImage('a cat', config({
+      model: MINIMAX_H3_IMAGE_MODEL, imageSize, aspectRatio: '3:4', seed: 42,
+      imageQuality: 'max', imageBackground: 'transparent', googleSearch: true,
+    }))
+    expect(lastRequest().url).toBe(IMAGES_URL)
+    expect(lastRequest().body).toEqual({
+      model: MINIMAX_H3_IMAGE_MODEL, prompt: 'a cat', resolution: imageSize,
+      aspect_ratio: '3:4', n: 1, output_format: 'png',
+    })
+    expect(result.imageBase64).toBe(IMAGE_B64)
+    expect(result.usage).toMatchObject({ estimatedCost: 0.0123, costIsExact: true })
+  })
+
+  it('uses actual token usage before the resolution reference estimate', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: [{ b64_json: IMAGE_B64 }], usage: { prompt_tokens: 1000, completion_tokens: 2000 } }))
+    const result = await useOpenRouter().generateImage('a cat', config({ model: MINIMAX_H3_IMAGE_MODEL, imageSize: '4K' }))
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.0099, 9)
+    expect(result.usage?.costIsExact).toBe(false)
+  })
+
+  it('falls back to the selected resolution estimate when usage is missing', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: [{ b64_json: IMAGE_B64 }] }))
+    const result = await useOpenRouter().generateImage('a cat', config({ model: MINIMAX_H3_IMAGE_MODEL, imageSize: '4K' }))
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.06879, 9)
   })
 })

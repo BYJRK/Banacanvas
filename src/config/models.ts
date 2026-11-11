@@ -1,6 +1,7 @@
 import type { ImageQuality, ModelOption, Provider } from '../types'
 
 // Canonical model IDs — avoid scattering magic strings across capability helpers
+export const MINIMAX_H3_IMAGE_MODEL = 'minimax/minimax-h3-image'
 export const GEMINI_NANO_BANANA_2_1_MODEL = 'gemini-nano-banana-2.1'
 export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
 export const GEMINI_FLASH_LITE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image'
@@ -162,6 +163,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     { id: GPT_IMAGE_2_5_FLARE_MODEL, name: 'GPT Image 2.5 Flare', description: 'Fast generation & editing. Six quality levels, transparent backgrounds, up to 16 references.', provider },
     { id: GPT_IMAGE_2_5_SUNBURST_MODEL, name: 'GPT Image 2.5 Sunburst', description: 'Precise editing & detailed generation. Six quality levels, transparent backgrounds, up to 16 references.', provider },
   ]),
+  ...(['openrouter', 'vercel'] as const).map((provider): ModelOption => ({
+    id: MINIMAX_H3_IMAGE_MODEL,
+    name: 'MiniMax H3 Image',
+    description: 'MiniMax standard image generation. 1K–4K, flexible aspect ratios.',
+    provider,
+  })),
   // Vercel AI Gateway
   {
     id: 'google/gemini-3.1-flash-image',
@@ -283,6 +290,32 @@ const RIVERFLOW_FAST_IMAGE_SIZES = [
   { value: '2K', label: '2K' },
 ] as const
 
+// Fixed ratios shared by both gateways; explicit dimensions preserve the selected area on Vercel.
+const MINIMAX_ASPECT_RATIOS = [
+  '1:1', '1:2', '1:3', '2:1', '2:3', '3:1', '2.35:1', '3:2', '3:4', '4:3', '4:5',
+  '5:2', '5:4', '5:7', '7:5', '9:16', '16:9', '9:19.5', '19.5:9', '9:20', '20:9', '9:21', '21:9',
+] as const
+
+/** Area presets rounded to a 32px grid, matching MiniMax's documented 2K/4K examples.
+ * https://platform.minimax.io/docs/guides/image-generation#output-size
+ */
+export function getMinimaxImageSize(aspectRatio: string, imageSize: string): `${number}x${number}` | undefined {
+  if (!(MINIMAX_ASPECT_RATIOS as readonly string[]).includes(aspectRatio)) return undefined
+  const [w, h] = aspectRatio.split(':').map(Number)
+  const side = imageSize === '4K' ? 4096 : imageSize === '2K' ? 2048 : 1024
+  const round32 = (value: number) => Math.round(value / 32) * 32
+  let width = round32(side * Math.sqrt(w / h))
+  let height = round32(side * Math.sqrt(h / w))
+  // Grid rounding must not push the extreme 1:3 / 3:1 ratios outside API limits.
+  if (width > height * 3) width = height * 3
+  if (height > width * 3) height = width * 3
+  return `${width}x${height}`
+}
+
+// Official illustrative text-to-image totals, including prompt enhancement; no launch discount.
+// https://platform.minimax.io/docs/pricing/overview#example-cost-per-generated-image
+const MINIMAX_REFERENCE_PRICES: Record<string, number> = { '1K': 0.02179, '2K': 0.02333, '4K': 0.06879 }
+
 const MAI_ASPECT_RATIOS = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', 'auto'] as const
 const MAI_IMAGE_SIZES = [
   { value: '1K', label: '1K' },
@@ -363,6 +396,7 @@ export function supportsImageSizeConfiguration(modelId: string, provider: Provid
 }
 
 export function getAspectRatios(modelId: string) {
+  if (modelId === MINIMAX_H3_IMAGE_MODEL) return MINIMAX_ASPECT_RATIOS
   if (isQwenImageModel(modelId)) return QWEN_ASPECT_RATIOS
   if (isGptImageModel(modelId)) return GPT_IMAGE_ASPECT_RATIOS
   if (isMaiImageModel(modelId)) return MAI_ASPECT_RATIOS
@@ -394,6 +428,7 @@ export function closestAspectRatio(width: number, height: number, ratios: readon
 }
 
 export function getImageSizes(modelId: string, provider?: Provider) {
+  if (modelId === MINIMAX_H3_IMAGE_MODEL) return PRO_IMAGE_SIZES
   if (isQwenImageModel(modelId)) return QWEN_IMAGE_SIZES
   if (isGptImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : GPT_IMAGE_SIZES
   if (isMaiImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : MAI_IMAGE_SIZES
@@ -473,6 +508,9 @@ const GROK_RESOLUTIONS: Record<string, Record<string, string>> = {
 }
 
 export function getResolution(aspectRatio: string, imageSize: string, modelId?: string, provider?: Provider): string | undefined {
+  if (modelId === MINIMAX_H3_IMAGE_MODEL) {
+    return provider === 'vercel' ? getMinimaxImageSize(aspectRatio, imageSize)?.replace('x', '×') : undefined
+  }
   if (modelId && isQwenImageModel(modelId)) return undefined
   if (modelId && isGptImageModel(modelId)) {
     return provider === 'openrouter' ? undefined : getGptImageSize(aspectRatio, imageSize)?.replace('x', '×')
@@ -489,6 +527,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 
 /** Maximum reference images accepted by the selected model. */
 export function getMaxInputImages(modelId: string): number {
+  if (modelId === MINIMAX_H3_IMAGE_MODEL) return 16
   if (isQwenImageModel(modelId)) return 4
   if (isGptImageModel(modelId)) return 16
   if (isMaiImageModel(modelId)) return 5
@@ -503,6 +542,7 @@ export function getMaxInputImages(modelId: string): number {
 
 /** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
+  if (modelId === MINIMAX_H3_IMAGE_MODEL) return true
   if (isQwenImageModel(modelId)) return true
   if (isMaiImageModel(modelId) || isGptImageModel(modelId)) return true
   return modelId === MUSE_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL || modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL
@@ -545,6 +585,7 @@ export const MODEL_PRICING: Record<string, {
   outputText: number
   outputImage: number
 }> = {
+  [MINIMAX_H3_IMAGE_MODEL]: { inputText: 2.3, inputImage: 1.5, outputText: 0, outputImage: 3.8 },
   // OpenAI / gateway standard Images API token pricing, verified 2026-10-16.
   [GPT_IMAGE_2_5_FLARE_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
   [GPT_IMAGE_2_5_SUNBURST_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 30 },
@@ -645,7 +686,7 @@ const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
 }
 
 /**
- * Estimate image output cost in USD per image (ignores input cost).
+ * Estimate image output cost in USD per image (ignores input cost except MiniMax reference totals).
  * Based on Gemini output image token pricing.
  */
 export function estimateImageOutputCost(
@@ -656,6 +697,9 @@ export function estimateImageOutputCost(
   provider?: Provider,
   aspectRatio: string = '1:1',
 ): number | undefined {
+  if (modelId === MINIMAX_H3_IMAGE_MODEL) {
+    return (MINIMAX_REFERENCE_PRICES[imageSize] ?? MINIMAX_REFERENCE_PRICES['1K']) * batchSize
+  }
   if (isGptImageModel(modelId)) {
     if (aspectRatio === 'auto') return undefined
     // OpenRouter does not expose output size: use a labelled square reference estimate.

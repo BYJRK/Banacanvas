@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useVercelAI } from '../../src/composables/useVercelAI'
 import {
+  MINIMAX_H3_IMAGE_MODEL,
   GEMINI_PRO_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
   GPT_IMAGE_2_5_SUNBURST_MODEL,
@@ -253,5 +254,45 @@ describe('errors and cancellation', () => {
 
     await expect(pending).rejects.toThrow(en.generationCancelled)
     expect(sdk.generateImage.mock.calls[0][0].abortSignal).toBe(controller.signal)
+  })
+})
+
+
+describe('MiniMax text-to-image', () => {
+  it.each([['1K', '1376x768'], ['2K', '2720x1536'], ['4K', '5472x3072']] as const)('sends %s dimensions with MiniMax options and no automatic retries', async (imageSize, size) => {
+    sdk.generateImage.mockResolvedValue(imageResult({ usage: { inputTokens: 1000, outputTokens: 2000 } }))
+    const result = await useVercelAI().generateImage('a cat', config({
+      model: MINIMAX_H3_IMAGE_MODEL, imageSize, aspectRatio: '16:9',
+      imageQuality: 'max', imageBackground: 'transparent', googleSearch: true,
+    }))
+    const args = sdk.generateImage.mock.calls[0][0]
+    expect(args).toMatchObject({
+      model: { kind: 'image', id: MINIMAX_H3_IMAGE_MODEL }, prompt: 'a cat', size,
+      n: 1, maxRetries: 0, providerOptions: { minimax: { outputFormat: 'png' } },
+    })
+    expect(args.abortSignal).toBeInstanceOf(AbortSignal)
+    expect(sdk.generateText).not.toHaveBeenCalled()
+    expect(result.imageBase64).toBe(IMAGE_B64)
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.0099, 9)
+    expect(result.usage?.totalTokenCount).toBe(3000)
+  })
+
+  it('uses square 1K defaults and reference pricing if output usage is unavailable', async () => {
+    sdk.generateImage.mockResolvedValue(imageResult({ usage: {} }))
+    const result = await useVercelAI().generateImage('a cat', config({ model: MINIMAX_H3_IMAGE_MODEL }))
+    expect(sdk.generateImage.mock.calls[0][0].size).toBe('1024x1024')
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.02179, 9)
+  })
+
+  it('passes the batch signal through and handles cancellation', async () => {
+    sdk.generateImage.mockImplementation(({ abortSignal }) => waitForAbort(abortSignal))
+    const api = useVercelAI()
+    const controller = new AbortController()
+    const pending = api.generateImage('a cat', config({ model: MINIMAX_H3_IMAGE_MODEL }), controller.signal)
+    await vi.waitFor(() => expect(sdk.generateImage).toHaveBeenCalled())
+    expect(sdk.generateImage.mock.calls[0][0].abortSignal).toBe(controller.signal)
+    expect(api.loading.value).toBe(false)
+    controller.abort()
+    await expect(pending).rejects.toThrow(en.generationCancelled)
   })
 })

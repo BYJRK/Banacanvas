@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import type { ModelMessage, generateText } from 'ai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { estimateImageTokenCost, getBaseModelId, getMaiImageSize, getGptImageSize, getMaxInputImages, isMaiImageModel, isGptImageModel, resolveImageQuality, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
+import { MINIMAX_H3_IMAGE_MODEL, getMinimaxImageSize, estimateImageOutputCost, estimateImageTokenCost, getBaseModelId, getMaiImageSize, getGptImageSize, getMaxInputImages, isMaiImageModel, isGptImageModel, resolveImageQuality, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
 import { prepareMaiImages } from '../maiImages'
 import { isAbortError } from '../abort'
 import { useI18n } from './useI18n'
@@ -40,6 +40,43 @@ export function useVercelAI() {
     try {
       const { generateText, generateImage: generateSdkImage, createGateway } = await import('ai')
       const gateway = createGateway({ apiKey })
+
+      if (config.model === MINIMAX_H3_IMAGE_MODEL) {
+        const maxImages = getMaxInputImages(config.model)
+        if (images.length > maxImages) {
+          throw new Error(t('referenceImagesLimitReached').replace('{count}', String(maxImages)))
+        }
+        const result = await generateSdkImage({
+          model: gateway.imageModel(config.model),
+          prompt: images.length > 0
+            ? { text: prompt, images: images.map((image) => `data:${image.mimeType};base64,${image.base64}`) }
+            : prompt,
+          size: getMinimaxImageSize(config.aspectRatio ?? '1:1', config.imageSize ?? '1K'),
+          n: 1,
+          // MiniMax generation is not idempotent: retries may create another billed image.
+          maxRetries: 0,
+          providerOptions: { minimax: { outputFormat: 'png' } },
+          abortSignal: signal,
+        })
+        const image = result.images[0]
+        if (!image) throw new Error(t('noImageGenerated'))
+        const inputTokens = result.usage.inputTokens ?? 0
+        const outputTokens = result.usage.outputTokens
+        return {
+          imageBase64: image.base64,
+          imageMimeType: image.mediaType,
+          usage: {
+            promptTokenCount: inputTokens,
+            candidatesTokenCount: outputTokens ?? 0,
+            thoughtsTokenCount: 0,
+            totalTokenCount: result.usage.totalTokens ?? inputTokens + (outputTokens ?? 0),
+            // Vercel does not publish a separate image-input rate; only estimate text-to-image.
+            estimatedCost: images.length > 0 ? undefined
+              : estimateImageTokenCost(config.model, inputTokens, outputTokens, 0)
+                ?? estimateImageOutputCost(config.model, config.imageSize ?? '1K'),
+          },
+        }
+      }
 
       if (isMaiImageModel(config.model) || isGptImageModel(config.model)) {
         const isGptImage = isGptImageModel(config.model)

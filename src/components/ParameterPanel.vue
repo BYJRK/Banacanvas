@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/vue'
-import { getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, isGptImageModel, getImageQualities, resolveImageQuality, MODEL_PRICING } from '../config/models'
+import { MINIMAX_H3_IMAGE_MODEL, getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, isGptImageModel, getImageQualities, resolveImageQuality, MODEL_PRICING } from '../config/models'
 import { estimateConfigCost, formatCost, isImageSizeConfigurable } from '../generationSpec'
 import type { GenerationConfig, DownloadFormat, ImageQuality, Provider } from '../types'
 import type { MessageKey } from '../i18n/messages'
@@ -298,7 +298,7 @@ const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || 
       </div>
       <div v-if="estimatedTotalCost != null" class="relative mt-1.5 flex flex-wrap items-center gap-1 text-xs text-gray-400 dark:text-gray-500" data-cost-estimate aria-live="polite" aria-atomic="true">
         <span>{{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost, props.modelId) }}</span>
-        <Popover v-if="isGptImageModel(props.modelId)" class="flex">
+        <Popover v-if="isGptImageModel(props.modelId) || props.modelId === MINIMAX_H3_IMAGE_MODEL" class="flex">
           <PopoverButton :aria-label="t('costEstimateInfo')" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 cursor-pointer">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <circle cx="10" cy="10" r="7.25" />
@@ -307,9 +307,12 @@ const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || 
             </svg>
           </PopoverButton>
           <PopoverPanel class="absolute left-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-3rem)] rounded-lg border border-gray-200 bg-white p-3 text-xs leading-relaxed text-gray-600 shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-            <p>{{ t('gptImageOutputCostHint') }}</p>
-            <p v-if="referenceSizeEstimate" class="mt-2">{{ t(props.provider === 'openrouter' ? 'gptOpenRouterCostHint' : 'gptImageReferenceCostHint') }}</p>
-            <p v-if="selectedImageQuality === 'auto'" class="mt-2">{{ t('gptImageAutoQualityCostHint') }}</p>
+            <p v-if="props.modelId === MINIMAX_H3_IMAGE_MODEL">{{ t('minimaxReferenceCostHint') }}</p>
+            <template v-else>
+              <p>{{ t('gptImageOutputCostHint') }}</p>
+              <p v-if="referenceSizeEstimate" class="mt-2">{{ t(props.provider === 'openrouter' ? 'gptOpenRouterCostHint' : 'gptImageReferenceCostHint') }}</p>
+              <p v-if="selectedImageQuality === 'auto'" class="mt-2">{{ t('gptImageAutoQualityCostHint') }}</p>
+            </template>
           </PopoverPanel>
         </Popover>
       </div>

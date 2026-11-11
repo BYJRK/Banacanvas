@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
 import {
+  MINIMAX_H3_IMAGE_MODEL,
   estimateImageOutputCost,
   estimateImageTokenCost,
   getBaseModelId,
@@ -141,6 +142,10 @@ export function useOpenRouter() {
       if (supportsImageConfiguration(config.model)) {
         if (!isMaiImageModel(config.model) && !isGptImageModel(config.model)) body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
         body.aspect_ratio = config.aspectRatio ?? '1:1'
+      }
+      if (config.model === MINIMAX_H3_IMAGE_MODEL) {
+        body.n = 1
+        body.output_format = 'png'
       }
       if (isMaiImageModel(config.model)) {
         body.n = 1
@@ -295,6 +300,10 @@ export function useOpenRouter() {
         totalTokenCount: totalTokens,
         estimatedCost: hasExactCost
           ? responseCost
+          : config.model === MINIMAX_H3_IMAGE_MODEL
+            ? estimateImageTokenCost(config.model, promptTokens, result.usage?.completion_tokens,
+              hasInputImages ? result.usage?.prompt_tokens_details?.image_tokens : 0)
+              ?? (hasInputImages ? undefined : estimateImageOutputCost(config.model, config.imageSize ?? '1K'))
           : isMaiImageModel(config.model) || isGptImageModel(config.model)
             ? estimateImageTokenCost(config.model, promptTokens, result.usage?.completion_tokens,
               hasInputImages ? result.usage?.prompt_tokens_details?.image_tokens : 0)

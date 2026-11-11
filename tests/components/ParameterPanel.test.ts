@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref, type App } from 'vue'
 import ParameterPanel from '../../src/components/ParameterPanel.vue'
 import {
+  MINIMAX_H3_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
   GPT_IMAGE_2_5_SUNBURST_MODEL,
   GPT_IMAGE_2_6_FLARE_MODEL,
@@ -72,5 +73,20 @@ describe.each([GPT_IMAGE_2_5_FLARE_MODEL, GPT_IMAGE_2_5_SUNBURST_MODEL, GPT_IMAG
     config.value = { ...config.value, aspectRatio: 'auto' }
     await nextTick()
     expect(text('[data-cost-estimate]')).toBe(`${en.estCostTotal}: ~$0.105`)
+  })
+})
+
+
+describe.each(['openrouter', 'vercel'] as const)('MiniMax %s estimate', (provider) => {
+  it('updates reference totals with resolution and explains the estimate', async () => {
+    mount(MINIMAX_H3_IMAGE_MODEL, provider, { aspectRatio: '1:1' })
+    expect(text('[data-cost-estimate]')).toBe(`${en.estCostTotal}: ~$0.0436`)
+    Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.trim() === '4K')!.click()
+    await nextTick()
+    expect(text('[data-cost-estimate]')).toBe(`${en.estCostTotal}: ~$0.14`)
+    host.querySelector<HTMLButtonElement>(`button[aria-label="${en.costEstimateInfo}"]`)!.click()
+    await nextTick()
+    expect(host.textContent).toContain(en.minimaxReferenceCostHint)
+    expect(host.textContent).not.toContain(en.gptImageOutputCostHint)
   })
 })

@@ -44,7 +44,7 @@ describe('grouped model selector', () => {
     const selected = mount('vercel')
     await click(trigger())
     expect(choices().map((button) => button.textContent)).toEqual([
-      expect.stringContaining('Microsoft'), expect.stringContaining('OpenAI'), expect.stringContaining('Google'),
+      expect.stringContaining('Microsoft'), expect.stringContaining('OpenAI'), expect.stringContaining('MiniMax'), expect.stringContaining('Google'),
     ])
     await click(choice('Google'))
     expect(host.textContent).toContain(en.modelVercelNanoBanana2Desc)
@@ -58,7 +58,7 @@ describe('grouped model selector', () => {
   it('selects an author then a model and restores trigger focus', async () => {
     const selected = mount()
     await click(trigger())
-    expect(choices()).toHaveLength(8)
+    expect(choices()).toHaveLength(9)
     expect(choice('Google').getAttribute('aria-current')).toBe('true')
     await click(choice('Qwen'))
     expect(choices()).toHaveLength(2)
@@ -68,7 +68,7 @@ describe('grouped model selector', () => {
     expect(host.querySelector('[role="group"]')).toBeNull()
     expect(document.activeElement).toBe(trigger())
     await click(trigger())
-    expect(choices()).toHaveLength(8)
+    expect(choices()).toHaveLength(9)
     expect(choice('Qwen').getAttribute('aria-current')).toBe('true')
   })
 
@@ -82,11 +82,11 @@ describe('grouped model selector', () => {
     choices()[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
     await nextTick()
     await nextTick()
-    expect(choices()).toHaveLength(8)
+    expect(choices()).toHaveLength(9)
     expect(document.activeElement).toBe(choice('Google'))
     await click(choice('Qwen'))
     await click(host.querySelector<HTMLButtonElement>(`[aria-label="${en.backToModelAuthors}"]`)!)
-    expect(choices()).toHaveLength(8)
+    expect(choices()).toHaveLength(9)
     expect(selected.value.id).toBe(models[0].id)
   })
 

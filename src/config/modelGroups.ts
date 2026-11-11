@@ -9,6 +9,7 @@ const AUTHOR_NAMES: Record<string, string> = {
   qwen: 'Qwen',
   microsoft: 'Microsoft',
   openai: 'OpenAI',
+  minimax: 'MiniMax',
 }
 
 /** Group gateway models by author namespace, preserving catalogue order. */

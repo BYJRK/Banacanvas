@@ -7,7 +7,7 @@ describe('groupModelsByAuthor', () => {
   it('includes every OpenRouter model once, preserving catalogue order within each author', () => {
     const models = getModelsForProvider('openrouter')
     const groups = groupModelsByAuthor(models)
-    expect(groups.map((group) => group.name)).toEqual(['Google', 'xAI', 'ByteDance', 'Sourceful', 'Meta', 'Qwen', 'Microsoft', 'OpenAI'])
+    expect(groups.map((group) => group.name)).toEqual(['Google', 'xAI', 'ByteDance', 'Sourceful', 'Meta', 'Qwen', 'Microsoft', 'OpenAI', 'MiniMax'])
     expect(groups.flatMap((group) => group.models).length).toBe(models.length)
     for (const group of groups) {
       expect(group.models).toEqual(models.filter((model) => model.id.startsWith(`${group.id}/`)))

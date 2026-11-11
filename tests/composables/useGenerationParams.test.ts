@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { useGenerationParams } from '../../src/composables/useGenerationParams'
 import {
+  MINIMAX_H3_IMAGE_MODEL,
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
   GEMINI_FLASH_IMAGE_MODEL,
@@ -345,4 +346,13 @@ describe('applyHistoryConfig', () => {
     expect(params.selectedProvider.value).toBe(DEFAULT_MODEL.provider)
     expect(params.config.value).toMatchObject({ model: DEFAULT_MODEL.id, provider: DEFAULT_MODEL.provider })
   })
+})
+
+
+it.each(['openrouter', 'vercel'] as const)('restores MiniMax on %s and normalizes unsupported controls', (provider) => {
+  persist({ provider, modelId: MINIMAX_H3_IMAGE_MODEL, config: { aspectRatio: '1:4', imageSize: '512', seed: 42 } })
+  const params = useGenerationParams()
+  expect(params.selectedModel.value.id).toBe(MINIMAX_H3_IMAGE_MODEL)
+  expect(params.config.value).toMatchObject({ provider, model: MINIMAX_H3_IMAGE_MODEL, aspectRatio: '1:1', imageSize: '1K' })
+  expect(params.config.value.seed).toBeUndefined()
 })

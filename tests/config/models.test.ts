@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MINIMAX_H3_IMAGE_MODEL,
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
   GEMINI_FLASH_IMAGE_MODEL,
@@ -29,6 +30,7 @@ import {
   getImageQualities,
   getImageSizes,
   getMaiImageSize,
+  getMinimaxImageSize,
   getMaxInputImages,
   getModelsForProvider,
   getResolution,
@@ -405,5 +407,43 @@ describe('estimateImageTokenCost', () => {
 
   it('returns undefined without output tokens', () => {
     expect(estimateImageTokenCost(GPT_IMAGE_2_5_FLARE_MODEL, 1000, undefined)).toBeUndefined()
+  })
+})
+
+
+describe('MiniMax H3 Image standard', () => {
+  it.each(['openrouter', 'vercel'] as const)('offers 1K–4K via %s with only supported controls', (provider) => {
+    expect(getModelsForProvider(provider).some((model) => model.id === MINIMAX_H3_IMAGE_MODEL)).toBe(true)
+    expect(sizeValues(MINIMAX_H3_IMAGE_MODEL, provider)).toEqual(['1K', '2K', '4K'])
+    expect(getAspectRatios(MINIMAX_H3_IMAGE_MODEL)).toContain('1:3')
+    expect(getAspectRatios(MINIMAX_H3_IMAGE_MODEL)).not.toContain('1:4')
+    expect(supportsSeedParameter(MINIMAX_H3_IMAGE_MODEL)).toBe(false)
+    expect(supportsImageQuality(MINIMAX_H3_IMAGE_MODEL)).toBe(false)
+    expect(usesOpenRouterImageApi(MINIMAX_H3_IMAGE_MODEL)).toBe(true)
+  })
+
+  it.each([
+    ['1:1', '1K', '1024x1024'], ['1:1', '4K', '4096x4096'],
+    ['4:3', '2K', '2368x1760'], ['16:9', '2K', '2720x1536'],
+    ['16:9', '4K', '5472x3072'], ['1:3', '4K', '2368x7104'],
+  ])('maps %s at %s to valid explicit dimensions', (ratio, tier, size) => {
+    expect(getMinimaxImageSize(ratio, tier)).toBe(size)
+  })
+
+  it('keeps every offered size inside MiniMax pixel and ratio limits', () => {
+    for (const ratio of getAspectRatios(MINIMAX_H3_IMAGE_MODEL)) {
+      for (const size of sizeValues(MINIMAX_H3_IMAGE_MODEL)) {
+        const [w, h] = getMinimaxImageSize(ratio, size)!.split('x').map(Number)
+        expect(w * h).toBeGreaterThanOrEqual(655360)
+        expect(w * h).toBeLessThanOrEqual(20000000)
+        expect(w / h).toBeGreaterThanOrEqual(1 / 3)
+        expect(w / h).toBeLessThanOrEqual(3)
+      }
+    }
+    expect(getMinimaxImageSize('1:4', '4K')).toBeUndefined()
+  })
+
+  it.each([['1K', 0.02179], ['2K', 0.02333], ['4K', 0.06879]] as const)('uses the undiscounted %s text-to-image reference total', (size, price) => {
+    expect(estimateImageOutputCost(MINIMAX_H3_IMAGE_MODEL, size, 3)).toBeCloseTo(price * 3, 9)
   })
 })

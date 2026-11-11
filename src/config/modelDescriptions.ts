@@ -3,6 +3,8 @@ import type { ModelOption } from '../types'
 
 /** Localized description per `provider:modelId`; every entry in AVAILABLE_MODELS must have one. */
 export const MODEL_DESCRIPTION_KEYS: Record<string, MessageKey> = {
+  'openrouter:minimax/minimax-h3-image': 'modelMinimaxH3ImageDesc',
+  'vercel:minimax/minimax-h3-image': 'modelMinimaxH3ImageDesc',
   'openrouter:qwen/qwen-image-2.1-pro': 'modelQwenImage21ProDesc',
   'openrouter:qwen/qwen-image-2.1-turbo': 'modelQwenImage21TurboDesc',
   'gemini:gemini-nano-banana-2.1': 'modelNanoBanana21Desc',
