@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import type { UsageInfo, DownloadFormat, BatchResultItem, GenerationConfig, Provider } from '../types'
+import type { UsageInfo, DownloadFormat, BatchResultItem, GenerationConfig, ImageIdentity, Provider } from '../types'
 import { useI18n } from '../composables/useI18n'
 import BatchSizePreview from './BatchSizePreview.vue'
 
 const props = defineProps<{
   imageBase64?: string
+  imageIdentity?: ImageIdentity
   imageMimeType?: string
   textResponse?: string
   errorMessage?: string | null
@@ -45,10 +46,12 @@ const FORMAT_MIME: Record<string, string> = {
 
 function download() {
   if (!props.imageBase64 || !props.imageMimeType) return
-  downloadImage(props.imageBase64, props.imageMimeType)
+  downloadImage(props.imageBase64, props.imageMimeType, props.imageIdentity)
 }
 
-function downloadImage(base64: string, mimeType: string) {
+function downloadImage(base64: string, mimeType: string, identity?: ImageIdentity) {
+  if (!identity?.downloadName) return
+  const filename = identity.downloadName
   const fmt = props.downloadFormat ?? 'png'
   const targetMime = FORMAT_MIME[fmt]
   const dataUrl = `data:${mimeType};base64,${base64}`
@@ -57,7 +60,7 @@ function downloadImage(base64: string, mimeType: string) {
   if (mimeType === targetMime) {
     const link = document.createElement('a')
     link.href = dataUrl
-    link.download = `banacanvas-${Date.now()}.${fmt}`
+    link.download = `${filename}.${fmt}`
     link.click()
     return
   }
@@ -85,7 +88,7 @@ function downloadImage(base64: string, mimeType: string) {
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `banacanvas-${Date.now()}.${actualFmt}`
+        link.download = `${filename}.${actualFmt}`
         link.click()
         URL.revokeObjectURL(url)
       },
@@ -381,7 +384,8 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
               </svg>
             </button>
             <button
-              @click="downloadImage(item.imageBase64!, item.imageMimeType!)"
+              @click="downloadImage(item.imageBase64!, item.imageMimeType!, item.identity)"
+              :title="t('download')"
               class="rounded-md bg-black/60 backdrop-blur-sm p-1.5 text-white hover:bg-black/80 transition-colors cursor-pointer"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -398,7 +402,7 @@ const isBatchMode = () => (props.batchResults?.length ?? 0) > 0 || (props.batchP
             </button>
           </div>
           <div class="absolute bottom-1 left-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[10px] text-white font-medium">
-            #{{ index + 1 }}
+            #{{ item.identity?.batch?.sequence ?? index + 1 }}
           </div>
         </div>
 

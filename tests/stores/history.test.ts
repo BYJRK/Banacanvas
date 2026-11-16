@@ -35,6 +35,56 @@ beforeEach(() => {
 })
 
 describe('persistence', () => {
+  it('preserves generation identity across saving and reloading', async () => {
+    const store = await freshStore()
+    const identity = {
+      id: 'generated-image', timestamp: 123, downloadName: 'banacanvas-gemini-3.1-flash-2K-20261116-173530123-1',
+      batch: { id: 'original-batch', timestamp: 100, sequence: 3 },
+    }
+
+    const saved = await store.addEntry({ ...newEntry(1), ...identity })
+
+    expect(saved).toMatchObject(identity)
+    expect((await freshStore()).entries[0]).toMatchObject(identity)
+  })
+
+  it('persists repaired old batch names across reloads, deletion and export/import', async () => {
+    const legacy = [1, 2, 3].map((n) => ({
+      ...newEntry(n), id: `legacy-${n}`, prompt: 'same batch', timestamp: n * 10_000, inputImages: [],
+    }))
+    localStorage.setItem('banacanvas-history', JSON.stringify(legacy))
+    const store = await freshStore()
+    expect(store.entries.map((entry) => entry.batch?.sequence)).toEqual([3, 2, 1])
+    expect(store.entries.every((entry) => entry.batch?.timestamp === 10_000)).toBe(true)
+    expect(store.entries.map((entry) => entry.downloadName?.replace(/-\d+$/, ''))[0])
+      .toBe(store.entries[2]!.downloadName?.replace(/-\d+$/, ''))
+    const originalNames = store.entries.slice(0, 2).map((entry) => entry.downloadName)
+    await store.removeEntry('legacy-1')
+    const reloaded = await freshStore()
+    expect(reloaded.entries.map((entry) => entry.downloadName)).toEqual(originalNames)
+    expect(reloaded.entries.map((entry) => entry.batch?.sequence)).toEqual([3, 2])
+    const file = new File([await reloaded.exportZip()], 'history.zip')
+    vi.stubGlobal('indexedDB', new IDBFactory())
+    const imported = await freshStore()
+    await imported.importZip(file, 'overwrite')
+    expect(imported.entries).toEqual(reloaded.entries)
+  })
+
+  it('still loads images when optional old batch naming migration cannot be saved', async () => {
+    const initial = await freshStore()
+    await initial.addEntry({ ...newEntry(1), prompt: 'same batch' })
+    await initial.addEntry({ ...newEntry(2), prompt: 'same batch' })
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(() => {
+      throw new DOMException('Full', 'QuotaExceededError')
+    })
+    const store = await freshStore()
+    expect(store.ready).toBe(true)
+    expect(store.initError).toBeNull()
+    expect(store.entries.map((entry) => entry.batch?.sequence)).toEqual([2, 1])
+    put.mockRestore()
+    expect((await freshStore()).entries).toEqual(store.entries)
+  })
+
   it('adds entries newest first and keeps them across reloads', async () => {
     const store = await freshStore()
 
@@ -120,7 +170,7 @@ describe('removal', () => {
 describe('export and import', () => {
   async function exportedArchive() {
     const store = await freshStore()
-    await store.addEntry(newEntry(1, { textResponse: 'hello' }))
+    await store.addEntry(newEntry(1, { textResponse: 'hello', downloadName: 'banacanvas-model-2K-20261116-173530123-1' }))
     await store.addEntry(newEntry(2, {
       inputImages: [
         { base64: b64('ref a'), mimeType: 'image/png' },

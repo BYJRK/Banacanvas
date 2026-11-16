@@ -54,6 +54,7 @@ const {
 const {
   loading,
   resultImage,
+  resultIdentity,
   resultMimeType,
   resultText,
   resultUsage,
@@ -406,6 +407,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             </div>
             <ImageDisplay
               :image-base64="resultImage"
+              :image-identity="resultIdentity"
               :image-mime-type="resultMimeType"
               :text-response="resultText"
               :error-message="errorMessage"

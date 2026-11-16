@@ -19,6 +19,13 @@ function entry(timestamp: number, overrides: Partial<HistoryEntry> = {}, config:
 const ids = (groups: ReturnType<typeof groupHistoryEntries>) => groups.map((g) => g.entries.map((e) => e.id))
 
 describe('canGroup', () => {
+  it('uses explicit batch membership regardless of completion times', () => {
+    const batch = { id: 'batch-one', timestamp: 0, sequence: 1 }
+    expect(canGroup(entry(0, { batch }), entry(BATCH_WINDOW_MS * 3, { batch: { ...batch, sequence: 2 } }))).toBe(true)
+    expect(canGroup(entry(0, { batch }), entry(1, { batch: { ...batch, id: 'other' } }))).toBe(false)
+    expect(canGroup(entry(0, { batch }), entry(1))).toBe(false)
+  })
+
   it('groups identical requests within the batch window', () => {
     expect(canGroup(entry(0), entry(BATCH_WINDOW_MS))).toBe(true)
     expect(canGroup(entry(BATCH_WINDOW_MS), entry(0))).toBe(true)
@@ -63,6 +70,16 @@ describe('canGroup', () => {
 })
 
 describe('groupHistoryEntries', () => {
+  it('rejoins interleaved explicit batches and orders by request sequence', () => {
+    const a = entry(200_000, { batch: { id: 'a', timestamp: 0, sequence: 1 } })
+    const b = entry(100_000, { batch: { id: 'b', timestamp: 10, sequence: 1 } })
+    const c = entry(0, { batch: { id: 'a', timestamp: 0, sequence: 2 } })
+    const groups = groupHistoryEntries([a, b, c], true)
+    expect(ids(groups)).toEqual([[a.id, c.id], [b.id]])
+    expect(groups[0]!.ordered.map((entry) => entry.batch?.sequence)).toEqual([1, 2])
+    expect(groupHistoryEntries([a, b, c], false)).toHaveLength(3)
+  })
+
   it('groups consecutive matching entries and keeps others separate', () => {
     const entries = [entry(5_000), entry(4_000), entry(3_000, { prompt: 'other' }), entry(2_000), entry(1_000)]
 

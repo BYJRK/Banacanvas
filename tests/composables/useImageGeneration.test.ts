@@ -4,6 +4,7 @@ import { useGemini } from '../../src/composables/useGemini'
 import { useOpenRouter } from '../../src/composables/useOpenRouter'
 import { useVercelAI } from '../../src/composables/useVercelAI'
 import { useHistoryStore } from '../../src/stores/history'
+import { backfillHistoryDownloadNames, getHistoryImageIdentity, getImageDownloadName } from '../../src/imageDownload'
 import type { GenerationConfig, GenerationResult, HistoryEntry, Provider } from '../../src/types'
 import { deferred, en, inputImage } from '../helpers'
 
@@ -33,7 +34,7 @@ vi.mock('../../src/composables/useVercelAI', async () => {
 })
 vi.mock('../../src/stores/history', async () => {
   const { vi } = await import('vitest')
-  const store = { addEntry: vi.fn() }
+  const store = { addEntry: vi.fn(), entries: [] as HistoryEntry[] }
   return { useHistoryStore: () => store }
 })
 
@@ -74,6 +75,7 @@ beforeEach(() => {
     api.loading.value = false
   }
   history.addEntry.mockReset()
+  history.entries = []
   toast.mockReset()
   notify.mockReset()
 })
@@ -103,6 +105,7 @@ describe('single generation', () => {
     expect(gen.resultUsage.value).toMatchObject({ ...usage(0.05), elapsedMs: expect.any(Number) })
     expect(gen.errorMessage.value).toBeNull()
     expect(history.addEntry).toHaveBeenCalledWith({
+      ...gen.resultIdentity.value,
       prompt: 'a cat',
       config: req.config,
       imageBase64: 'img-1',
@@ -112,6 +115,10 @@ describe('single generation', () => {
     })
     expect(toast).toHaveBeenCalledWith(en.imageGenerated, 'success')
     expect(notify).toHaveBeenCalledWith(true)
+    expect(gen.resultIdentity.value).toEqual({
+      id: expect.any(String), timestamp: expect.any(Number), downloadName: expect.any(String),
+      batch: { id: gen.resultIdentity.value!.id, timestamp: gen.resultIdentity.value!.timestamp, sequence: 1 },
+    })
   })
 
   it('edits with reference images and stores them without ids', async () => {
@@ -180,6 +187,7 @@ describe('single generation', () => {
 
     expect(gen.resultImage.value).toBeUndefined()
     expect(gen.resultUsage.value).toBeUndefined()
+    expect(gen.resultIdentity.value).toBeUndefined()
     expect(gen.errorMessage.value).toBe('boom')
   })
 
@@ -194,6 +202,40 @@ describe('single generation', () => {
 })
 
 describe('batch generation', () => {
+  it('keeps request sequence and a shared batch time across completion order, failures and history restore', async () => {
+    const batchTimestamp = new Date(2026, 10, 16, 17, 35, 30, 123).getTime()
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(batchTimestamp)
+    const first = deferred<GenerationResult>()
+    providers.gemini.generateImage
+      .mockReturnValueOnce(first.promise)
+      .mockRejectedValueOnce(new Error('failed'))
+      .mockResolvedValueOnce(result(3))
+    const gen = useImageGeneration({ toast, notify })
+    const req = request('gemini', { batchSize: 3, imageSize: '2K' })
+
+    const run = gen.generate(req)
+    await vi.waitFor(() => expect(gen.batchResults.value.some((item) => item.imageBase64 === 'img-3')).toBe(true))
+    clock.mockReturnValue(batchTimestamp + 5000)
+    first.resolve(result(1))
+    await run
+
+    const thirdName = getImageDownloadName(req.config, batchTimestamp, 3)
+    const firstName = getImageDownloadName(req.config, batchTimestamp, 1)
+    const successful = gen.batchResults.value.filter((item) => item.imageBase64)
+    expect(successful.map((item) => item.identity?.batch?.sequence)).toEqual([3, 1])
+    expect(new Set(successful.map((item) => item.identity?.batch?.id)).size).toBe(1)
+    expect(successful.every((item) => item.identity?.batch?.timestamp === batchTimestamp)).toBe(true)
+    expect(gen.batchResults.value.filter((item) => item.imageBase64).map((item) => item.identity?.downloadName))
+      .toEqual([thirdName, firstName])
+    const saved = history.addEntry.mock.calls.map(([entry]) => entry as HistoryEntry).reverse()
+    req.config.model = 'changed-after-generation'
+    req.config.imageSize = '4K'
+    gen.showHistoryEntries(saved)
+    expect(gen.batchResults.value.map((item) => item.identity?.downloadName)).toEqual([firstName, thirdName])
+    gen.showHistoryEntries([saved[1]!])
+    expect(gen.resultIdentity.value?.downloadName).toBe(thirdName)
+  })
+
   it('runs requests in parallel with their own signals and summarises the outcome', async () => {
     providers.gemini.generateImage
       .mockResolvedValueOnce(result(1, usage(0.01)))
@@ -214,6 +256,11 @@ describe('batch generation', () => {
     expect(gen.batchProgress.value).toEqual({ current: 3, total: 3 })
     expect(gen.resultImage.value).toBeUndefined()
     expect(history.addEntry).toHaveBeenCalledTimes(2)
+    const identities = gen.batchResults.value.filter((r) => r.imageBase64).map((r) => r.identity!)
+    expect(new Set(identities.map((identity) => identity.id)).size).toBe(2)
+    for (const identity of identities) {
+      expect(history.addEntry).toHaveBeenCalledWith(expect.objectContaining(identity))
+    }
     expect(gen.loading.value).toBe(false)
 
     expect(gen.resultUsage.value).toMatchObject({
@@ -322,6 +369,7 @@ describe('result helpers', () => {
 
     expect(gen.resultImage.value).toBe('img-1')
     expect(gen.resultMimeType.value).toBe('image/webp')
+    expect(gen.resultIdentity.value).toEqual(getHistoryImageIdentity(entry(1)))
     expect(gen.resultText.value).toBe('text-1')
     expect(gen.errorMessage.value).toBeNull()
     expect(gen.batchResults.value).toEqual([])
@@ -333,10 +381,21 @@ describe('result helpers', () => {
     gen.showHistoryEntries([entry(1), entry(2)])
 
     expect(gen.resultImage.value).toBeUndefined()
-    expect(gen.batchResults.value).toEqual([
-      { imageBase64: 'img-1', imageMimeType: 'image/webp', textResponse: 'text-1' },
-      { imageBase64: 'img-2', imageMimeType: 'image/webp', textResponse: 'text-2' },
-    ])
+    const restored = backfillHistoryDownloadNames([entry(1), entry(2)])
+    expect(gen.batchResults.value).toEqual(restored.map((entry) => ({
+      identity: getHistoryImageIdentity(entry), imageBase64: entry.imageBase64,
+      imageMimeType: entry.imageMimeType, textResponse: entry.textResponse,
+    })))
+  })
+
+  it('uses the full old batch when selecting just one image completed seconds later', () => {
+    history.entries = [entry(1), entry(2), entry(3)].map((entry, index) => ({ ...entry, timestamp: 1000 + index * 10_000 }))
+    const gen = useImageGeneration({ toast, notify })
+    gen.showHistoryEntries([history.entries[2]!])
+    expect(gen.resultIdentity.value?.downloadName).toBe(getImageDownloadName(history.entries[0]!.config, 1000, 3))
+    expect(gen.resultIdentity.value?.batch?.sequence).toBe(3)
+    gen.showHistoryEntries([...history.entries].reverse())
+    expect(gen.batchResults.value.map((item) => item.identity?.batch?.sequence)).toEqual([3, 2, 1])
   })
 
   it('clearResult resets all result state', () => {
@@ -403,6 +462,8 @@ describe('history saving failures', () => {
     await gen.retrySaveHistory()
     expect(history.addEntry).toHaveBeenCalledTimes(2)
     expect(history.addEntry.mock.calls[1][0].config.model).toBe('model-x')
+    expect(history.addEntry.mock.calls[1][0]).toMatchObject(gen.resultIdentity.value!)
+    expect(history.addEntry.mock.calls[1][0]).toEqual(history.addEntry.mock.calls[0][0])
     expect(providers.gemini.generateImage).toHaveBeenCalledTimes(1)
     expect(gen.historySaveError.value).toBeNull()
     expect(gen.resultImage.value).toBe('img-1')

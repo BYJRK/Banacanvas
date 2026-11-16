@@ -4,7 +4,8 @@ import { useGemini } from './useGemini'
 import { useOpenRouter } from './useOpenRouter'
 import { useVercelAI } from './useVercelAI'
 import { useI18n } from './useI18n'
-import type { BatchResultItem, GenerationConfig, HistoryEntry, InputImage, Provider, ToastType, UsageInfo } from '../types'
+import { backfillHistoryDownloadNames, getHistoryImageIdentity, getImageDownloadName } from '../imageDownload'
+import type { BatchResultItem, GenerationConfig, HistoryEntry, ImageIdentity, InputImage, Provider, ToastType, UsageInfo } from '../types'
 
 export interface GenerationRequest {
   prompt: string
@@ -28,6 +29,7 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
   } satisfies Record<Provider, unknown>
 
   const resultImage = ref<string | undefined>()
+  const resultIdentity = ref<ImageIdentity | undefined>()
   const resultMimeType = ref<string | undefined>()
   const resultText = ref<string | undefined>()
   const resultUsage = ref<UsageInfo | undefined>()
@@ -40,7 +42,7 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
   let userCancelled = false
   const singleRunning = shallowRef(false)
   const historyWrites = shallowRef(0)
-  const unsavedHistory = shallowRef<Omit<HistoryEntry, 'id' | 'timestamp'>[]>([])
+  const unsavedHistory = shallowRef<HistoryEntry[]>([])
   const lastSaveError = shallowRef('')
   const savingHistory = computed(() => historyWrites.value > 0)
   const historySaveError = computed(() => unsavedHistory.value.length > 0
@@ -52,6 +54,7 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
 
   function clearResult() {
     resultImage.value = undefined
+    resultIdentity.value = undefined
     resultMimeType.value = undefined
     resultText.value = undefined
     resultUsage.value = undefined
@@ -79,8 +82,9 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
       : e instanceof Error ? e.message : String(e)
   }
 
-  async function saveToHistory(request: GenerationRequest, result: { imageBase64: string; imageMimeType: string; textResponse?: string }) {
+  async function saveToHistory(request: GenerationRequest, result: { imageBase64: string; imageMimeType: string; textResponse?: string }, identity: ImageIdentity) {
     const entry = {
+      ...identity,
       prompt: request.prompt,
       config: { ...request.config },
       imageBase64: result.imageBase64,
@@ -137,13 +141,21 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
       const elapsedMs = Math.round(performance.now() - startTime)
 
       resultImage.value = result.imageBase64
+      const timestamp = Date.now()
+      const id = crypto.randomUUID()
+      const identity = {
+        id, timestamp,
+        batch: { id, timestamp, sequence: 1 },
+        downloadName: getImageDownloadName(request.config, timestamp),
+      }
+      resultIdentity.value = identity
       resultMimeType.value = result.imageMimeType
       resultText.value = result.textResponse
       resultUsage.value = result.usage
         ? { ...result.usage, elapsedMs }
         : { promptTokenCount: 0, candidatesTokenCount: 0, thoughtsTokenCount: 0, totalTokenCount: 0, elapsedMs }
 
-      await saveToHistory(request, result)
+      await saveToHistory(request, result, identity)
 
       if (userCancelled) return
       toast(historySaveError.value ?? t('imageGenerated'), historySaveError.value ? 'info' : 'success')
@@ -165,8 +177,10 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
     batchProgress.value = { current: 0, total: batchSize }
     batchControllers = []
     const startTime = performance.now()
+    const batchTimestamp = Date.now()
+    const batchId = crypto.randomUUID()
     try {
-      const runOne = async () => {
+      const runOne = async (_: unknown, index: number) => {
         const ac = new AbortController()
         batchControllers.push(ac)
         try {
@@ -174,14 +188,21 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
             ? await api.editImage(request.inputImages, request.prompt, request.config, ac.signal)
             : await api.generateImage(request.prompt, request.config, ac.signal)
 
+          const identity = {
+            id: crypto.randomUUID(),
+            timestamp: Date.now(),
+            batch: { id: batchId, timestamp: batchTimestamp, sequence: index + 1 },
+            downloadName: getImageDownloadName(request.config, batchTimestamp, index + 1),
+          }
           batchResults.value = [...batchResults.value, {
+            identity,
             imageBase64: result.imageBase64,
             imageMimeType: result.imageMimeType,
             textResponse: result.textResponse,
             usage: result.usage,
           }]
 
-          await saveToHistory(request, result)
+          await saveToHistory(request, result, identity)
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e)
           batchResults.value = [...batchResults.value, { error: msg }]
@@ -220,14 +241,24 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
   /** Display one history entry as a single result, or several as a batch gallery. */
   function showHistoryEntries(entries: HistoryEntry[]) {
     clearResult()
-    if (entries.length === 1) {
-      const [entry] = entries
+    let selected = entries
+    if (entries.some((entry) => !entry.downloadName && !entry.batch)) {
+      // Use the whole history even when selecting just one image from an old batch.
+      const allEntries = new Map(historyStore.entries.map((entry) => [entry.id, entry]))
+      for (const entry of entries) if (!allEntries.has(entry.id)) allEntries.set(entry.id, entry)
+      const restored = new Map(backfillHistoryDownloadNames([...allEntries.values()]).map((entry) => [entry.id, entry]))
+      selected = entries.map((entry) => restored.get(entry.id)!)
+    }
+    if (selected.length === 1) {
+      const [entry] = selected
       resultImage.value = entry.imageBase64
+      resultIdentity.value = getHistoryImageIdentity(entry)
       resultMimeType.value = entry.imageMimeType
       resultText.value = entry.textResponse
       return
     }
-    batchResults.value = entries.map((e) => ({
+    batchResults.value = selected.map((e) => ({
+      identity: getHistoryImageIdentity(e),
       imageBase64: e.imageBase64,
       imageMimeType: e.imageMimeType,
       textResponse: e.textResponse,
@@ -237,6 +268,7 @@ export function useImageGeneration({ toast, notify }: ImageGenerationOptions) {
   return {
     loading,
     resultImage,
+    resultIdentity,
     resultMimeType,
     resultText,
     resultUsage,

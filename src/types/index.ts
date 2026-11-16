@@ -47,9 +47,21 @@ export interface GenerationConfig {
   batchSize?: number
 }
 
-export interface HistoryEntry {
+export interface GenerationBatch {
   id: string
   timestamp: number
+  sequence: number
+}
+
+export interface ImageIdentity {
+  id: string
+  timestamp: number
+  /** Fixed filename stem, preserved across history saves and format conversions. */
+  downloadName?: string
+  batch?: GenerationBatch
+}
+
+export interface HistoryEntry extends ImageIdentity {
   prompt: string
   config: GenerationConfig
   imageBase64: string
@@ -89,6 +101,7 @@ export interface GenerationResult {
 }
 
 export interface BatchResultItem {
+  identity?: ImageIdentity
   imageBase64?: string
   imageMimeType?: string
   textResponse?: string

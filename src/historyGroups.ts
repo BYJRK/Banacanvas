@@ -1,11 +1,12 @@
 import { getHistoryInputImages } from './historyImages'
 import type { HistoryEntry, HistoryGroup } from './types'
 
-/** Entries generated within this window with identical inputs are treated as one batch. */
+/** Legacy entries without batch metadata use this time window and identical inputs. */
 export const BATCH_WINDOW_MS = 60_000
 
 /** Whether two history entries look like members of the same batch run. */
 export function canGroup(a: HistoryEntry, b: HistoryEntry): boolean {
+  if (a.batch || b.batch) return !!a.batch && !!b.batch && a.batch.id === b.batch.id
   if (a.prompt !== b.prompt || a.config.model !== b.config.model) return false
   if ((a.config.provider ?? 'gemini') !== (b.config.provider ?? 'gemini')) return false
   if ((a.config.aspectRatio ?? '') !== (b.config.aspectRatio ?? '')) return false
@@ -20,21 +21,30 @@ export function canGroup(a: HistoryEntry, b: HistoryEntry): boolean {
 }
 
 /**
- * Group newest-first history entries into batches. Each entry is compared with the
- * last entry of the current group, so a long run can span more than one window.
+ * Group newest-first history entries by saved batch ID. Legacy entries are compared
+ * with the last entry of the current group, so a long run can span multiple windows.
  */
 export function groupHistoryEntries(entries: readonly HistoryEntry[], groupBatches: boolean): HistoryGroup[] {
   const groups: HistoryGroup[] = []
+  const knownBatches = new Map<string, HistoryGroup>()
   for (const entry of entries) {
+    const knownBatch = groupBatches && entry.batch ? knownBatches.get(entry.batch.id) : undefined
+    if (knownBatch) {
+      knownBatch.entries.push(entry)
+      continue
+    }
     const last = groups[groups.length - 1]
     if (groupBatches && last && canGroup(last.entries[last.entries.length - 1], entry)) {
       last.entries.push(entry)
     } else {
-      groups.push({ key: entry.id, entries: [entry], ordered: [], representative: entry })
+      const group = { key: entry.id, entries: [entry], ordered: [], representative: entry }
+      groups.push(group)
+      if (groupBatches && entry.batch) knownBatches.set(entry.batch.id, group)
     }
   }
   for (const group of groups) {
-    group.ordered = [...group.entries].sort((a, b) => a.timestamp - b.timestamp)
+    group.ordered = [...group.entries].sort((a, b) => a.batch && b.batch
+      ? a.batch.sequence - b.batch.sequence : a.timestamp - b.timestamp)
   }
   return groups
 }

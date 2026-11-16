@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
 import { getHistoryInputImages } from '../historyImages'
-import type { HistoryEntry, InputImage } from '../types'
+import { backfillHistoryDownloadNames } from '../imageDownload'
+import type { HistoryEntry, ImageIdentity, InputImage } from '../types'
 
 const DB_NAME = 'banacanvas'
 const DB_VERSION = 1
@@ -117,8 +118,15 @@ export const useHistoryStore = defineStore('history', () => {
         opened = await openDB()
         await migrateFromLocalStorage(opened)
         const saved = await idbGetAll(opened)
+        const restored = backfillHistoryDownloadNames(saved)
+        const updated = restored.filter((entry, index) => entry !== saved[index])
+        if (updated.length) {
+          try {
+            await idbWrite(opened, (store) => { for (const entry of updated) store.put(entry) })
+          } catch { /* Optional naming migration must not prevent reading existing images. */ }
+        }
         db = opened
-        entries.value = saved
+        entries.value = restored
         ready.value = true
         return opened
       } catch (e: unknown) {
@@ -133,7 +141,7 @@ export const useHistoryStore = defineStore('history', () => {
     return initPromise
   }
 
-  async function addEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'>) {
+  async function addEntry(entry: Omit<HistoryEntry, keyof ImageIdentity> & Partial<ImageIdentity>) {
     const database = await init()
     const [main, inputs] = await Promise.all([
       toWebP(entry.imageBase64, entry.imageMimeType),
@@ -143,8 +151,8 @@ export const useHistoryStore = defineStore('history', () => {
 
     const newEntry: HistoryEntry = {
       ...rest,
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
+      id: entry.id ?? crypto.randomUUID(),
+      timestamp: entry.timestamp ?? Date.now(),
       imageBase64: main.base64,
       imageMimeType: main.mimeType,
       inputImages: inputs,
@@ -256,12 +264,13 @@ export const useHistoryStore = defineStore('history', () => {
       importedEntries.push(entry)
     }
 
+    const restoredEntries = backfillHistoryDownloadNames(importedEntries)
     await idbWrite(database, (store) => {
       if (mode === 'overwrite') store.clear()
-      for (const entry of importedEntries) store.put(entry)
+      for (const entry of restoredEntries) store.put(entry)
     })
 
-    entries.value = (mode === 'overwrite' ? importedEntries : [...entries.value, ...importedEntries])
+    entries.value = (mode === 'overwrite' ? restoredEntries : [...entries.value, ...restoredEntries])
       .sort((a, b) => b.timestamp - a.timestamp)
     return importedEntries.length
   }
