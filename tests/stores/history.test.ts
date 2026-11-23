@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { IDBFactory, IDBObjectStore, IDBIndex } from 'fake-indexeddb'
+import { watch } from 'vue'
+import { IDBDatabase, IDBFactory, IDBObjectStore, IDBIndex } from 'fake-indexeddb'
 import JSZip from 'jszip'
 import { useHistoryStore } from '../../src/stores/history'
 import type { HistoryEntry } from '../../src/types'
@@ -144,6 +145,64 @@ describe('removal', () => {
 
     expect(store.entries.map((e) => e.id)).toEqual([b.id])
     expect((await freshStore()).entries.map((e) => e.id)).toEqual([b.id])
+  })
+
+  it('deletes a batch in one transaction and updates the list once after commit, keeping concurrent additions', async () => {
+    const store = await freshStore()
+    const a = await store.addEntry(newEntry(1))
+    const b = await store.addEntry(newEntry(2))
+    const c = await store.addEntry(newEntry(3))
+    const transactions = new Set<IDBTransaction>()
+    const original = IDBObjectStore.prototype.delete
+    const del = vi.spyOn(IDBObjectStore.prototype, 'delete').mockImplementation(function (this: IDBObjectStore, key) {
+      transactions.add(this.transaction)
+      return original.call(this, key)
+    })
+    const updates: string[][] = []
+    const stop = watch(() => store.entries.map((e) => e.id), (ids) => updates.push(ids), { flush: 'sync' })
+
+    const deletion = store.removeEntries([a.id, b.id, a.id])
+    expect(store.entries.map((e) => e.id)).toEqual([c.id, b.id, a.id])
+    const added = { ...c, id: 'added-during-deletion' }
+    store.entries.unshift(added)
+    await deletion
+    stop()
+
+    expect(del).toHaveBeenCalledTimes(2)
+    expect(transactions.size).toBe(1)
+    expect(updates).toEqual([[added.id, c.id, b.id, a.id], [added.id, c.id]])
+    expect((await freshStore()).entries.map((e) => e.id)).toEqual([c.id])
+  })
+
+  it('keeps every entry when a batch deletion aborts', async () => {
+    const store = await freshStore()
+    const a = await store.addEntry(newEntry(1))
+    const b = await store.addEntry(newEntry(2))
+    const before = store.entries
+    const original = IDBObjectStore.prototype.delete
+    const del = vi.spyOn(IDBObjectStore.prototype, 'delete').mockImplementation(function (this: IDBObjectStore, key) {
+      const req = original.call(this, key)
+      if (key === a.id) this.transaction.abort()
+      return req
+    })
+
+    await expect(store.removeEntries([b.id, a.id])).rejects.toBeDefined()
+
+    expect(store.entries).toBe(before)
+    del.mockRestore()
+    expect((await freshStore()).entries.map((e) => e.id)).toEqual([b.id, a.id])
+  })
+
+  it('does not open a transaction for an empty removal', async () => {
+    const store = await freshStore()
+    await store.addEntry(newEntry(1))
+    const before = store.entries
+    const transaction = vi.spyOn(IDBDatabase.prototype, 'transaction')
+
+    await store.removeEntries([])
+
+    expect(transaction).not.toHaveBeenCalled()
+    expect(store.entries).toBe(before)
   })
 
   it('removes a single entry', async () => {
