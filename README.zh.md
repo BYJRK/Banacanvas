@@ -27,6 +27,8 @@
 
 OpenRouter 和 Vercel AI Gateway 还支持微软 **MAI-Image-2.6**（`microsoft/mai-image-2.6`）与 **MAI-Image-2.6 Flash**（`microsoft/mai-image-2.6-flash`）。两款均支持文生图、最多 5 张参考图编辑、7 种固定宽高比及自动比例，并可开启 Bing 网络搜索增强。Vercel 提供 1K / 1.5K 像素预算预设（总像素最多 1536²）；OpenRouter 当前仅开放宽高比控制。标准版每百万 Token 的文本输入 / 图像输入 / 图像输出费用为 $5 / $8 / $38；Flash 为 $1.75 / $2.50 / $19。生成前按标准版约 $0.04/张、Flash 约 $0.02/张估算；Vercel 的 1.5K 预估翻倍为 $0.08/张和 $0.04/张，合计再乘以批量数量；生成后按返回的账单或 Token 用量展示费用。详见[调研与接口说明](./docs/mai-image-2.6.md)（核实于 2026-10-15）。
 
+**MAI-Image-2.7**（`microsoft/mai-image-2.7`）与 **MAI-Image-2.7 Flash**（`microsoft/mai-image-2.7-flash`）同样可通过 OpenRouter 和 Vercel AI Gateway 使用，能力与 2.6 相同，另将输出上限提升至 2048×2048 并支持透明背景。Vercel 提供 1K / 1.5K / 2K 像素预算预设和透明背景选项；OpenRouter 当前仅开放宽高比控制，且未提供透明背景参数。每百万 Token 费用：标准版文本输入 / 图像输入 / 图像输出 $5 / $8 / $34，Flash 为 $1.75 / $2.50 / $10。预估费用按所选尺寸每 1024 像素 1 个输出 Token 计算（fal.ai 标明 1024×1024 输出为 1,024 个图像 Token；忽略提示词和参考图）：标准版 1K / 1.5K / 2K 约 $0.035 / $0.078 / $0.139 每张，Flash 约 $0.010 / $0.023 / $0.041；OpenRouter 按 1024×1024 参考尺寸估算。来源：fal.ai（[标准版](https://fal.ai/models/microsoft/mai-image-2.7/text-to-image)、[Flash](https://fal.ai/models/microsoft/mai-image-2.7/flash/text-to-image)）、[微软 Foundry 价格（$34.80 / $10.24 每千张 1024×1024）](https://techjacksolutions.com/ai-tools/microsoft-ai/mai-image-2-7-pricing-and-api/)、[OpenRouter](https://openrouter.ai/microsoft/mai-image-2.7)、[Vercel](https://vercel.com/changelog/mai-image-2-7-and-mai-image-2-7-flash-now-available-on-ai-gateway)（核实于 2026-11-23）。
+
 | 模型 | 内部名称 | 分辨率 | 定价（每 1M Token） |
 |---|---|---|---|
 | **Nano Banana 2.1** | `gemini-nano-banana-2.1` | 1K – 4K | $1.50 输入 · $7.50 文本输出 · $30 图像输出 |

@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import type { ModelMessage, generateText } from 'ai'
 import { useApiKeyStore } from '../stores/apiKey'
 import type { GenerationConfig, GenerationResult, InputImage, UsageInfo } from '../types'
-import { MINIMAX_H3_IMAGE_MODEL, getMinimaxImageSize, estimateImageOutputCost, estimateImageTokenCost, getBaseModelId, getMaiImageSize, getGptImageSize, getMaxInputImages, isMaiImageModel, isGptImageModel, resolveImageQuality, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
+import { MINIMAX_H3_IMAGE_MODEL, getMinimaxImageSize, estimateImageOutputCost, estimateImageTokenCost, getBaseModelId, getMaiImageSize, getGptImageSize, getMaxInputImages, isMaiImageModel, isGptImageModel, resolveImageQuality, supportsMaiTransparentBackground, MAI_VERCEL_WEB_GROUNDING_COST, MODEL_PRICING } from '../config/models'
 import { prepareMaiImages } from '../maiImages'
 import { isAbortError } from '../abort'
 import { useI18n } from './useI18n'
@@ -103,6 +103,8 @@ export function useVercelAI() {
             azure: {
               autoAspectRatio: config.aspectRatio === 'auto',
               webGrounding: config.webGrounding ?? false,
+              ...(supportsMaiTransparentBackground(config.model, 'vercel') && config.imageBackground === 'transparent'
+                ? { background: 'transparent' } : {}),
             },
           },
           abortSignal: signal,

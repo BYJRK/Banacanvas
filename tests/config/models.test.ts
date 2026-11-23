@@ -14,6 +14,8 @@ import {
   GROK_IMAGE_MODEL,
   MAI_IMAGE_2_6_FLASH_MODEL,
   MAI_IMAGE_2_6_MODEL,
+  MAI_IMAGE_2_7_FLASH_MODEL,
+  MAI_IMAGE_2_7_MODEL,
   MUSE_IMAGE_MODEL,
   QWEN_IMAGE_2_1_PRO_MODEL,
   QWEN_IMAGE_2_1_TURBO_MODEL,
@@ -178,6 +180,8 @@ describe('getImageSizes', () => {
     expect(sizeValues(GPT_IMAGE_2_5_FLARE_MODEL, 'vercel')).toEqual(['1K', '2K', '4K'])
     expect(sizeValues(MAI_IMAGE_2_6_MODEL, 'openrouter')).toEqual(['1K'])
     expect(sizeValues(MAI_IMAGE_2_6_MODEL, 'vercel')).toEqual(['1K', '1.5K'])
+    expect(sizeValues(MAI_IMAGE_2_7_MODEL, 'openrouter')).toEqual(['1K'])
+    expect(sizeValues(MAI_IMAGE_2_7_FLASH_MODEL, 'vercel')).toEqual(['1K', '1.5K', '2K'])
   })
 
   it('returns Seedream Lite sizes starting at 2K', () => {
@@ -284,6 +288,11 @@ describe('getMaiImageSize', () => {
     expect(getMaiImageSize('9:16', '1K')).toBe('768x1360')
   })
 
+  it('uses the 2K pixel budget for MAI-Image-2.7 without exceeding 2048²', () => {
+    expect(getMaiImageSize('1:1', '2K')).toBe('2048x2048')
+    expect(getMaiImageSize('16:9', '2K')).toBe('2720x1536')
+  })
+
   it('returns undefined for auto and unsupported ratios', () => {
     expect(getMaiImageSize('auto', '1K')).toBeUndefined()
     expect(getMaiImageSize('21:9', '1K')).toBeUndefined()
@@ -369,6 +378,17 @@ describe('estimateImageOutputCost', () => {
     expect(estimateImageOutputCost(MAI_IMAGE_2_6_FLASH_MODEL, size, 1, undefined, 'vercel', 'auto')).toBeCloseTo(0.04, 6)
     expect(estimateImageOutputCost(MAI_IMAGE_2_6_MODEL, size, 3, undefined, 'vercel', 'auto')).toBeCloseTo(0.24, 6)
     expect(estimateImageOutputCost(MAI_IMAGE_2_6_FLASH_MODEL, size, 3, undefined, 'openrouter', 'auto')).toBeCloseTo(0.06, 6)
+  })
+
+  it('prices MAI-Image-2.7 at 1 output token per 1024 px of the requested size', () => {
+    // Microsoft Foundry: $34.80 / $10.24 per 1,000 images at 1024×1024.
+    expect(estimateImageOutputCost(MAI_IMAGE_2_7_MODEL, '1K', 1, undefined, 'vercel')).toBeCloseTo(0.034816, 9)
+    expect(estimateImageOutputCost(MAI_IMAGE_2_7_FLASH_MODEL, '1K', 1, undefined, 'vercel')).toBeCloseTo(0.01024, 9)
+    expect(estimateImageOutputCost(MAI_IMAGE_2_7_MODEL, '2K', 2, undefined, 'vercel')).toBeCloseTo(2 * 4096 * 34e-6, 9)
+    expect(estimateImageOutputCost(MAI_IMAGE_2_7_FLASH_MODEL, '2K', 1, undefined, 'vercel', '16:9')).toBeCloseTo(2720 * 1536 / 1024 * 10e-6, 9)
+    // Vercel auto ratio is budgeted at 1.5K; OpenRouter hides size and uses a 1024² reference.
+    expect(estimateImageOutputCost(MAI_IMAGE_2_7_MODEL, '2K', 1, undefined, 'vercel', 'auto')).toBeCloseTo(2304 * 34e-6, 9)
+    expect(estimateImageOutputCost(MAI_IMAGE_2_7_MODEL, '2K', 3, undefined, 'openrouter', '16:9')).toBeCloseTo(3 * 0.034816, 9)
   })
 
   it('uses a square reference size for GPT Image on OpenRouter', () => {

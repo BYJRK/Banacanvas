@@ -17,6 +17,8 @@ export const QWEN_IMAGE_2_1_PRO_MODEL = 'qwen/qwen-image-2.1-pro'
 export const QWEN_IMAGE_2_1_TURBO_MODEL = 'qwen/qwen-image-2.1-turbo'
 export const MAI_IMAGE_2_6_MODEL = 'microsoft/mai-image-2.6'
 export const MAI_IMAGE_2_6_FLASH_MODEL = 'microsoft/mai-image-2.6-flash'
+export const MAI_IMAGE_2_7_MODEL = 'microsoft/mai-image-2.7'
+export const MAI_IMAGE_2_7_FLASH_MODEL = 'microsoft/mai-image-2.7-flash'
 export const MAI_VERCEL_WEB_GROUNDING_COST = 0.014
 export const GPT_IMAGE_2_5_FLARE_MODEL = 'openai/gpt-image-2.5-flare'
 export const GPT_IMAGE_2_5_SUNBURST_MODEL = 'openai/gpt-image-2.5-sunburst'
@@ -29,7 +31,17 @@ export function isGptImageModel(modelId: string): boolean {
 }
 
 export function isMaiImageModel(modelId: string): boolean {
-  return modelId === MAI_IMAGE_2_6_MODEL || modelId === MAI_IMAGE_2_6_FLASH_MODEL
+  return modelId === MAI_IMAGE_2_6_MODEL || modelId === MAI_IMAGE_2_6_FLASH_MODEL || isMaiImage27Model(modelId)
+}
+
+/** MAI-Image-2.7 family: 2048² pixel budget and transparent backgrounds. */
+export function isMaiImage27Model(modelId: string): boolean {
+  return modelId === MAI_IMAGE_2_7_MODEL || modelId === MAI_IMAGE_2_7_FLASH_MODEL
+}
+
+/** Only Vercel documents MAI's transparent background option (`providerOptions.azure.background`). */
+export function supportsMaiTransparentBackground(modelId: string, provider: Provider): boolean {
+  return provider === 'vercel' && isMaiImage27Model(modelId)
 }
 
 export function isQwenImageModel(modelId: string): boolean {
@@ -143,6 +155,18 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   },
   // Microsoft MAI, available through both image gateways
   ...(['openrouter', 'vercel'] as const).flatMap((provider): ModelOption[] => [
+    {
+      id: MAI_IMAGE_2_7_MODEL,
+      name: 'MAI-Image-2.7',
+      description: 'Microsoft generation & precise editing. Up to 2048², transparent backgrounds, 5 reference images.',
+      provider,
+    },
+    {
+      id: MAI_IMAGE_2_7_FLASH_MODEL,
+      name: 'MAI-Image-2.7 Flash',
+      description: 'Faster, lower-cost MAI-Image-2.7. Up to 2048², transparent backgrounds, 5 reference images.',
+      provider,
+    },
     {
       id: MAI_IMAGE_2_6_MODEL,
       name: 'MAI-Image-2.6',
@@ -321,6 +345,7 @@ const MAI_IMAGE_SIZES = [
   { value: '1K', label: '1K' },
   { value: '1.5K', label: '1.5K' },
 ] as const
+const MAI_IMAGE_2_7_SIZES = [...MAI_IMAGE_SIZES, { value: '2K', label: '2K' }] as const
 
 const GPT_IMAGE_ASPECT_RATIOS = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', '21:9', 'auto'] as const
 const GPT_IMAGE_SIZES = [
@@ -380,7 +405,7 @@ export function getMaiImageSize(aspectRatio: string, imageSize: string): `${numb
   if (!(MAI_ASPECT_RATIOS as readonly string[]).includes(aspectRatio)) return undefined
   const [w, h] = aspectRatio.split(':').map(Number)
   const ratio = w / h
-  const pixels = imageSize === '1.5K' ? 1536 ** 2 : 1024 ** 2
+  const pixels = imageSize === '2K' ? 2048 ** 2 : imageSize === '1.5K' ? 1536 ** 2 : 1024 ** 2
   let width = Math.sqrt(pixels * ratio)
   let height = width / ratio
   if (Math.min(width, height) < 768) {
@@ -431,7 +456,9 @@ export function getImageSizes(modelId: string, provider?: Provider) {
   if (modelId === MINIMAX_H3_IMAGE_MODEL) return PRO_IMAGE_SIZES
   if (isQwenImageModel(modelId)) return QWEN_IMAGE_SIZES
   if (isGptImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : GPT_IMAGE_SIZES
-  if (isMaiImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : MAI_IMAGE_SIZES
+  if (isMaiImageModel(modelId)) {
+    return provider === 'openrouter' ? LITE_IMAGE_SIZES : isMaiImage27Model(modelId) ? MAI_IMAGE_2_7_SIZES : MAI_IMAGE_SIZES
+  }
   if (modelId === GROK_IMAGE_MODEL || modelId === GROK_IMAGE_2_MODEL) return GROK_IMAGE_SIZES
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return SEEDREAM_IMAGE_SIZES
   if (modelId === SEEDREAM_5_0_LITE_MODEL) return SEEDREAM_LITE_IMAGE_SIZES
@@ -595,6 +622,9 @@ export const MODEL_PRICING: Record<string, {
   // OpenRouter Image endpoint pricing / Vercel AI Gateway, verified 2026-10-15.
   [MAI_IMAGE_2_6_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 38 },
   [MAI_IMAGE_2_6_FLASH_MODEL]: { inputText: 1.75, inputImage: 2.5, outputText: 0, outputImage: 19 },
+  // OpenRouter / Vercel token rates; image-input rate from fal.ai (same Azure upstream), verified 2026-11-23.
+  [MAI_IMAGE_2_7_MODEL]: { inputText: 5, inputImage: 8, outputText: 0, outputImage: 34 },
+  [MAI_IMAGE_2_7_FLASH_MODEL]: { inputText: 1.75, inputImage: 2.5, outputText: 0, outputImage: 10 },
   [GEMINI_NANO_BANANA_2_1_MODEL]: {
     inputText: 1.50,
     outputText: 7.50,
@@ -686,6 +716,28 @@ const IMAGE_OUTPUT_TOKENS: Record<string, Record<string, number>> = {
 }
 
 /**
+ * MAI-Image-2.7 bills 1 output token per 1024 px: fal.ai documents a 1024×1024 output as 1,024 image
+ * tokens ($0.034816 / $0.01024), matching Microsoft Foundry's $34.80 / $10.24 per 1,000 images.
+ * https://fal.ai/models/microsoft/mai-image-2.7/text-to-image and .../mai-image-2.7/flash/text-to-image,
+ * verified 2026-11-23. OpenRouter hides output size, so it uses the 1024×1024 reference;
+ * Vercel auto ratio omits size and is budgeted at 1.5K like 2.6.
+ */
+export function estimateMaiImage27OutputCost(
+  modelId: string,
+  imageSize: string,
+  provider?: Provider,
+  aspectRatio: string = '1:1',
+): number {
+  let pixels = 1024 ** 2
+  if (provider === 'vercel') {
+    const size = aspectRatio === 'auto' ? undefined : getMaiImageSize(aspectRatio, imageSize)
+    const [width, height] = size ? size.split('x').map(Number) : [1536, 1536]
+    pixels = width * height
+  }
+  return pixels / 1024 * MODEL_PRICING[modelId].outputImage / 1_000_000
+}
+
+/**
  * Estimate image output cost in USD per image (ignores input cost except MiniMax reference totals).
  * Based on Gemini output image token pricing.
  */
@@ -709,6 +761,7 @@ export function estimateImageOutputCost(
     const cost = estimateGptImageOutputCost(width, height, resolveImageQuality(modelId, imageQuality), modelId)
     return cost == null ? undefined : cost * batchSize
   }
+  if (isMaiImage27Model(modelId)) return estimateMaiImage27OutputCost(modelId, imageSize, provider, aspectRatio) * batchSize
   // User-provided planning estimates; completed MAI jobs still use returned billing/usage.
   if (isMaiImageModel(modelId)) {
     const price = modelId === MAI_IMAGE_2_6_FLASH_MODEL ? 0.02 : 0.04

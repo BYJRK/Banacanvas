@@ -9,6 +9,7 @@ import {
   GPT_IMAGE_2_6_FLARE_MODEL,
   GPT_IMAGE_2_6_SUNBURST_MODEL,
   MAI_IMAGE_2_6_MODEL,
+  MAI_IMAGE_2_7_MODEL,
 } from '../../src/config/models'
 import type { GenerationConfig } from '../../src/types'
 import { IMAGE_B64, en, inputImage, waitForAbort } from '../helpers'
@@ -154,6 +155,24 @@ describe('image models via generateImage', () => {
     expect(args.providerOptions).toEqual({ azure: { autoAspectRatio: false, webGrounding: true } })
     // (250 text at $5/M + 50 image at $8/M + 1000 output at $38/M) + $0.014 grounding
     expect(result.usage?.estimatedCost).toBeCloseTo(0.03965 + 0.014, 9)
+  })
+
+  it('sends a transparent background and 2K size only for MAI-Image-2.7', async () => {
+    sdk.generateImage.mockResolvedValue(imageResult({ usage: { inputTokens: 100, outputTokens: 4096, totalTokens: 4196 } }))
+
+    const result = await useVercelAI().generateImage('a sticker', config({
+      model: MAI_IMAGE_2_7_MODEL, aspectRatio: '1:1', imageSize: '2K', imageBackground: 'transparent',
+    }))
+
+    const args = sdk.generateImage.mock.calls[0][0]
+    expect(args.size).toBe('2048x2048')
+    expect(args.providerOptions).toEqual({ azure: { autoAspectRatio: false, webGrounding: false, background: 'transparent' } })
+    // 100 input at $5/M + 4096 output at $34/M
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.000_5 + 0.139264, 9)
+
+    sdk.generateImage.mockClear()
+    await useVercelAI().generateImage('a sticker', config({ model: MAI_IMAGE_2_6_MODEL, imageBackground: 'transparent' }))
+    expect(sdk.generateImage.mock.calls[0][0].providerOptions).toEqual({ azure: { autoAspectRatio: false, webGrounding: false } })
   })
 
   it.each(GPT_IMAGE_MODELS)('bills %s input at the image rate when per-image token metadata is missing', async (model) => {

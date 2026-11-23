@@ -7,6 +7,7 @@ import {
   GPT_IMAGE_2_5_SUNBURST_MODEL,
   GPT_IMAGE_2_6_FLARE_MODEL,
   GPT_IMAGE_2_6_SUNBURST_MODEL,
+  MAI_IMAGE_2_7_MODEL,
 } from '../../src/config/models'
 import type { GenerationConfig, Provider } from '../../src/types'
 import { en } from '../helpers'
@@ -88,5 +89,37 @@ describe.each(['openrouter', 'vercel'] as const)('MiniMax %s estimate', (provide
     await nextTick()
     expect(host.textContent).toContain(en.minimaxReferenceCostHint)
     expect(host.textContent).not.toContain(en.gptImageOutputCostHint)
+  })
+})
+
+describe('MAI-Image-2.7 background', () => {
+  const buttonLabels = () => Array.from(
+    Array.from(host.querySelectorAll('label')).find((label) => label.textContent?.trim() === en.imageBackground)!
+      .nextElementSibling!.querySelectorAll('button'),
+  ).map((button) => button.textContent?.trim())
+
+  it('offers opaque/transparent on Vercel and maps a saved auto background to opaque', async () => {
+    const config = mount(MAI_IMAGE_2_7_MODEL, 'vercel', { aspectRatio: '1:1', imageBackground: 'auto' })
+    expect(host.textContent).toContain(en.imageBackground)
+    expect(buttonLabels()).toEqual([en.backgroundOpaque, en.backgroundTransparent])
+    const opaque = Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.trim() === en.backgroundOpaque)!
+    expect(opaque.className).toContain('bg-violet-600')
+
+    Array.from(host.querySelectorAll('button')).find((button) => button.textContent?.trim() === en.backgroundTransparent)!.click()
+    await nextTick()
+    expect(config.value.imageBackground).toBe('transparent')
+  })
+
+  it('hides the background control on OpenRouter', () => {
+    mount(MAI_IMAGE_2_7_MODEL, 'openrouter')
+    expect(host.textContent).not.toContain(en.imageBackground)
+  })
+
+  it('explains the per-pixel estimate', async () => {
+    mount(MAI_IMAGE_2_7_MODEL, 'vercel', { aspectRatio: '1:1', imageSize: '1K', batchSize: 1 })
+    expect(text('[data-cost-estimate]')).toBe(`${en.estCostTotal}: ~$0.0348`)
+    host.querySelector<HTMLButtonElement>(`button[aria-label="${en.costEstimateInfo}"]`)!.click()
+    await nextTick()
+    expect(host.textContent).toContain(en.maiImage27CostHint)
   })
 })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/vue'
-import { MINIMAX_H3_IMAGE_MODEL, getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, isGptImageModel, getImageQualities, resolveImageQuality, MODEL_PRICING } from '../config/models'
+import { MINIMAX_H3_IMAGE_MODEL, getAspectRatios, getImageSizes, getResolution, getUnsupportedImageSizes, getThinkingLevels, supportsGoogleSearch, supportsImageConfiguration, supportsImageQuality, supportsSeedParameter, isMaiImageModel, isMaiImage27Model, isGptImageModel, getImageQualities, resolveImageQuality, supportsMaiTransparentBackground, MODEL_PRICING } from '../config/models'
 import { estimateConfigCost, formatCost, isImageSizeConfigurable } from '../generationSpec'
 import type { GenerationConfig, DownloadFormat, ImageQuality, Provider } from '../types'
 import type { MessageKey } from '../i18n/messages'
@@ -27,6 +27,14 @@ const selectedImageQuality = computed(() => resolveImageQuality(props.modelId, c
 const qualityLabelKeys: Record<ImageQuality, MessageKey> = {
   auto: 'qualityAuto', low: 'qualityLow', medium: 'qualityMedium', high: 'qualityHigh', xhigh: 'qualityXhigh', max: 'qualityMax',
 }
+// MAI has no "auto" background: anything but transparent is sent as the default opaque output.
+const backgroundOptions = computed(() => isGptImageModel(props.modelId)
+  ? (['auto', 'opaque', 'transparent'] as const)
+  : supportsMaiTransparentBackground(props.modelId, props.provider) ? (['opaque', 'transparent'] as const) : [])
+const selectedBackground = computed(() => {
+  const background = config.value.imageBackground ?? 'auto'
+  return isGptImageModel(props.modelId) || background === 'transparent' ? background : 'opaque'
+})
 const unsupportedSizes = computed(() => getUnsupportedImageSizes(props.provider))
 function isSizeDisabled(size: string) {
   return unsupportedSizes.value.includes(size)
@@ -155,17 +163,17 @@ const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || 
       </div>
     </div>
 
-    <div v-if="isGptImageModel(props.modelId)">
+    <div v-if="backgroundOptions.length > 0">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t('imageBackground') }}</label>
       <div class="flex flex-wrap gap-1.5">
         <button
-          v-for="background in (['auto', 'opaque', 'transparent'] as const)"
+          v-for="background in backgroundOptions"
           :key="background"
           type="button"
           @click="config = { ...config, imageBackground: background }"
           :class="[
             'rounded-md px-3 py-1 text-xs font-medium transition-colors cursor-pointer',
-            (config.imageBackground ?? 'auto') === background
+            selectedBackground === background
               ? 'bg-violet-600 text-white'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
           ]"
@@ -298,7 +306,7 @@ const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || 
       </div>
       <div v-if="estimatedTotalCost != null" class="relative mt-1.5 flex flex-wrap items-center gap-1 text-xs text-gray-400 dark:text-gray-500" data-cost-estimate aria-live="polite" aria-atomic="true">
         <span>{{ t('estCostTotal') }}: ~${{ formatCost(estimatedTotalCost, props.modelId) }}</span>
-        <Popover v-if="isGptImageModel(props.modelId) || props.modelId === MINIMAX_H3_IMAGE_MODEL" class="flex">
+        <Popover v-if="isGptImageModel(props.modelId) || isMaiImage27Model(props.modelId) || props.modelId === MINIMAX_H3_IMAGE_MODEL" class="flex">
           <PopoverButton :aria-label="t('costEstimateInfo')" class="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 cursor-pointer">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <circle cx="10" cy="10" r="7.25" />
@@ -308,6 +316,10 @@ const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || 
           </PopoverButton>
           <PopoverPanel class="absolute left-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-3rem)] rounded-lg border border-gray-200 bg-white p-3 text-xs leading-relaxed text-gray-600 shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             <p v-if="props.modelId === MINIMAX_H3_IMAGE_MODEL">{{ t('minimaxReferenceCostHint') }}</p>
+            <template v-else-if="isMaiImage27Model(props.modelId)">
+              <p>{{ t('maiImage27CostHint') }}</p>
+              <p v-if="props.provider === 'openrouter'" class="mt-2">{{ t('gptOpenRouterCostHint') }}</p>
+            </template>
             <template v-else>
               <p>{{ t('gptImageOutputCostHint') }}</p>
               <p v-if="referenceSizeEstimate" class="mt-2">{{ t(props.provider === 'openrouter' ? 'gptOpenRouterCostHint' : 'gptImageReferenceCostHint') }}</p>
@@ -317,7 +329,7 @@ const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || 
         </Popover>
       </div>
       <p v-else-if="tokenPricing" class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-        {{ t('imageTokenPricing').replace('{text}', String(tokenPricing.inputText)).replace('{image}', String(tokenPricing.inputImage)).replace('{output}', String(tokenPricing.outputImage)) }}
+        {{ t('imageTokenPricing').replace('{text}', String(tokenPricing.inputText)).replace('{image}', String(tokenPricing.inputImage ?? tokenPricing.inputText)).replace('{output}', String(tokenPricing.outputImage)) }}
       </p>
     </div>
 
