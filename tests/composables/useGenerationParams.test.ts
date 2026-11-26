@@ -200,12 +200,14 @@ describe('changeModel', () => {
     expect(params.config.value.thinkingLevel).toBe('MINIMAL')
   })
 
-  it('replaces sizes the provider cannot deliver (512 on OpenRouter)', () => {
+  it('replaces sizes the provider cannot deliver (512 on OpenRouter) and syncs selectedProvider', () => {
     const params = useGenerationParams()
     params.config.value = { ...params.config.value, imageSize: '512' }
 
     params.changeModel(model(`google/${GEMINI_FLASH_IMAGE_MODEL}`, 'openrouter'))
 
+    expect(params.selectedProvider.value).toBe('openrouter')
+    expect(params.config.value.provider).toBe('openrouter')
     expect(params.config.value.imageSize).toBe('1K')
   })
 

@@ -9,6 +9,7 @@ A modern web UI for AI image generation powered by Google Gemini Image (aka. Nan
 ## Features
 
 - **Multi-provider support** — Google Gemini direct API, OpenRouter, and Vercel AI Gateway
+- **Model catalog & pricing overview** — Full-page browser of every supported model across all providers, with release dates, supported resolutions/aspect ratios, per-image unit prices, and one-click model selection
 - **Text-to-image** — Describe what you want, get an image
 - **Image editing** — Upload up to 16 reference images for guided generation/editing (limit depends on the model)
 - **Streaming generation** — Real-time feedback as the image is being created

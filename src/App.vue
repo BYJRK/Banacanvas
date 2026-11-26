@@ -12,7 +12,7 @@ import { useResizableSidebar } from './composables/useResizableSidebar'
 import { getHistoryInputImages } from './historyImages'
 import { useReferenceImageResize } from './composables/useReferenceImageResize'
 import { closestAspectRatio, getAspectRatios, getMaxInputImages } from './config/models'
-import type { HistoryEntry, InputImage, ToastType } from './types'
+import type { HistoryEntry, InputImage, ModelOption, ToastType } from './types'
 import AspectRatioSuggestionDialog from './components/AspectRatioSuggestionDialog.vue'
 import ReferenceImageResizeDialog from './components/ReferenceImageResizeDialog.vue'
 import GenerationPanel from './components/GenerationPanel.vue'
@@ -22,6 +22,7 @@ import Toast from './components/Toast.vue'
 
 const ApiKeyDialog = defineAsyncComponent(() => import('./components/ApiKeyDialog.vue'))
 const HistoryPanel = defineAsyncComponent(() => import('./components/HistoryPanel.vue'))
+const ModelCatalogPanel = defineAsyncComponent(() => import('./components/ModelCatalogPanel.vue'))
 
 const apiKeyStore = useApiKeyStore()
 const historyStore = useHistoryStore()
@@ -103,7 +104,7 @@ const { resizeAsPng, request: resizeRequest, resizingIds, busy: referenceImagesB
 )
 const maxReferenceImages = computed(() => getMaxInputImages(selectedModel.value.id))
 useGenerationShortcut(
-  () => prompt.value.trim().length > 0 && !loading.value && !referenceImagesBusy.value,
+  () => prompt.value.trim().length > 0 && !loading.value && !referenceImagesBusy.value && !showModelCatalog.value,
   handleGenerate,
 )
 const desktopGenerationPanel = ref<InstanceType<typeof GenerationPanel>>()
@@ -141,7 +142,7 @@ function isEditableTarget(target: EventTarget | null) {
 }
 
 function handlePaste(event: ClipboardEvent) {
-  if (showHistory.value || isEditableTarget(event.target)) return
+  if (showHistory.value || showModelCatalog.value || isEditableTarget(event.target)) return
 
   const files = event.clipboardData?.files
   if (!files?.length || !Array.from(files).some((file) => file.type.startsWith('image/'))) return
@@ -175,6 +176,39 @@ function addResultToReferences(base64: string, mimeType: string) {
   showToast(t('addedToReferences'), 'success')
 }
 
+// Model catalog full-page view
+const showModelCatalog = ref(false)
+const catalogMounted = ref(false)
+watch(showModelCatalog, (open) => { if (open) catalogMounted.value = true })
+const catalogToggle = ref<HTMLButtonElement | null>(null)
+const catalogContainer = ref<HTMLElement | null>(null)
+
+async function openModelCatalog() {
+  if (showHistory.value) {
+    showHistory.value = false
+    historyFullPage.value = false
+  }
+  showModelCatalog.value = true
+  await nextTick()
+  catalogContainer.value?.querySelector<HTMLButtonElement>('button')?.focus()
+}
+
+async function closeModelCatalog() {
+  showModelCatalog.value = false
+  await nextTick()
+  catalogToggle.value?.focus()
+}
+
+function toggleModelCatalog() {
+  if (showModelCatalog.value) void closeModelCatalog()
+  else void openModelCatalog()
+}
+
+function handleCatalogSelect(model: ModelOption) {
+  changeModel(model)
+  void closeModelCatalog()
+}
+
 // History sidebar
 const showHistory = ref(false)
 // Mount the (lazy-loaded) history panel only once it is first opened.
@@ -186,6 +220,7 @@ const historyContainer = ref<HTMLElement | null>(null)
 const { width: sidebarWidth, onMouseDown: onSidebarResizeStart, onTouchStart: onSidebarResizeTouchStart } = useResizableSidebar(288, 450)
 
 async function openHistoryFullPage() {
+  showModelCatalog.value = false
   showHistory.value = true
   historyFullPage.value = true
   await nextTick()
@@ -201,12 +236,16 @@ async function closeHistory() {
 
 function toggleHistory() {
   if (showHistory.value) void closeHistory()
-  else showHistory.value = true
+  else {
+    showModelCatalog.value = false
+    showHistory.value = true
+  }
 }
 
 function handleHistoryKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && showHistory.value && !showApiKeyDialog.value) {
-    void closeHistory()
+  if (event.key === 'Escape' && !showApiKeyDialog.value) {
+    if (showHistory.value) void closeHistory()
+    else if (showModelCatalog.value) void closeModelCatalog()
   }
 }
 
@@ -302,6 +341,24 @@ function handleHistorySelect(entry: HistoryEntry) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
           </button>
+          <!-- Model catalog toggle -->
+          <button
+            ref="catalogToggle"
+            @click="toggleModelCatalog"
+            :aria-label="t('modelCatalog')"
+            :aria-expanded="showModelCatalog"
+            :class="[
+              'rounded-lg p-2 transition-colors cursor-pointer',
+              showModelCatalog
+                ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40'
+                : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800',
+            ]"
+            :title="t('modelCatalog')"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          </button>
           <!-- History toggle -->
           <button
             ref="historyToggle"
@@ -348,7 +405,7 @@ function handleHistorySelect(entry: HistoryEntry) {
 
     <!-- Main content -->
     <div class="relative flex-1 flex min-h-0">
-      <div v-show="!historyFullPage" class="flex flex-1 min-h-0 min-w-0">
+      <div v-show="!historyFullPage && !showModelCatalog" class="flex flex-1 min-h-0 min-w-0">
       <!-- Left: Controls -->
       <aside class="w-80 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-y-auto p-4 flex flex-col gap-6 hidden md:flex">
         <GenerationPanel
@@ -366,6 +423,7 @@ function handleHistorySelect(entry: HistoryEntry) {
           @clear="clearWorkspace"
           @update:model="changeModel"
           @provider-change="changeProvider"
+          @open-model-catalog="openModelCatalog"
           @first-image-added="handleFirstImageAdded"
           @toast="showToast"
         />
@@ -392,6 +450,7 @@ function handleHistorySelect(entry: HistoryEntry) {
             @clear="clearWorkspace"
             @update:model="changeModel"
             @provider-change="changeProvider"
+            @open-model-catalog="openModelCatalog"
             @first-image-added="handleFirstImageAdded"
             @toast="showToast"
           />
@@ -429,6 +488,20 @@ function handleHistorySelect(entry: HistoryEntry) {
         </div>
       </main>
 
+      </div>
+
+      <!-- Full-page model catalog -->
+      <div
+        v-if="catalogMounted"
+        v-show="showModelCatalog"
+        ref="catalogContainer"
+        class="flex-1 min-h-0 min-w-0 bg-gray-50/60 dark:bg-gray-950 overflow-y-auto p-4 sm:p-6"
+      >
+        <ModelCatalogPanel
+          :current-model="selectedModel"
+          @back="closeModelCatalog"
+          @select="handleCatalogSelect"
+        />
       </div>
 
       <!-- Shared history browser: sidebar or full-page content -->

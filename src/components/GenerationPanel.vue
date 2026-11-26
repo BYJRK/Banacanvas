@@ -36,6 +36,7 @@ const emit = defineEmits<{
   (e: 'cancel'): void
   (e: 'clear'): void
   (e: 'providerChange', provider: Provider): void
+  (e: 'openModelCatalog'): void
   (e: 'firstImageAdded', id: string): void
   (e: 'toast', message: string, type: 'error' | 'info'): void
 }>()
@@ -228,7 +229,16 @@ function onThumbDragEnd() {
 
     <!-- Model selector -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('model') }}</label>
+      <div class="flex items-center justify-between mb-1">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('model') }}</label>
+        <button
+          type="button"
+          class="text-xs font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition-colors cursor-pointer"
+          @click="emit('openModelCatalog')"
+        >
+          {{ t('viewAllModels') }} →
+        </button>
+      </div>
       <GroupedModelSelector v-if="selectedProvider === 'openrouter' || selectedProvider === 'vercel'" :key="selectedProvider" v-model="selectedModel" :models="filteredModels" />
       <Listbox v-else v-model="selectedModel">
         <div class="relative">

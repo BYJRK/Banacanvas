@@ -16,6 +16,7 @@ import {
   MAI_IMAGE_2_6_MODEL,
   MAI_IMAGE_2_7_FLASH_MODEL,
   MAI_IMAGE_2_7_MODEL,
+  MODEL_RELEASE_DATES,
   MUSE_IMAGE_MODEL,
   QWEN_IMAGE_2_1_PRO_MODEL,
   QWEN_IMAGE_2_1_TURBO_MODEL,
@@ -34,6 +35,7 @@ import {
   getMaiImageSize,
   getMinimaxImageSize,
   getMaxInputImages,
+  getModelReleaseDate,
   getModelsForProvider,
   getResolution,
   getThinkingLevels,
@@ -465,5 +467,21 @@ describe('MiniMax H3 Image standard', () => {
 
   it.each([['1K', 0.02179], ['2K', 0.02333], ['4K', 0.06879]] as const)('uses the undiscounted %s text-to-image reference total', (size, price) => {
     expect(estimateImageOutputCost(MINIMAX_H3_IMAGE_MODEL, size, 3)).toBeCloseTo(price * 3, 9)
+  })
+})
+
+describe('Seedream 5.0 Pro pricing and model release dates', () => {
+  it('uses Seedream 5.0 Pro per-resolution prices ($0.045 at 1K, $0.09 at 2K)', () => {
+    expect(estimateImageOutputCost(SEEDREAM_5_0_PRO_MODEL, '1K')).toBeCloseTo(0.045, 9)
+    expect(estimateImageOutputCost(SEEDREAM_5_0_PRO_MODEL, '2K', 2)).toBeCloseTo(0.18, 9)
+  })
+
+  it('defines a valid ISO release date for every available model with no stale entries', () => {
+    const baseIds = new Set(AVAILABLE_MODELS.map((m) => getBaseModelId(m.id)))
+    for (const model of AVAILABLE_MODELS) {
+      const date = getModelReleaseDate(model.id)
+      expect(date, `${model.provider}:${model.id}`).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    }
+    expect(Object.keys(MODEL_RELEASE_DATES).filter((id) => !baseIds.has(id))).toEqual([])
   })
 })

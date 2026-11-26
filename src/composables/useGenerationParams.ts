@@ -146,6 +146,7 @@ export function useGenerationParams() {
 
   /** Switch model and reset any options the new model does not support. */
   function changeModel(model: ModelOption) {
+    selectedProvider.value = model.provider
     selectedModel.value = model
     config.value = normalizeConfig(config.value, model, config.value.model)
   }

@@ -668,6 +668,11 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
     '1K': 0.05, // $0.05/image
     '2K': 0.07, // $0.07/image
   },
+  // https://openrouter.ai/bytedance-seed/seedream-5-0-pro ($0.045 output, $0.09 high-res), verified 2026-11-24.
+  [SEEDREAM_5_0_PRO_MODEL]: {
+    '1K': 0.045,
+    '2K': 0.09,
+  },
   [SEEDREAM_5_0_LITE_MODEL]: {
     '2K': 0.035,
     '4K': 0.035,
@@ -683,6 +688,41 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
     '1K': 0.019,
     '2K': 0.021,
   },
+}
+
+/** Whether output pricing is a fixed per-image rate rather than token/usage-dependent. */
+export function hasFlatImagePricing(modelId: string): boolean {
+  return (modelId in FLAT_IMAGE_PRICES && !isRiverflowModel(modelId)) || modelId === GROK_IMAGE_2_MODEL
+}
+
+/** Official public release dates (ISO YYYY-MM-DD) keyed by canonical base model ID. */
+export const MODEL_RELEASE_DATES: Record<string, string> = {
+  [GEMINI_PRO_IMAGE_MODEL]: '2025-11-20',
+  [SEEDREAM_5_0_LITE_MODEL]: '2026-02-13',
+  [GEMINI_FLASH_IMAGE_MODEL]: '2026-02-26',
+  [GROK_IMAGE_MODEL]: '2026-05-18',
+  [RIVERFLOW_V2_5_PRO_MODEL]: '2026-06-05',
+  [RIVERFLOW_V2_5_FAST_MODEL]: '2026-06-05',
+  [GEMINI_FLASH_LITE_IMAGE_MODEL]: '2026-06-30',
+  [MUSE_IMAGE_MODEL]: '2026-07-07',
+  [SEEDREAM_5_0_PRO_MODEL]: '2026-07-08',
+  [GROK_IMAGE_2_MODEL]: '2026-08-07',
+  [MAI_IMAGE_2_6_MODEL]: '2026-08-10',
+  [MAI_IMAGE_2_6_FLASH_MODEL]: '2026-09-04',
+  [GPT_IMAGE_2_5_FLARE_MODEL]: '2026-09-08',
+  [GPT_IMAGE_2_5_SUNBURST_MODEL]: '2026-09-08',
+  [GEMINI_NANO_BANANA_2_1_MODEL]: '2026-10-06',
+  [QWEN_IMAGE_2_1_PRO_MODEL]: '2026-10-09',
+  [QWEN_IMAGE_2_1_TURBO_MODEL]: '2026-10-09',
+  [GPT_IMAGE_2_6_FLARE_MODEL]: '2026-11-04',
+  [GPT_IMAGE_2_6_SUNBURST_MODEL]: '2026-11-04',
+  [MINIMAX_H3_IMAGE_MODEL]: '2026-11-10',
+  [MAI_IMAGE_2_7_MODEL]: '2026-11-17',
+  [MAI_IMAGE_2_7_FLASH_MODEL]: '2026-11-17',
+}
+
+export function getModelReleaseDate(modelId: string): string | undefined {
+  return MODEL_RELEASE_DATES[getBaseModelId(modelId)]
 }
 
 /** Map internal imageSize values to OpenRouter image_size values */
