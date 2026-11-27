@@ -2,6 +2,7 @@ import type { ImageQuality, ModelOption, Provider } from '../types'
 
 // Canonical model IDs — avoid scattering magic strings across capability helpers
 export const MINIMAX_H3_IMAGE_MODEL = 'minimax/minimax-h3-image'
+export const RECRAFT_V4_1_FLASH_V2_MODEL = 'recraft/recraft-v4.1-flash-v2'
 export const GEMINI_NANO_BANANA_2_1_MODEL = 'gemini-nano-banana-2.1'
 export const GEMINI_FLASH_IMAGE_MODEL = 'gemini-3.1-flash-image'
 export const GEMINI_FLASH_LITE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image'
@@ -151,6 +152,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     id: QWEN_IMAGE_2_1_TURBO_MODEL,
     name: 'Qwen Image 2.1 Turbo',
     description: 'Fast, lower-cost generation & editing. 1K–2K, seed control, up to 4 references.',
+    provider: 'openrouter',
+  },
+  {
+    id: RECRAFT_V4_1_FLASH_V2_MODEL,
+    name: 'Recraft V4.1 Flash V2',
+    description: 'Fast text-to-image generation with improved text rendering; $0.007/image. Text-only (no reference images).',
     provider: 'openrouter',
   },
   // Microsoft MAI, available through both image gateways
@@ -321,6 +328,10 @@ const MINIMAX_ASPECT_RATIOS = [
   '5:2', '5:4', '5:7', '7:5', '9:16', '16:9', '9:19.5', '19.5:9', '9:20', '20:9', '9:21', '21:9',
 ] as const
 
+const RECRAFT_ASPECT_RATIOS = [
+  '1:1', '2:1', '1:2', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', 'auto',
+] as const
+
 /** Area presets rounded to a 32px grid, matching MiniMax's documented 2K/4K examples.
  * https://platform.minimax.io/docs/guides/image-generation#output-size
  */
@@ -418,10 +429,12 @@ export function getMaiImageSize(aspectRatio: string, imageSize: string): `${numb
 
 /** OpenRouter exposes MAI/GPT Image aspect ratio, but no resolution control. */
 export function supportsImageSizeConfiguration(modelId: string, provider: Provider): boolean {
+  if (modelId === RECRAFT_V4_1_FLASH_V2_MODEL) return false
   return supportsImageConfiguration(modelId) && !((isMaiImageModel(modelId) || isGptImageModel(modelId)) && provider === 'openrouter')
 }
 
 export function getAspectRatios(modelId: string) {
+  if (modelId === RECRAFT_V4_1_FLASH_V2_MODEL) return RECRAFT_ASPECT_RATIOS
   if (modelId === MINIMAX_H3_IMAGE_MODEL) return MINIMAX_ASPECT_RATIOS
   if (isQwenImageModel(modelId)) return QWEN_ASPECT_RATIOS
   if (isGptImageModel(modelId)) return GPT_IMAGE_ASPECT_RATIOS
@@ -454,6 +467,7 @@ export function closestAspectRatio(width: number, height: number, ratios: readon
 }
 
 export function getImageSizes(modelId: string, provider?: Provider) {
+  if (modelId === RECRAFT_V4_1_FLASH_V2_MODEL) return LITE_IMAGE_SIZES
   if (modelId === MINIMAX_H3_IMAGE_MODEL) return PRO_IMAGE_SIZES
   if (isQwenImageModel(modelId)) return QWEN_IMAGE_SIZES
   if (isGptImageModel(modelId)) return provider === 'openrouter' ? LITE_IMAGE_SIZES : GPT_IMAGE_SIZES
@@ -547,7 +561,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
     return provider === 'openrouter' ? undefined : getMaiImageSize(aspectRatio, imageSize)?.replace('x', '×')
   }
   if (modelId === GROK_IMAGE_MODEL) return GROK_RESOLUTIONS[aspectRatio]?.[imageSize]
-  if (modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL) return undefined
+  if (modelId === RECRAFT_V4_1_FLASH_V2_MODEL || modelId === GROK_IMAGE_2_MODEL || modelId === SEEDREAM_5_0_PRO_MODEL || modelId === SEEDREAM_5_0_LITE_MODEL) return undefined
   // Riverflow exposes normalized 1K/2K/4K tiers, not a fixed pixel matrix.
   if (modelId === RIVERFLOW_V2_5_PRO_MODEL || modelId === RIVERFLOW_V2_5_FAST_MODEL) return undefined
   return RESOLUTIONS[aspectRatio]?.[imageSize]
@@ -555,6 +569,7 @@ export function getResolution(aspectRatio: string, imageSize: string, modelId?: 
 
 /** Maximum reference images accepted by the selected model. */
 export function getMaxInputImages(modelId: string): number {
+  if (modelId === RECRAFT_V4_1_FLASH_V2_MODEL) return 0
   if (modelId === MINIMAX_H3_IMAGE_MODEL) return 16
   if (isQwenImageModel(modelId)) return 4
   if (isGptImageModel(modelId)) return 16
@@ -570,6 +585,7 @@ export function getMaxInputImages(modelId: string): number {
 
 /** Models served through OpenRouter's dedicated Image API rather than chat completions. */
 export function usesOpenRouterImageApi(modelId: string): boolean {
+  if (modelId === RECRAFT_V4_1_FLASH_V2_MODEL) return true
   if (modelId === MINIMAX_H3_IMAGE_MODEL) return true
   if (isQwenImageModel(modelId)) return true
   if (isMaiImageModel(modelId) || isGptImageModel(modelId)) return true
@@ -659,6 +675,8 @@ export function supportsOutputModalities(modelId: string): boolean {
 
 /** Flat per-image pricing (USD) for models not using token-based pricing */
 const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
+  // https://openrouter.ai/recraft/recraft-v4.1-flash-v2 ($0.007/image), verified 2026-11-27.
+  [RECRAFT_V4_1_FLASH_V2_MODEL]: { '1K': 0.007 },
   // https://openrouter.ai/qwen/qwen-image-2.1-pro (and Turbo), verified 2026-10-22.
   [QWEN_IMAGE_2_1_PRO_MODEL]: { '1K': 0.046, '2K': 0.046 },
   [QWEN_IMAGE_2_1_TURBO_MODEL]: { '1K': 0.0184, '2K': 0.0184 },
@@ -718,6 +736,7 @@ export const MODEL_RELEASE_DATES: Record<string, string> = {
   [GPT_IMAGE_2_6_FLARE_MODEL]: '2026-11-04',
   [GPT_IMAGE_2_6_SUNBURST_MODEL]: '2026-11-04',
   [MINIMAX_H3_IMAGE_MODEL]: '2026-11-10',
+  [RECRAFT_V4_1_FLASH_V2_MODEL]: '2026-11-13',
   [MAI_IMAGE_2_7_MODEL]: '2026-11-17',
   [MAI_IMAGE_2_7_FLASH_MODEL]: '2026-11-17',
 }

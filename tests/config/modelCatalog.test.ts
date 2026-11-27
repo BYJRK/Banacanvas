@@ -6,6 +6,7 @@ import {
   GPT_IMAGE_2_6_FLARE_MODEL,
   MAI_IMAGE_2_7_MODEL,
   MUSE_IMAGE_MODEL,
+  RECRAFT_V4_1_FLASH_V2_MODEL,
   SEEDREAM_5_0_PRO_MODEL,
   getBaseModelId,
 } from '../../src/config/models'
@@ -80,7 +81,7 @@ describe('filterAndSortCatalog and stats', () => {
     expect(oldestFirst[0].baseId).toBe(GEMINI_PRO_IMAGE_MODEL)
 
     const cheapestFirst = filterAndSortCatalog(catalog, { sortBy: 'priceAsc' })
-    expect(cheapestFirst[0].baseId).toBe(MUSE_IMAGE_MODEL)
+    expect(cheapestFirst[0].baseId).toBe(RECRAFT_V4_1_FLASH_V2_MODEL)
     expect(cheapestFirst.at(-1)!.baseId).toBe(GEMINI_PRO_IMAGE_MODEL)
   })
 
@@ -96,8 +97,8 @@ describe('filterAndSortCatalog and stats', () => {
   it('computes overview stats and formats exact vs estimated prices', () => {
     const stats = getCatalogOverviewStats(catalog)!
     expect(stats.totalModels).toBe(catalog.length)
-    expect(stats.cheapestModelName).toBe('Muse Image')
-    expect(stats.minReferenceCost).toBeCloseTo(0.01, 9)
+    expect(stats.cheapestModelName).toBe('Recraft V4.1 Flash V2')
+    expect(stats.minReferenceCost).toBeCloseTo(0.007, 9)
     expect(stats.newestReleaseDate).toBe('2026-11-17')
     expect(getCatalogOverviewStats([])).toBeNull()
 

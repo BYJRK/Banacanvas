@@ -16,6 +16,7 @@ import {
   toOpenRouterImageSize,
   supportsOutputModalities,
   supportsImageConfiguration,
+  supportsImageSizeConfiguration,
   supportsImageQuality,
   supportsSeedParameter,
   usesOpenRouterImageApi,
@@ -140,7 +141,7 @@ export function useOpenRouter() {
         prompt,
       }
       if (supportsImageConfiguration(config.model)) {
-        if (!isMaiImageModel(config.model) && !isGptImageModel(config.model)) body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
+        if (supportsImageSizeConfiguration(config.model, 'openrouter')) body.resolution = config.imageSize ?? getImageSizes(config.model)[0].value
         body.aspect_ratio = config.aspectRatio ?? '1:1'
       }
       if (config.model === MINIMAX_H3_IMAGE_MODEL) {

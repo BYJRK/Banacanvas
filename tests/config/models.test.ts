@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   MINIMAX_H3_IMAGE_MODEL,
+  RECRAFT_V4_1_FLASH_V2_MODEL,
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
   GEMINI_FLASH_IMAGE_MODEL,
@@ -39,6 +40,7 @@ import {
   getModelsForProvider,
   getResolution,
   getThinkingLevels,
+  hasFlatImagePricing,
   isImageSizeSupported,
   resolveImageQuality,
   supportsGoogleSearch,
@@ -137,7 +139,7 @@ describe('model catalogue', () => {
       expect(getAspectRatios(model.id).length).toBeGreaterThan(0)
       const sizes = sizeValues(model.id, model.provider)
       expect(sizes.some((size) => isImageSizeSupported(model.provider, size))).toBe(true)
-      expect(getMaxInputImages(model.id)).toBeGreaterThan(0)
+      expect(getMaxInputImages(model.id)).toBeGreaterThanOrEqual(0)
     },
   )
 })
@@ -468,6 +470,22 @@ describe('MiniMax H3 Image standard', () => {
 
   it.each([['1K', 0.02179], ['2K', 0.02333], ['4K', 0.06879]] as const)('uses the undiscounted %s text-to-image reference total', (size, price) => {
     expect(estimateImageOutputCost(MINIMAX_H3_IMAGE_MODEL, size, 3)).toBeCloseTo(price * 3, 9)
+  })
+})
+
+describe('Recraft V4.1 Flash V2', () => {
+  it('offers fixed ~1K output via OpenRouter with 12 aspect ratios and no reference images', () => {
+    expect(getModelsForProvider('openrouter').some((model) => model.id === RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
+    expect(supportsImageSizeConfiguration(RECRAFT_V4_1_FLASH_V2_MODEL, 'openrouter')).toBe(false)
+    expect(sizeValues(RECRAFT_V4_1_FLASH_V2_MODEL, 'openrouter')).toEqual(['1K'])
+    expect(getAspectRatios(RECRAFT_V4_1_FLASH_V2_MODEL)).toEqual([
+      '1:1', '2:1', '1:2', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', 'auto',
+    ])
+    expect(getResolution('16:9', '1K', RECRAFT_V4_1_FLASH_V2_MODEL, 'openrouter')).toBeUndefined()
+    expect(getMaxInputImages(RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(0)
+    expect(usesOpenRouterImageApi(RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
+    expect(hasFlatImagePricing(RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
+    expect(estimateImageOutputCost(RECRAFT_V4_1_FLASH_V2_MODEL, '1K', 2)).toBeCloseTo(0.014, 9)
   })
 })
 

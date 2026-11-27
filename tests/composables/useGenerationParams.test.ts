@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { useGenerationParams } from '../../src/composables/useGenerationParams'
 import {
   MINIMAX_H3_IMAGE_MODEL,
+  RECRAFT_V4_1_FLASH_V2_MODEL,
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
   GEMINI_FLASH_IMAGE_MODEL,
@@ -356,5 +357,13 @@ it('restores MiniMax on vercel and normalizes unsupported controls', () => {
   const params = useGenerationParams()
   expect(params.selectedModel.value.id).toBe(MINIMAX_H3_IMAGE_MODEL)
   expect(params.config.value).toMatchObject({ provider: 'vercel', model: MINIMAX_H3_IMAGE_MODEL, aspectRatio: '1:1', imageSize: '1K' })
+  expect(params.config.value.seed).toBeUndefined()
+})
+
+it('restores Recraft V4.1 Flash V2 on openrouter and normalizes unsupported controls', () => {
+  persist({ provider: 'openrouter', modelId: RECRAFT_V4_1_FLASH_V2_MODEL, config: { aspectRatio: '21:9', imageSize: '2K', seed: 42 } })
+  const params = useGenerationParams()
+  expect(params.selectedModel.value.id).toBe(RECRAFT_V4_1_FLASH_V2_MODEL)
+  expect(params.config.value).toMatchObject({ provider: 'openrouter', model: RECRAFT_V4_1_FLASH_V2_MODEL, aspectRatio: '1:1', imageSize: '1K' })
   expect(params.config.value.seed).toBeUndefined()
 })

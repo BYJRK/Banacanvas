@@ -6,7 +6,7 @@ import {
   DEFAULT_MODEL,
   GEMINI_PRO_IMAGE_MODEL,
   MAI_IMAGE_2_7_MODEL,
-  MUSE_IMAGE_MODEL,
+  RECRAFT_V4_1_FLASH_V2_MODEL,
 } from '../../src/config/models'
 import { buildModelCatalog } from '../../src/config/modelCatalog'
 import type { ModelOption } from '../../src/types'
@@ -93,7 +93,7 @@ describe('ModelCatalogPanel', () => {
     await nextTick()
 
     const cardsByPrice = [...host.querySelectorAll<HTMLElement>('[data-model-card]')]
-    expect(cardsByPrice[0].dataset.modelCard).toBe(MUSE_IMAGE_MODEL)
+    expect(cardsByPrice[0].dataset.modelCard).toBe(RECRAFT_V4_1_FLASH_V2_MODEL)
     expect(cardsByPrice.at(-1)!.dataset.modelCard).toBe(GEMINI_PRO_IMAGE_MODEL)
 
     const tableToggle = [...host.querySelectorAll<HTMLButtonElement>('button')]

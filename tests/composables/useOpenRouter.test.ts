@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useOpenRouter } from '../../src/composables/useOpenRouter'
 import {
   MINIMAX_H3_IMAGE_MODEL,
+  RECRAFT_V4_1_FLASH_V2_MODEL,
   GEMINI_FLASH_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
   GPT_IMAGE_2_6_FLARE_MODEL,
@@ -401,5 +402,26 @@ describe('MiniMax text-to-image', () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: [{ b64_json: IMAGE_B64 }] }))
     const result = await useOpenRouter().generateImage('a cat', config({ model: MINIMAX_H3_IMAGE_MODEL, imageSize: '4K' }))
     expect(result.usage?.estimatedCost).toBeCloseTo(0.06879, 9)
+  })
+})
+
+describe('Recraft V4.1 Flash V2 text-to-image', () => {
+  it('sends aspect_ratio without resolution through the image API and uses flat $0.007 pricing', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: [{ b64_json: IMAGE_B64, media_type: 'image/png' }] }))
+    const result = await useOpenRouter().generateImage('a cat', config({
+      model: RECRAFT_V4_1_FLASH_V2_MODEL, imageSize: '1K', aspectRatio: '16:9', seed: 42,
+    }))
+    expect(lastRequest().url).toBe(IMAGES_URL)
+    expect(lastRequest().body).toEqual({
+      model: RECRAFT_V4_1_FLASH_V2_MODEL, prompt: 'a cat', aspect_ratio: '16:9',
+    })
+    expect(result.imageBase64).toBe(IMAGE_B64)
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.007, 9)
+  })
+
+  it('rejects reference images because Recraft V4.1 Flash V2 is text-only', async () => {
+    await expect(useOpenRouter().editImage([inputImage()], 'edit', config({ model: RECRAFT_V4_1_FLASH_V2_MODEL })))
+      .rejects.toThrow(en.referenceImagesLimitReached.replace('{count}', '0'))
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

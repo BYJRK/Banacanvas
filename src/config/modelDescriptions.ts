@@ -6,6 +6,7 @@ export const MODEL_DESCRIPTION_KEYS: Record<string, MessageKey> = {
   'vercel:minimax/minimax-h3-image': 'modelMinimaxH3ImageDesc',
   'openrouter:qwen/qwen-image-2.1-pro': 'modelQwenImage21ProDesc',
   'openrouter:qwen/qwen-image-2.1-turbo': 'modelQwenImage21TurboDesc',
+  'openrouter:recraft/recraft-v4.1-flash-v2': 'modelRecraftV41FlashV2Desc',
   'gemini:gemini-nano-banana-2.1': 'modelNanoBanana21Desc',
   'gemini:gemini-3.1-flash-image': 'modelNanoBanana2Desc',
   'gemini:gemini-3-pro-image': 'modelNanoBananaProDesc',

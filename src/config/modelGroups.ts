@@ -10,6 +10,7 @@ const AUTHOR_NAMES: Record<string, string> = {
   microsoft: 'Microsoft',
   openai: 'OpenAI',
   minimax: 'MiniMax',
+  recraft: 'Recraft',
 }
 
 export function getModelAuthor(modelId: string): { id: string; name: string } {
