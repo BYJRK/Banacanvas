@@ -434,9 +434,10 @@ describe('estimateImageTokenCost', () => {
 
 
 describe('MiniMax H3 Image standard', () => {
-  it.each(['openrouter', 'vercel'] as const)('offers 1K–4K via %s with only supported controls', (provider) => {
-    expect(getModelsForProvider(provider).some((model) => model.id === MINIMAX_H3_IMAGE_MODEL)).toBe(true)
-    expect(sizeValues(MINIMAX_H3_IMAGE_MODEL, provider)).toEqual(['1K', '2K', '4K'])
+  it('offers 1K–4K via vercel with only supported controls, and hides OpenRouter while BYOK-only', () => {
+    expect(getModelsForProvider('vercel').some((model) => model.id === MINIMAX_H3_IMAGE_MODEL)).toBe(true)
+    expect(getModelsForProvider('openrouter').some((model) => model.id === MINIMAX_H3_IMAGE_MODEL)).toBe(false)
+    expect(sizeValues(MINIMAX_H3_IMAGE_MODEL, 'vercel')).toEqual(['1K', '2K', '4K'])
     expect(getAspectRatios(MINIMAX_H3_IMAGE_MODEL)).toContain('1:3')
     expect(getAspectRatios(MINIMAX_H3_IMAGE_MODEL)).not.toContain('1:4')
     expect(supportsSeedParameter(MINIMAX_H3_IMAGE_MODEL)).toBe(false)

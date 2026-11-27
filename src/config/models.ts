@@ -187,12 +187,13 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     { id: GPT_IMAGE_2_5_FLARE_MODEL, name: 'GPT Image 2.5 Flare', description: 'Fast generation & editing. Six quality levels, transparent backgrounds, up to 16 references.', provider },
     { id: GPT_IMAGE_2_5_SUNBURST_MODEL, name: 'GPT Image 2.5 Sunburst', description: 'Precise editing & detailed generation. Six quality levels, transparent backgrounds, up to 16 references.', provider },
   ]),
-  ...(['openrouter', 'vercel'] as const).map((provider): ModelOption => ({
+  // Hidden on OpenRouter while the upstream endpoint is BYOK-only.
+  {
     id: MINIMAX_H3_IMAGE_MODEL,
     name: 'MiniMax H3 Image',
     description: 'MiniMax standard image generation. 1K–4K, flexible aspect ratios.',
-    provider,
-  })),
+    provider: 'vercel',
+  },
   // Vercel AI Gateway
   {
     id: 'google/gemini-3.1-flash-image',

@@ -49,7 +49,7 @@ OpenRouter 还通过 Image API 提供 **Qwen Image 2.1 Pro**（`qwen/qwen-image-
 | **OpenRouter** | 通过 [OpenRouter](https://openrouter.ai) 中转。适合统一管理 API 密钥。 |
 | **Vercel AI Gateway** | 通过 Vercel AI 基础设施中转，优化传输。 |
 
-OpenRouter 和 Vercel AI Gateway 均已支持 **MiniMax H3 Image** 标准版（`minimax/minimax-h3-image`），提供 1K / 2K / 4K 输出及 1:3～3:1 范围内的固定宽高比。文生图单张参考总费用分别为 $0.02179 / $0.02333 / $0.06879，包含提示词增强，不含限时折扣。实际费用随 Token 用量变化；OpenRouter 生成后优先采用返回账单。Vercel 使用明确像素尺寸，并关闭自动重试。来源：[MiniMax 价格](https://platform.minimax.io/docs/pricing/overview)、[OpenRouter](https://openrouter.ai/minimax/minimax-h3-image)、[Vercel](https://vercel.com/ai-gateway/models/minimax-h3-image)（核实于 2026-11-11）。
+Vercel AI Gateway 已支持 **MiniMax H3 Image** 标准版（`minimax/minimax-h3-image`；OpenRouter 目前因上游仅支持 BYOK 暂已隐藏），提供 1K / 2K / 4K 输出及 1:3～3:1 范围内的固定宽高比。文生图单张参考总费用分别为 $0.02179 / $0.02333 / $0.06879，包含提示词增强，不含限时折扣。实际费用随 Token 用量变化。Vercel 使用明确像素尺寸，并关闭自动重试。来源：[MiniMax 价格](https://platform.minimax.io/docs/pricing/overview)、[OpenRouter](https://openrouter.ai/minimax/minimax-h3-image)、[Vercel](https://vercel.com/ai-gateway/models/minimax-h3-image)（核实于 2026-11-11）。
 
 OpenRouter 和 Vercel AI Gateway 均支持 **GPT Image 2.5 Flare 与 Sunburst**。Flare 偏速度，Sunburst 偏精准编辑；两款均支持最多 16 张参考图、六档质量和透明背景。每百万 Token 的文本输入 / 图像输入 / 图像输出费用为 $5 / $8 / $30。Vercel 提供像素尺寸预设，OpenRouter 当前仅开放比例控制。详见[参数、价格与接入说明](./docs/gpt-image-2.5.md)。
 

@@ -351,10 +351,10 @@ describe('applyHistoryConfig', () => {
 })
 
 
-it.each(['openrouter', 'vercel'] as const)('restores MiniMax on %s and normalizes unsupported controls', (provider) => {
-  persist({ provider, modelId: MINIMAX_H3_IMAGE_MODEL, config: { aspectRatio: '1:4', imageSize: '512', seed: 42 } })
+it('restores MiniMax on vercel and normalizes unsupported controls', () => {
+  persist({ provider: 'vercel', modelId: MINIMAX_H3_IMAGE_MODEL, config: { aspectRatio: '1:4', imageSize: '512', seed: 42 } })
   const params = useGenerationParams()
   expect(params.selectedModel.value.id).toBe(MINIMAX_H3_IMAGE_MODEL)
-  expect(params.config.value).toMatchObject({ provider, model: MINIMAX_H3_IMAGE_MODEL, aspectRatio: '1:1', imageSize: '1K' })
+  expect(params.config.value).toMatchObject({ provider: 'vercel', model: MINIMAX_H3_IMAGE_MODEL, aspectRatio: '1:1', imageSize: '1K' })
   expect(params.config.value.seed).toBeUndefined()
 })
