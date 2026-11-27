@@ -117,7 +117,7 @@ const referenceSizeEstimate = computed(() => props.provider === 'openrouter' || 
     </div>
 
     <!-- Aspect Ratio -->
-    <div v-if="supportsImageConfiguration(props.modelId)">
+    <div v-if="supportsImageConfiguration(props.modelId, props.provider)">
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {{ t('aspectRatio') }}
       </label>

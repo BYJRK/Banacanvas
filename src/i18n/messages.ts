@@ -216,6 +216,7 @@ const messages = {
     modelQwenImage21ProDesc: 'High-fidelity generation & editing. 1K–2K, seed control, up to 4 references.',
     modelQwenImage21TurboDesc: 'Fast, lower-cost generation & editing. 1K–2K, seed control, up to 4 references.',
     modelRecraftV41FlashV2Desc: 'Fast text-to-image generation with improved text rendering; $0.007/image. Text-only (no reference images).',
+    modelVercelRecraftV41FlashV2Desc: 'Fast text-to-image generation with improved text rendering; $0.007/image. Text-only; specify aspect ratio in prompt.',
     modelSeedream50LiteDesc: 'Fast generation & editing. 2K–4K, seed control.',
     modelRiverflowV25ProDesc: 'High-control generation & editing. 1K–4K.',
     modelRiverflowV25FastDesc: 'Fast generation & editing. 1K–2K.',
@@ -301,6 +302,7 @@ const messages = {
     catalogDiffGeminiThinking: 'Thinking level control requires Google Gemini direct.',
     catalogDiffVercelSize: 'Resolution presets require Vercel AI Gateway; OpenRouter selects size automatically.',
     catalogDiffVercelSizeAndBg: '1K–2K presets & transparent background require Vercel AI Gateway; OpenRouter selects size automatically.',
+    catalogDiffOpenRouterAspectRatio: 'Aspect ratio parameter requires OpenRouter; on Vercel AI Gateway, specify aspect ratio in the prompt.',
 
   },
   zh: {
@@ -520,6 +522,7 @@ const messages = {
     modelQwenImage21ProDesc: '高保真生成与编辑。支持 1K–2K、种子控制和最多 4 张参考图。',
     modelQwenImage21TurboDesc: '快速、低成本生成与编辑。支持 1K–2K、种子控制和最多 4 张参考图。',
     modelRecraftV41FlashV2Desc: '高速文生图模型，优化文字渲染效果，约 $0.007/张。仅支持文生图（不支持参考图）。',
+    modelVercelRecraftV41FlashV2Desc: '高速文生图模型，优化文字渲染效果，约 $0.007/张。仅支持文生图，宽高比需在提示词中指定。',
     modelSeedream50LiteDesc: '快速生成与编辑。支持 2K–4K 和种子控制。',
     modelRiverflowV25ProDesc: '高控制力生成与编辑。支持 1K–4K。',
     modelRiverflowV25FastDesc: '快速生成与编辑。支持 1K–2K。',
@@ -605,6 +608,7 @@ const messages = {
     catalogDiffGeminiThinking: '思考等级控制仅限 Gemini 直连。',
     catalogDiffVercelSize: '分辨率预设仅在 Vercel AI Gateway 提供；OpenRouter 自动决定尺寸。',
     catalogDiffVercelSizeAndBg: '1K–2K 尺寸预设与透明背景仅在 Vercel AI Gateway 提供；OpenRouter 自动决定尺寸。',
+    catalogDiffOpenRouterAspectRatio: '宽高比参数仅在 OpenRouter 生效；在 Vercel AI Gateway 上需在提示词中指定宽高比。',
 
   },
 } as const

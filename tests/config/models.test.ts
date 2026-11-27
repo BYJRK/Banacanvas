@@ -475,8 +475,9 @@ describe('MiniMax H3 Image standard', () => {
 })
 
 describe('Recraft V4.1 Flash V2', () => {
-  it.each(['openrouter', 'vercel'] as const)('offers fixed ~1K output via %s with 12 aspect ratios and no reference images', (provider) => {
+  it.each(['openrouter', 'vercel'] as const)('offers fixed ~1K output via %s with aspect ratios on OpenRouter only and no reference images', (provider) => {
     expect(getModelsForProvider(provider).some((model) => model.id === RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
+    expect(supportsImageConfiguration(RECRAFT_V4_1_FLASH_V2_MODEL, provider)).toBe(provider === 'openrouter')
     expect(supportsImageSizeConfiguration(RECRAFT_V4_1_FLASH_V2_MODEL, provider)).toBe(false)
     expect(sizeValues(RECRAFT_V4_1_FLASH_V2_MODEL, provider)).toEqual(['1K'])
     expect(getAspectRatios(RECRAFT_V4_1_FLASH_V2_MODEL)).toEqual([

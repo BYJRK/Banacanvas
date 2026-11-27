@@ -76,13 +76,10 @@ export function useVercelAI() {
         if (images.length > maxImages) {
           throw new Error(t('referenceImagesLimitReached').replace('{count}', String(maxImages)))
         }
-        const aspectRatio = config.aspectRatio && config.aspectRatio !== 'auto'
-          ? config.aspectRatio as `${number}:${number}`
-          : undefined
+        // Vercel AI Gateway ignores aspectRatio for Recraft; users must specify it in the prompt.
         const result = await generateSdkImage({
           model: gateway.imageModel(config.model),
           prompt,
-          ...(aspectRatio ? { aspectRatio } : {}),
           n: 1,
           abortSignal: signal,
         })

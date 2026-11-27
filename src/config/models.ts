@@ -165,12 +165,18 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Fast, lower-cost generation & editing. 1K–2K, seed control, up to 4 references.',
     provider: 'openrouter',
   },
-  ...(['openrouter', 'vercel'] as const).map((provider): ModelOption => ({
+  {
     id: RECRAFT_V4_1_FLASH_V2_MODEL,
     name: 'Recraft V4.1 Flash V2',
     description: 'Fast text-to-image generation with improved text rendering; $0.007/image. Text-only (no reference images).',
-    provider,
-  })),
+    provider: 'openrouter',
+  },
+  {
+    id: RECRAFT_V4_1_FLASH_V2_MODEL,
+    name: 'Recraft V4.1 Flash V2',
+    description: 'Fast text-to-image generation with improved text rendering; $0.007/image. Text-only; specify aspect ratio in prompt.',
+    provider: 'vercel',
+  },
   // Microsoft MAI, available through both image gateways
   ...(['openrouter', 'vercel'] as const).flatMap((provider): ModelOption[] => [
     {
@@ -498,7 +504,8 @@ export function getImageSizes(modelId: string, provider?: Provider) {
 }
 
 /** Whether the model accepts explicit output size and aspect-ratio controls. */
-export function supportsImageConfiguration(modelId: string): boolean {
+export function supportsImageConfiguration(modelId: string, provider?: Provider): boolean {
+  if (modelId === RECRAFT_V4_1_FLASH_V2_MODEL && provider === 'vercel') return false
   return !isMuseImageModel(modelId)
 }
 

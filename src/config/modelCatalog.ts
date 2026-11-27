@@ -4,6 +4,7 @@ import {
   GEMINI_FLASH_IMAGE_MODEL,
   GEMINI_FLASH_LITE_IMAGE_MODEL,
   MODEL_PRICING,
+  RECRAFT_V4_1_FLASH_V2_MODEL,
   estimateImageOutputCost,
   getAspectRatios,
   getBaseModelId,
@@ -43,6 +44,7 @@ export type CatalogProviderDiffKey =
   | 'catalogDiffGeminiThinking'
   | 'catalogDiffVercelSize'
   | 'catalogDiffVercelSizeAndBg'
+  | 'catalogDiffOpenRouterAspectRatio'
 
 export interface CatalogSizePriceTier {
   size: string
@@ -126,7 +128,7 @@ function buildSizeTiers(
   probe: ModelOption,
   providerFilter: CatalogProviderFilter,
 ): { sizeTiers: CatalogSizePriceTier[]; supportsCustomSize: boolean } {
-  if (!supportsImageConfiguration(probe.id)) {
+  if (!supportsImageConfiguration(probe.id, probe.provider)) {
     const unitCost = estimateImageOutputCost(probe.id, '1K', 1, undefined, probe.provider, '1:1') ?? 0
     return {
       supportsCustomSize: false,
@@ -217,6 +219,7 @@ function getProviderDiffNote(
   }
   if (isMaiImage27Model(baseId)) return 'catalogDiffVercelSizeAndBg'
   if (isMaiImageModel(baseId) || isGptImageModel(baseId)) return 'catalogDiffVercelSize'
+  if (baseId === RECRAFT_V4_1_FLASH_V2_MODEL) return 'catalogDiffOpenRouterAspectRatio'
   return undefined
 }
 
@@ -255,7 +258,12 @@ export function buildModelCatalog(
     const referenceCost = referenceTier?.unitCost ?? 0
     const minCost = Math.min(...sizeTiers.map((t) => t.minQualityCost ?? t.unitCost))
     const maxCost = Math.max(...sizeTiers.map((t) => t.maxQualityCost ?? t.unitCost))
-    const aspectRatios: readonly string[] = supportsImageConfiguration(probe.id) ? getAspectRatios(probe.id) : []
+    const ratioVariant = providerFilter === 'all'
+      ? (variants.find((v) => supportsImageConfiguration(v.id, v.provider)) ?? probe)
+      : probe
+    const aspectRatios: readonly string[] = supportsImageConfiguration(ratioVariant.id, ratioVariant.provider)
+      ? getAspectRatios(ratioVariant.id)
+      : []
 
     entries.push({
       baseId,

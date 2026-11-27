@@ -319,26 +319,24 @@ describe('MiniMax text-to-image', () => {
 })
 
 describe('Recraft V4.1 Flash V2 text-to-image', () => {
-  it('sends aspectRatio without size via gateway.imageModel and uses flat $0.007 pricing', async () => {
+  it('calls gateway.imageModel without size or aspectRatio and uses flat $0.007 pricing', async () => {
     sdk.generateImage.mockResolvedValue(imageResult({ usage: {} }))
     const result = await useVercelAI().generateImage('a cat', config({
       model: RECRAFT_V4_1_FLASH_V2_MODEL, aspectRatio: '16:9', imageSize: '1K',
     }))
     const args = sdk.generateImage.mock.calls[0][0]
     expect(args).toMatchObject({
-      model: { kind: 'image', id: RECRAFT_V4_1_FLASH_V2_MODEL }, prompt: 'a cat', aspectRatio: '16:9', n: 1,
+      model: { kind: 'image', id: RECRAFT_V4_1_FLASH_V2_MODEL }, prompt: 'a cat', n: 1,
     })
+    expect(args.aspectRatio).toBeUndefined()
     expect(args.size).toBeUndefined()
     expect(result.usage?.estimatedCost).toBeCloseTo(0.007, 9)
   })
 
-  it('omits aspectRatio when set to auto and rejects reference images', async () => {
-    sdk.generateImage.mockResolvedValue(imageResult({ usage: {} }))
-    await useVercelAI().generateImage('a cat', config({ model: RECRAFT_V4_1_FLASH_V2_MODEL, aspectRatio: 'auto' }))
-    expect(sdk.generateImage.mock.calls[0][0].aspectRatio).toBeUndefined()
-
+  it('rejects reference images', async () => {
     await expect(useVercelAI().editImage([inputImage()], 'edit', config({ model: RECRAFT_V4_1_FLASH_V2_MODEL })))
       .rejects.toThrow(en.referenceImagesLimitReached.replace('{count}', '0'))
+    expect(sdk.generateImage).not.toHaveBeenCalled()
   })
 })
 

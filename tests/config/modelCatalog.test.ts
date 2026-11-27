@@ -70,6 +70,17 @@ describe('buildModelCatalog', () => {
     expect(tier1k.minQualityCost).toBeLessThan(tier1k.unitCost)
     expect(tier1k.maxQualityCost).toBeGreaterThan(tier1k.unitCost)
     expect(gpt26.isExactFlatPrice).toBe(false)
+
+    const recraftAll = all.find((e) => e.baseId === RECRAFT_V4_1_FLASH_V2_MODEL)!
+    expect(recraftAll.aspectRatios.length).toBe(12)
+    expect(recraftAll.providerDiffNote).toBe('catalogDiffOpenRouterAspectRatio')
+
+    const recraftVercel = buildModelCatalog('vercel').find((e) => e.baseId === RECRAFT_V4_1_FLASH_V2_MODEL)!
+    expect(recraftVercel.aspectRatios).toEqual([])
+    expect(recraftVercel.providerDiffNote).toBeUndefined()
+
+    const recraftOpenRouter = buildModelCatalog('openrouter').find((e) => e.baseId === RECRAFT_V4_1_FLASH_V2_MODEL)!
+    expect(recraftOpenRouter.aspectRatios.length).toBe(12)
   })
 })
 
