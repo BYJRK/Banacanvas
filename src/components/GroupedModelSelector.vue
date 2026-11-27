@@ -9,7 +9,7 @@ import type { ModelOption } from '../types'
 const props = defineProps<{ models: ModelOption[] }>()
 const selectedModel = defineModel<ModelOption>({ required: true })
 const { t } = useI18n()
-const groups = computed(() => groupModelsByAuthor(props.models))
+const groups = computed(() => groupModelsByAuthor(props.models, t('otherModelsGroup')))
 const activeAuthor = ref<string | null>(null)
 const activeGroup = computed(() => groups.value.find((group) => group.id === activeAuthor.value))
 const options = ref<HTMLElement>()

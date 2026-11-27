@@ -4,14 +4,27 @@ import { groupModelsByAuthor } from '../../src/config/modelGroups'
 import type { ModelOption } from '../../src/types'
 
 describe('groupModelsByAuthor', () => {
-  it('includes every OpenRouter model once, preserving catalogue order within each author', () => {
+  it('includes every OpenRouter model once, merging singleton authors into Other', () => {
     const models = getModelsForProvider('openrouter')
     const groups = groupModelsByAuthor(models)
-    expect(groups.map((group) => group.name)).toEqual(['Google', 'xAI', 'ByteDance', 'Sourceful', 'Meta', 'Qwen', 'Recraft', 'Microsoft', 'OpenAI'])
+    expect(groups.map((group) => group.name)).toEqual(['Google', 'xAI', 'ByteDance', 'Sourceful', 'Qwen', 'Microsoft', 'OpenAI', 'Other'])
     expect(groups.flatMap((group) => group.models).length).toBe(models.length)
     for (const group of groups) {
-      expect(group.models).toEqual(models.filter((model) => model.id.startsWith(`${group.id}/`)))
+      if (group.id === 'other') {
+        expect(group.models.map((m) => m.id)).toEqual(['meta/muse-image', 'recraft/recraft-v4.1-flash-v2'])
+      } else {
+        expect(group.models).toEqual(models.filter((model) => model.id.startsWith(`${group.id}/`)))
+      }
     }
+  })
+
+  it('merges 2+ singleton authors into Other while keeping a lone singleton unmerged', () => {
+    const model = (id: string): ModelOption => ({ id, name: id, description: '', provider: 'vercel' })
+    const models = [model('alpha/one'), model('beta/one'), model('gamma/one'), model('alpha/two')]
+    expect(groupModelsByAuthor(models, '其他')).toEqual([
+      { id: 'alpha', name: 'alpha', models: [models[0], models[3]] },
+      { id: 'other', name: '其他', models: [models[1], models[2]] },
+    ])
   })
 
   it('automatically groups future namespaces and keeps unprefixed models usable', () => {

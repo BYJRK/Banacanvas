@@ -18,8 +18,8 @@ export function getModelAuthor(modelId: string): { id: string; name: string } {
   return { id, name: AUTHOR_NAMES[id] ?? id }
 }
 
-/** Group gateway models by author namespace, preserving catalogue order. */
-export function groupModelsByAuthor(models: readonly ModelOption[]): ModelGroup[] {
+/** Group gateway models by author namespace, merging singleton authors into one group when 2+ exist. */
+export function groupModelsByAuthor(models: readonly ModelOption[], otherLabel = 'Other'): ModelGroup[] {
   const groups = new Map<string, ModelGroup>()
   for (const model of models) {
     const { id: author, name } = getModelAuthor(model.id)
@@ -30,5 +30,11 @@ export function groupModelsByAuthor(models: readonly ModelOption[]): ModelGroup[
     }
     group.models.push(model)
   }
-  return [...groups.values()]
+
+  const all = [...groups.values()]
+  const singletons = all.filter((group) => group.models.length === 1)
+  if (singletons.length < 2) return all
+
+  const multi = all.filter((group) => group.models.length > 1)
+  return [...multi, { id: 'other', name: otherLabel, models: singletons.flatMap((group) => group.models) }]
 }
