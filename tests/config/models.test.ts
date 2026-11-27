@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   MINIMAX_H3_IMAGE_MODEL,
+  MUSE_IMAGE_VERCEL_MODEL,
   RECRAFT_V4_1_FLASH_V2_MODEL,
   AVAILABLE_MODELS,
   DEFAULT_MODEL,
@@ -474,18 +475,30 @@ describe('MiniMax H3 Image standard', () => {
 })
 
 describe('Recraft V4.1 Flash V2', () => {
-  it('offers fixed ~1K output via OpenRouter with 12 aspect ratios and no reference images', () => {
-    expect(getModelsForProvider('openrouter').some((model) => model.id === RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
-    expect(supportsImageSizeConfiguration(RECRAFT_V4_1_FLASH_V2_MODEL, 'openrouter')).toBe(false)
-    expect(sizeValues(RECRAFT_V4_1_FLASH_V2_MODEL, 'openrouter')).toEqual(['1K'])
+  it.each(['openrouter', 'vercel'] as const)('offers fixed ~1K output via %s with 12 aspect ratios and no reference images', (provider) => {
+    expect(getModelsForProvider(provider).some((model) => model.id === RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
+    expect(supportsImageSizeConfiguration(RECRAFT_V4_1_FLASH_V2_MODEL, provider)).toBe(false)
+    expect(sizeValues(RECRAFT_V4_1_FLASH_V2_MODEL, provider)).toEqual(['1K'])
     expect(getAspectRatios(RECRAFT_V4_1_FLASH_V2_MODEL)).toEqual([
       '1:1', '2:1', '1:2', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', 'auto',
     ])
-    expect(getResolution('16:9', '1K', RECRAFT_V4_1_FLASH_V2_MODEL, 'openrouter')).toBeUndefined()
+    expect(getResolution('16:9', '1K', RECRAFT_V4_1_FLASH_V2_MODEL, provider)).toBeUndefined()
     expect(getMaxInputImages(RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(0)
     expect(usesOpenRouterImageApi(RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
     expect(hasFlatImagePricing(RECRAFT_V4_1_FLASH_V2_MODEL)).toBe(true)
     expect(estimateImageOutputCost(RECRAFT_V4_1_FLASH_V2_MODEL, '1K', 2)).toBeCloseTo(0.014, 9)
+  })
+})
+
+describe('Muse Image on Vercel', () => {
+  it('maps meta/muse-image-1.0 to meta/muse-image with 4 references, $0.01 flat pricing, and no size/ratio controls', () => {
+    expect(getModelsForProvider('vercel').some((model) => model.id === MUSE_IMAGE_VERCEL_MODEL)).toBe(true)
+    expect(getBaseModelId(MUSE_IMAGE_VERCEL_MODEL)).toBe(MUSE_IMAGE_MODEL)
+    expect(supportsImageConfiguration(MUSE_IMAGE_VERCEL_MODEL)).toBe(false)
+    expect(supportsImageSizeConfiguration(MUSE_IMAGE_VERCEL_MODEL, 'vercel')).toBe(false)
+    expect(getMaxInputImages(MUSE_IMAGE_VERCEL_MODEL)).toBe(4)
+    expect(hasFlatImagePricing(MUSE_IMAGE_VERCEL_MODEL)).toBe(true)
+    expect(estimateImageOutputCost(MUSE_IMAGE_VERCEL_MODEL, '1K', 2)).toBeCloseTo(0.02, 9)
   })
 })
 

@@ -360,10 +360,10 @@ it('restores MiniMax on vercel and normalizes unsupported controls', () => {
   expect(params.config.value.seed).toBeUndefined()
 })
 
-it('restores Recraft V4.1 Flash V2 on openrouter and normalizes unsupported controls', () => {
-  persist({ provider: 'openrouter', modelId: RECRAFT_V4_1_FLASH_V2_MODEL, config: { aspectRatio: '21:9', imageSize: '2K', seed: 42 } })
+it.each(['openrouter', 'vercel'] as const)('restores Recraft V4.1 Flash V2 on %s and normalizes unsupported controls', (provider) => {
+  persist({ provider, modelId: RECRAFT_V4_1_FLASH_V2_MODEL, config: { aspectRatio: '21:9', imageSize: '2K', seed: 42 } })
   const params = useGenerationParams()
   expect(params.selectedModel.value.id).toBe(RECRAFT_V4_1_FLASH_V2_MODEL)
-  expect(params.config.value).toMatchObject({ provider: 'openrouter', model: RECRAFT_V4_1_FLASH_V2_MODEL, aspectRatio: '1:1', imageSize: '1K' })
+  expect(params.config.value).toMatchObject({ provider, model: RECRAFT_V4_1_FLASH_V2_MODEL, aspectRatio: '1:1', imageSize: '1K' })
   expect(params.config.value.seed).toBeUndefined()
 })

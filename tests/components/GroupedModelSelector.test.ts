@@ -44,7 +44,7 @@ describe('grouped model selector', () => {
     const selected = mount('vercel')
     await click(trigger())
     expect(choices().map((button) => button.textContent)).toEqual([
-      expect.stringContaining('Microsoft'), expect.stringContaining('OpenAI'), expect.stringContaining('MiniMax'), expect.stringContaining('Google'),
+      expect.stringContaining('Meta'), expect.stringContaining('Recraft'), expect.stringContaining('Microsoft'), expect.stringContaining('OpenAI'), expect.stringContaining('MiniMax'), expect.stringContaining('Google'),
     ])
     await click(choice('Google'))
     expect(host.textContent).toContain(en.modelVercelNanoBanana2Desc)

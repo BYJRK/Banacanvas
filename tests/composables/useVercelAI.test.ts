@@ -3,6 +3,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useVercelAI } from '../../src/composables/useVercelAI'
 import {
   MINIMAX_H3_IMAGE_MODEL,
+  MUSE_IMAGE_VERCEL_MODEL,
+  RECRAFT_V4_1_FLASH_V2_MODEL,
   GEMINI_PRO_IMAGE_MODEL,
   GPT_IMAGE_2_5_FLARE_MODEL,
   GPT_IMAGE_2_5_SUNBURST_MODEL,
@@ -313,5 +315,58 @@ describe('MiniMax text-to-image', () => {
     expect(api.loading.value).toBe(false)
     controller.abort()
     await expect(pending).rejects.toThrow(en.generationCancelled)
+  })
+})
+
+describe('Recraft V4.1 Flash V2 text-to-image', () => {
+  it('sends aspectRatio without size via gateway.imageModel and uses flat $0.007 pricing', async () => {
+    sdk.generateImage.mockResolvedValue(imageResult({ usage: {} }))
+    const result = await useVercelAI().generateImage('a cat', config({
+      model: RECRAFT_V4_1_FLASH_V2_MODEL, aspectRatio: '16:9', imageSize: '1K',
+    }))
+    const args = sdk.generateImage.mock.calls[0][0]
+    expect(args).toMatchObject({
+      model: { kind: 'image', id: RECRAFT_V4_1_FLASH_V2_MODEL }, prompt: 'a cat', aspectRatio: '16:9', n: 1,
+    })
+    expect(args.size).toBeUndefined()
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.007, 9)
+  })
+
+  it('omits aspectRatio when set to auto and rejects reference images', async () => {
+    sdk.generateImage.mockResolvedValue(imageResult({ usage: {} }))
+    await useVercelAI().generateImage('a cat', config({ model: RECRAFT_V4_1_FLASH_V2_MODEL, aspectRatio: 'auto' }))
+    expect(sdk.generateImage.mock.calls[0][0].aspectRatio).toBeUndefined()
+
+    await expect(useVercelAI().editImage([inputImage()], 'edit', config({ model: RECRAFT_V4_1_FLASH_V2_MODEL })))
+      .rejects.toThrow(en.referenceImagesLimitReached.replace('{count}', '0'))
+  })
+})
+
+describe('Muse Image text-to-image and editing', () => {
+  it('calls gateway.imageModel without size/aspectRatio and uses flat $0.01 pricing', async () => {
+    sdk.generateImage.mockResolvedValue(imageResult({ usage: {} }))
+    const result = await useVercelAI().generateImage('a cat', config({
+      model: MUSE_IMAGE_VERCEL_MODEL, aspectRatio: '16:9', imageSize: '2K',
+    }))
+    const args = sdk.generateImage.mock.calls[0][0]
+    expect(args).toMatchObject({
+      model: { kind: 'image', id: MUSE_IMAGE_VERCEL_MODEL }, prompt: 'a cat', n: 1,
+    })
+    expect(args.size).toBeUndefined()
+    expect(args.aspectRatio).toBeUndefined()
+    expect(result.usage?.estimatedCost).toBeCloseTo(0.01, 9)
+  })
+
+  it('passes up to 4 reference images and rejects more than 4', async () => {
+    sdk.generateImage.mockResolvedValue(imageResult({ usage: {} }))
+    const img = inputImage()
+    await useVercelAI().editImage([img, img], 'blend', config({ model: MUSE_IMAGE_VERCEL_MODEL }))
+    expect(sdk.generateImage.mock.calls[0][0].prompt).toEqual({
+      text: 'blend',
+      images: [`data:${img.mimeType};base64,${img.base64}`, `data:${img.mimeType};base64,${img.base64}`],
+    })
+
+    await expect(useVercelAI().editImage([img, img, img, img, img], 'blend', config({ model: MUSE_IMAGE_VERCEL_MODEL })))
+      .rejects.toThrow(en.referenceImagesLimitReached.replace('{count}', '4'))
   })
 })

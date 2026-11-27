@@ -14,6 +14,7 @@ export const SEEDREAM_5_0_LITE_MODEL = 'bytedance-seed/seedream-5-0-lite'
 export const RIVERFLOW_V2_5_PRO_MODEL = 'sourceful/riverflow-v2.5-pro'
 export const RIVERFLOW_V2_5_FAST_MODEL = 'sourceful/riverflow-v2.5-fast'
 export const MUSE_IMAGE_MODEL = 'meta/muse-image'
+export const MUSE_IMAGE_VERCEL_MODEL = 'meta/muse-image-1.0'
 export const QWEN_IMAGE_2_1_PRO_MODEL = 'qwen/qwen-image-2.1-pro'
 export const QWEN_IMAGE_2_1_TURBO_MODEL = 'qwen/qwen-image-2.1-turbo'
 export const MAI_IMAGE_2_6_MODEL = 'microsoft/mai-image-2.6'
@@ -47,6 +48,10 @@ export function supportsMaiTransparentBackground(modelId: string, provider: Prov
 
 export function isQwenImageModel(modelId: string): boolean {
   return modelId === QWEN_IMAGE_2_1_PRO_MODEL || modelId === QWEN_IMAGE_2_1_TURBO_MODEL
+}
+
+export function isMuseImageModel(modelId: string): boolean {
+  return modelId === MUSE_IMAGE_MODEL || modelId === MUSE_IMAGE_VERCEL_MODEL
 }
 
 export const AVAILABLE_MODELS: ModelOption[] = [
@@ -143,6 +148,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     provider: 'openrouter',
   },
   {
+    id: MUSE_IMAGE_VERCEL_MODEL,
+    name: 'Muse Image',
+    description: 'Meta Superintelligence Labs\' first image model. Multi-reference & text rendering; ~$0.01/image. No size or ratio controls.',
+    provider: 'vercel',
+  },
+  {
     id: QWEN_IMAGE_2_1_PRO_MODEL,
     name: 'Qwen Image 2.1 Pro',
     description: 'High-fidelity generation & editing. 1K–2K, seed control, up to 4 references.',
@@ -154,12 +165,12 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Fast, lower-cost generation & editing. 1K–2K, seed control, up to 4 references.',
     provider: 'openrouter',
   },
-  {
+  ...(['openrouter', 'vercel'] as const).map((provider): ModelOption => ({
     id: RECRAFT_V4_1_FLASH_V2_MODEL,
     name: 'Recraft V4.1 Flash V2',
     description: 'Fast text-to-image generation with improved text rendering; $0.007/image. Text-only (no reference images).',
-    provider: 'openrouter',
-  },
+    provider,
+  })),
   // Microsoft MAI, available through both image gateways
   ...(['openrouter', 'vercel'] as const).flatMap((provider): ModelOption[] => [
     {
@@ -234,8 +245,9 @@ export function getModelsForProvider(provider: Provider): ModelOption[] {
   return AVAILABLE_MODELS.filter((m) => m.provider === provider)
 }
 
-/** Strip provider prefix to get the base Gemini model ID for config lookups */
+/** Strip provider prefix or gateway-specific version suffix to get the canonical base model ID for config lookups */
 export function getBaseModelId(modelId: string): string {
+  if (modelId === MUSE_IMAGE_VERCEL_MODEL) return MUSE_IMAGE_MODEL
   return modelId.startsWith('google/') ? modelId.replace('google/', '') : modelId
 }
 
@@ -487,7 +499,7 @@ export function getImageSizes(modelId: string, provider?: Provider) {
 
 /** Whether the model accepts explicit output size and aspect-ratio controls. */
 export function supportsImageConfiguration(modelId: string): boolean {
-  return modelId !== MUSE_IMAGE_MODEL
+  return !isMuseImageModel(modelId)
 }
 
 /** Models that do not support Grounding with Google Search for image generation */
@@ -574,7 +586,7 @@ export function getMaxInputImages(modelId: string): number {
   if (isQwenImageModel(modelId)) return 4
   if (isGptImageModel(modelId)) return 16
   if (isMaiImageModel(modelId)) return 5
-  if (modelId === MUSE_IMAGE_MODEL) return 4
+  if (isMuseImageModel(modelId)) return 4
   if (modelId === GROK_IMAGE_2_MODEL) return 3
   if (modelId === SEEDREAM_5_0_PRO_MODEL) return 14
   if (modelId === SEEDREAM_5_0_LITE_MODEL) return 14
@@ -711,7 +723,8 @@ const FLAT_IMAGE_PRICES: Record<string, Record<string, number>> = {
 
 /** Whether output pricing is a fixed per-image rate rather than token/usage-dependent. */
 export function hasFlatImagePricing(modelId: string): boolean {
-  return (modelId in FLAT_IMAGE_PRICES && !isRiverflowModel(modelId)) || modelId === GROK_IMAGE_2_MODEL
+  const base = getBaseModelId(modelId)
+  return (base in FLAT_IMAGE_PRICES && !isRiverflowModel(modelId)) || modelId === GROK_IMAGE_2_MODEL
 }
 
 /** Official public release dates (ISO YYYY-MM-DD) keyed by canonical base model ID. */
@@ -839,7 +852,7 @@ export function estimateImageOutputCost(
     return (prices[imageSize as keyof typeof prices] ?? prices['1K']) * batchSize
   }
 
-  const flatPrices = FLAT_IMAGE_PRICES[modelId]
+  const flatPrices = FLAT_IMAGE_PRICES[modelId] ?? FLAT_IMAGE_PRICES[getBaseModelId(modelId)]
   if (flatPrices) {
     return (flatPrices[imageSize] ?? flatPrices['1K'] ?? Object.values(flatPrices)[0] ?? 0) * batchSize
   }
